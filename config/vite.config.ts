@@ -11,17 +11,22 @@ const mode = "production";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/client/',
-  root: path.resolve(__dirname, '../'),
+  base: "/client/",
+  root: path.resolve(__dirname, "../"),
+  css: {
+    postcss: {
+      plugins: [require("tailwindcss"), require("autoprefixer")],
+    },
+  },
   build: {
-    outDir: '../dist/',
+    outDir: "../dist/",
     rollupOptions: {
-      input: path.resolve(__dirname, '../client/index.html'),
+      input: path.resolve(__dirname, "../client/index.html"),
       output: {
         entryFileNames: `[name].js`,
         chunkFileNames: `[name].js`,
-        assetFileNames: `assets/[name].[ext]`
-      }
-    }
-  }
-})
+        assetFileNames: `assets/[name].[ext]`,
+      },
+    },
+  },
+});

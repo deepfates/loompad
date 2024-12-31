@@ -1,0 +1,152 @@
+.terminal {
+  --button-size: 3rem;
+  --controls-height: 12.75rem;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.terminal-screen {
+  flex: 1;
+  border: 0.15rem solid var(--font-color);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  margin-top: 1.25rem;
+  background: var(--background-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.story-text {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.navigation-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem; /* 8px to rem */
+  padding-top: 0.625rem; /* 10px to rem */
+}
+
+.navigation-dot {
+  width: 0.25rem; /* 4px to rem */
+  height: 0.25rem; /* 4px to rem */
+  border: 0.0625rem solid var(--font-color); /* 1px to rem */
+}
+
+/* Game Boy layout container */
+.terminal-controls {
+  min-height: var(--controls-height);
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 3fr 1fr;
+  gap: 1.25rem;
+}
+
+/* Top row with D-pad and AB buttons */
+.controls-top {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  padding: 0 1rem;
+  gap: 2rem;
+  width: 100%;
+}
+
+/* D-pad styling */
+.terminal-grid {
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left center right"
+    ". down .";
+  grid-template-columns: repeat(3, var(--button-size));
+  grid-template-rows: repeat(3, var(--button-size));
+  gap: 0.125rem;
+  align-self: center;
+  justify-self: center;
+}
+
+.terminal-grid-cell:nth-child(1) { grid-area: up; }
+.terminal-grid-cell:nth-child(2) { grid-area: left; }
+.terminal-grid-cell:nth-child(3) { grid-area: center; }
+.terminal-grid-cell:nth-child(4) { grid-area: right; }
+.terminal-grid-cell:nth-child(5) { grid-area: down; }
+
+.terminal-grid .btn {
+  font-size: 1.5rem;
+  padding: 0rem;
+}
+
+/* A/B buttons styling */
+.terminal-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, var(--button-size));
+  gap: 1.25rem;
+  align-self: center;
+  justify-self: center;
+  transform: rotate(-15deg);
+}
+
+.terminal-buttons .btn {
+  font-size: 2em;
+  padding: 0.5rem;
+}
+
+/* Start/Select buttons */
+.terminal-menu {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 1.25rem;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Button styling */
+.btn {
+  width: var(--button-size);
+  height: var(--button-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.125rem solid var(--font-color);
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: var(--background-color);
+}
+
+/* Make menu buttons more oval-shaped */
+.terminal-menu .btn {
+  width: 5rem;
+  height: 1.875rem;
+  border-radius: 0.9375rem;
+}
+
+@keyframes edgeBump {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.edge-bump {
+  animation: edgeBump 0.2s ease-in-out;
+} 
