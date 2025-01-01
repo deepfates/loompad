@@ -149,4 +149,133 @@
 
 .edge-bump {
   animation: edgeBump 0.2s ease-in-out;
+}
+
+/* Menu styles */
+.menu-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-bottom: 0.125rem solid var(--font-color);
+  margin-bottom: 1rem;
+}
+
+.menu-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.menu-close {
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+.menu-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 1rem;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border: 0.125rem solid transparent;
+}
+
+.menu-item.selected {
+  border-color: var(--primary-color);
+}
+
+.menu-item-label {
+  flex: 1;
+}
+
+.menu-item-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.menu-knob {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.menu-knob-value {
+  min-width: 3rem;
+  text-align: right;
+}
+
+.menu-knob-track {
+  width: 6rem;
+  height: 0.25rem;
+  background: var(--secondary-color);
+  position: relative;
+  cursor: pointer;
+  border-radius: 0.125rem;
+}
+
+.menu-knob-track:hover {
+  background: var(--primary-color);
+  opacity: 0.5;
+}
+
+.menu-knob-handle {
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--primary-color);
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 0.125rem solid var(--font-color);
+  border-radius: 50%;
+  cursor: grab;
+  transition: transform 0.1s ease;
+}
+
+.menu-knob-handle:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.menu-knob-handle:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(0.9);
+}
+
+/* When the menu item is selected, highlight the track */
+.menu-item.selected .menu-knob-track {
+  background: var(--primary-color);
+  opacity: 0.3;
+}
+
+.menu-item.selected .menu-knob-handle {
+  transform: translate(-50%, -50%) scale(1.2);
+  box-shadow: 0 0 0.5rem var(--primary-color);
+}
+
+/* Animation for menu transitions */
+.menu-screen {
+  animation: menuFadeIn 0.2s ease-out;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 } 
