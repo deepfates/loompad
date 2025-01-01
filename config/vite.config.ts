@@ -29,4 +29,13 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ["terminal.css"],
+  },
+  server: {
+    fs: {
+      // Allow serving files from node_modules
+      allow: [".."],
+    },
+  },
 });
