@@ -257,6 +257,7 @@ const GamepadInterface = () => {
                   }
 
                   current.text = text;
+                  setStoryTree(newTree);
                   setActiveMenu(null);
                 }}
                 onCancel={() => setActiveMenu(null)}
