@@ -227,26 +227,40 @@
   padding: 0 1rem;
 }
 
+.menu-instructions {
+  text-align: center;
+  opacity: 0.7;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
 .menu-item {
   display: flex;
-  align-items: center;
-  padding: 0.5rem;
+  flex-direction: column;
+  padding: 0.75rem;
   margin-bottom: 0.5rem;
   border: 0.125rem solid transparent;
+  background: var(--background-color);
+  transition: all 0.2s ease;
 }
 
 .menu-item.selected {
   border-color: var(--primary-color);
+  background: var(--background-color);
+  transform: translateX(0.5rem);
 }
 
 .menu-item-label {
-  flex: 1;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
 }
 
-.menu-item-value {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.menu-item-preview {
+  font-size: 0.875rem;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-knob {
@@ -392,4 +406,42 @@
 .dot-2,
 .dot-3 {
   display: none;
+}
+
+.menu-item-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.menu-item.new-tree {
+  border: 2px dashed var(--primary-color);
+  opacity: 0.8;
+  margin-bottom: 1rem;
+}
+
+.menu-item.new-tree:hover {
+  opacity: 1;
+  background: var(--background-color);
+}
+
+.delete-button {
+  position: absolute;
+  right: -2rem;
+  background: none;
+  border: none;
+  color: var(--error-color);
+  font-size: 1.5rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.menu-item-container:hover .delete-button {
+  opacity: 0.8;
+}
+
+.delete-button:hover {
+  opacity: 1 !important;
 }

@@ -1,51 +1,19 @@
 import { useState, useCallback, useEffect } from "react";
 import type { StoryNode, GeneratingState } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
+import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../server/apis/generation";
 
 const INITIAL_STORY = {
   root: {
     id: "root",
-    text: "The darkness grew absolute, not that the hyperstitioner could see in the first place. His ears pricked up, however; he could hear the skittering, the mechanical hum as the machine followed him invisibly.",
-    continuations: [
-      {
-        id: "a1",
-        text: " The mechanical tendrils wrapped tighter around his shoulder, its grip a cold reminder of their symbiosis.",
-        continuations: [
-          {
-            id: "a1-1",
-            text: " He welcomed its touch, knowing that only through this union could they hope to breach the fortress's final defenses.",
-          },
-          {
-            id: "a1-2",
-            text: " But something was wrong - the usual synchronicity of their movements had become discordant, threatening to tear apart their carefully maintained bond.",
-          },
-          {
-            id: "a1-3",
-            text: " Together they moved as one through the darkness, their shared consciousness expanding to map the geometric impossibilities ahead.",
-          },
-        ],
-      },
-      {
-        id: "a2",
-        text: " He reached toward the writhing shadows, feeling the borders of reality grow thin where his fingers traced the air.",
-        continuations: [
-          {
-            id: "a2-1",
-            text: " The membrane between dimensions parted like silk, revealing glimpses of impossible architectures that hurt to look upon.",
-          },
-          {
-            id: "a2-2",
-            text: " But the shadows recoiled from his touch, carrying with them fragments of memories that didn't belong to him.",
-          },
-          {
-            id: "a2-3",
-            text: " Static filled his mind as his hand penetrated the veil, establishing the first bridge between their world and what lay beyond.",
-          },
-        ],
-      },
-    ],
+    text: "Once upon a time...",
+    continuations: [],
   },
+};
+
+const DEFAULT_TREES = {
+  "Story 1": INITIAL_STORY,
 };
 
 interface StoryParams {
@@ -55,12 +23,12 @@ interface StoryParams {
 }
 
 export function useStoryTree(params: StoryParams) {
-  const [trees, setTrees] = useState<{ [key: string]: { root: StoryNode } }>({
-    "Story 1": INITIAL_STORY,
-  });
-  const [currentTreeKey, setCurrentTreeKey] = useState("Story 1");
+  const [trees, setTrees] = useLocalStorage(DEFAULT_TREES);
+  const [currentTreeKey, setCurrentTreeKey] = useState(
+    () => Object.keys(trees)[0]
+  );
   const [storyTree, setStoryTree] = useState<{ root: StoryNode }>(
-    INITIAL_STORY
+    () => trees[currentTreeKey]
   );
   const [currentDepth, setCurrentDepth] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);

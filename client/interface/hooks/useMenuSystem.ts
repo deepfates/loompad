@@ -9,6 +9,12 @@ interface MenuParams {
   model: ModelId;
 }
 
+interface MenuCallbacks {
+  onNewTree?: () => void;
+  onSelectTree?: (key: string) => void;
+  onDeleteTree?: (key: string) => void;
+}
+
 export function useMenuSystem(defaultParams: MenuParams) {
   const [activeMenu, setActiveMenu] = useState<MenuType>(null);
   const [selectedParam, setSelectedParam] = useState(0);
@@ -17,24 +23,20 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const { models } = useModels();
 
   const handleMenuNavigation = useCallback(
-    (key: string) => {
-      switch (key) {
-        case "ArrowUp":
-          if (activeMenu === "select") {
+    (
+      key: string,
+      trees: { [key: string]: any } = {},
+      callbacks: MenuCallbacks = {}
+    ) => {
+      if (activeMenu === "select") {
+        switch (key) {
+          case "ArrowUp":
             setSelectedParam((prev) => Math.max(0, prev - 1));
-          } else if (activeMenu === "start") {
-            setSelectedTreeIndex((prev) => Math.max(0, prev - 1));
-          }
-          break;
-        case "ArrowDown":
-          if (activeMenu === "select") {
+            break;
+          case "ArrowDown":
             setSelectedParam((prev) => Math.min(2, prev + 1));
-          } else if (activeMenu === "start") {
-            setSelectedTreeIndex((prev) => prev + 1);
-          }
-          break;
-        case "ArrowLeft":
-          if (activeMenu === "select") {
+            break;
+          case "ArrowLeft": {
             const param = ["temperature", "maxTokens", "model"][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
@@ -61,10 +63,9 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 }));
               }
             }
+            break;
           }
-          break;
-        case "ArrowRight":
-          if (activeMenu === "select") {
+          case "ArrowRight": {
             const param = ["temperature", "maxTokens", "model"][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
@@ -91,19 +92,42 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 }));
               }
             }
+            break;
           }
-          break;
-        case "Enter":
-          if (activeMenu === "select" || activeMenu === "start") {
-            setActiveMenu(null);
-          }
-          break;
-        case "Escape":
-          setActiveMenu(null);
-          break;
+        }
+      } else if (activeMenu === "start") {
+        const totalItems = Object.keys(trees).length + 1; // +1 for New Story
+
+        switch (key) {
+          case "ArrowUp":
+            setSelectedTreeIndex((prev) => Math.max(0, prev - 1));
+            break;
+          case "ArrowDown":
+            setSelectedTreeIndex((prev) => Math.min(totalItems - 1, prev + 1));
+            break;
+          case "Enter": // A button
+            if (selectedTreeIndex === 0) {
+              callbacks.onNewTree?.();
+            } else {
+              const treeKey = Object.keys(trees)[selectedTreeIndex - 1];
+              callbacks.onSelectTree?.(treeKey);
+            }
+            break;
+          case "Backspace": // B button
+            if (selectedTreeIndex > 0 && Object.keys(trees).length > 1) {
+              const treeKey = Object.keys(trees)[selectedTreeIndex - 1];
+              callbacks.onDeleteTree?.(treeKey);
+            }
+            break;
+        }
+      }
+
+      // Global menu controls
+      if (key === "Escape" || key === "Enter") {
+        setActiveMenu(null);
       }
     },
-    [activeMenu, selectedParam, menuParams, models]
+    [activeMenu, selectedParam, selectedTreeIndex, menuParams, models]
   );
 
   return {

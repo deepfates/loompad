@@ -4,7 +4,6 @@ import "./terminal-custom.css";
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
 import { useStoryTree } from "./hooks/useStoryTree";
-import { useLocalStorage } from "./hooks/useLocalStorage";
 
 import { DPad } from "./components/DPad";
 import { GamepadButton } from "./components/GamepadButton";
@@ -23,6 +22,14 @@ const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 100,
   model: "mistralai/mixtral-8x7b" as ModelId,
+};
+
+const EMPTY_STORY = {
+  root: {
+    id: "root",
+    text: "Once upon a time...",
+    continuations: [],
+  },
 };
 
 const GamepadInterface = () => {
@@ -55,15 +62,38 @@ const GamepadInterface = () => {
     setStoryTree,
   } = useStoryTree(menuParams);
 
-  useLocalStorage(
-    trees,
-    setTrees,
-    currentTreeKey,
-    setCurrentTreeKey,
-    setStoryTree
-  );
-
   const storyTextRef = useRef<HTMLDivElement>(null);
+
+  const handleNewTree = useCallback(() => {
+    const newKey = `Story ${Object.keys(trees).length + 1}`;
+    setTrees((prev) => ({
+      ...prev,
+      [newKey]: EMPTY_STORY,
+    }));
+    setCurrentTreeKey(newKey);
+    setActiveMenu(null);
+  }, [trees, setTrees, setCurrentTreeKey, setActiveMenu]);
+
+  const handleDeleteTree = useCallback(
+    (key: string) => {
+      if (window.confirm(`Are you sure you want to delete "${key}"?`)) {
+        setTrees((prev) => {
+          const newTrees = { ...prev };
+          delete newTrees[key];
+          return newTrees;
+        });
+
+        // If we deleted the current tree, switch to another one
+        if (key === currentTreeKey) {
+          const remainingKeys = Object.keys(trees);
+          if (remainingKeys.length > 0) {
+            setCurrentTreeKey(remainingKeys[0]);
+          }
+        }
+      }
+    },
+    [currentTreeKey, trees, setTrees, setCurrentTreeKey]
+  );
 
   const handleControlAction = useCallback(
     async (key: string) => {
@@ -73,7 +103,15 @@ const GamepadInterface = () => {
       }
 
       if (activeMenu) {
-        handleMenuNavigation(key);
+        handleMenuNavigation(key, trees, {
+          onNewTree: handleNewTree,
+          onSelectTree: (key) => {
+            setCurrentTreeKey(key);
+            setActiveMenu(null);
+            setSelectedTreeIndex(0);
+          },
+          onDeleteTree: handleDeleteTree,
+        });
       } else {
         await handleStoryNavigation(key);
       }
@@ -87,7 +125,17 @@ const GamepadInterface = () => {
         setActiveMenu("edit");
       }
     },
-    [activeMenu, handleMenuNavigation, handleStoryNavigation, setActiveMenu]
+    [
+      activeMenu,
+      trees,
+      handleMenuNavigation,
+      handleNewTree,
+      handleDeleteTree,
+      handleStoryNavigation,
+      setCurrentTreeKey,
+      setActiveMenu,
+      setSelectedTreeIndex,
+    ]
   );
 
   const { activeControls, handleControlPress, handleControlRelease } =
@@ -173,6 +221,19 @@ const GamepadInterface = () => {
                   setCurrentTreeKey(key);
                   setActiveMenu(null);
                   setSelectedTreeIndex(0);
+                }}
+                onNew={() => {
+                  handleNewTree();
+                  setSelectedTreeIndex(0);
+                }}
+                onDelete={(key) => {
+                  handleDeleteTree(key);
+                  // Adjust selected index if needed
+                  if (selectedTreeIndex > 0) {
+                    setSelectedTreeIndex((prev) =>
+                      Math.min(prev, Object.keys(trees).length - 1)
+                    );
+                  }
                 }}
               />
             </MenuScreen>

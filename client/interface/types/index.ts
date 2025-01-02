@@ -46,6 +46,8 @@ export interface TreeListProps {
   trees: { [key: string]: { root: StoryNode } };
   selectedIndex: number;
   onSelect: (key: string) => void;
+  onDelete?: (key: string) => void;
+  onNew?: () => void;
 }
 
 export interface GamepadButtonProps {
