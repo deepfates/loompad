@@ -282,7 +282,7 @@ const GamepadInterface = () => {
         </section>
 
         {/* Controls */}
-        <fieldset className="terminal-controls" aria-label="Game Controls">
+        <div className="terminal-controls" aria-label="Game Controls">
           <div className="controls-top">
             <DPad
               activeDirection={activeControls.direction}
@@ -319,7 +319,7 @@ const GamepadInterface = () => {
               onMouseUp={() => handleControlRelease("Escape")}
             />
           </div>
-        </fieldset>
+        </div>
       </div>
     </main>
   );
