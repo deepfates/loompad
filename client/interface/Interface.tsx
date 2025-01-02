@@ -21,7 +21,7 @@ import type { ModelId } from "../../server/apis/generation";
 const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 100,
-  model: "mistralai/mixtral-8x7b" as ModelId,
+  model: "deepseek/deepseek-chat" as ModelId,
 };
 
 const EMPTY_STORY = {
