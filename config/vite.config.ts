@@ -13,11 +13,6 @@ export default defineConfig({
   plugins: [react()],
   base: "/client/",
   root: path.resolve(__dirname, "../"),
-  css: {
-    postcss: {
-      plugins: [require("tailwindcss"), require("autoprefixer")],
-    },
-  },
   build: {
     outDir: "../dist/",
     rollupOptions: {
