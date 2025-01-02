@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
-import { StoryNode, GeneratingState } from "../types";
+import { useState, useCallback, useEffect } from "react";
+import type { StoryNode, GeneratingState } from "../types";
+import { useStoryGeneration } from "./useStoryGeneration";
+import type { ModelId } from "../../../server/apis/generation";
 
 const INITIAL_STORY = {
   root: {
@@ -46,17 +48,31 @@ const INITIAL_STORY = {
   },
 };
 
-export function useStoryTree() {
+interface StoryParams {
+  temperature: number;
+  maxTokens: number;
+  model: ModelId;
+}
+
+export function useStoryTree(params: StoryParams) {
   const [trees, setTrees] = useState<{ [key: string]: { root: StoryNode } }>({
     "Story 1": INITIAL_STORY,
   });
   const [currentTreeKey, setCurrentTreeKey] = useState("Story 1");
-  const [storyTree, setStoryTree] = useState(trees[currentTreeKey]);
+  const [storyTree, setStoryTree] = useState<{ root: StoryNode }>(
+    INITIAL_STORY
+  );
   const [currentDepth, setCurrentDepth] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
   const [generatingAt, setGeneratingAt] = useState<GeneratingState | null>(
     null
   );
+
+  const { generateContinuation, isGenerating, error } = useStoryGeneration();
+
+  useEffect(() => {
+    setStoryTree(trees[currentTreeKey] || INITIAL_STORY);
+  }, [trees, currentTreeKey]);
 
   const getOptionsAtDepth = useCallback(
     (depth: number): StoryNode[] => {
@@ -68,9 +84,10 @@ export function useStoryTree() {
         currentNode = currentNode.continuations[selectedOptions[i]];
       }
 
-      const currentOption =
-        currentNode.continuations?.[selectedOptions[depth - 1]];
-      return currentOption?.continuations || [];
+      return (
+        currentNode.continuations?.[selectedOptions[depth - 1]]
+          ?.continuations || []
+      );
     },
     [storyTree, selectedOptions]
   );
@@ -80,8 +97,7 @@ export function useStoryTree() {
     let currentNode = storyTree.root;
 
     for (let i = 0; i < selectedOptions.length; i++) {
-      if (!currentNode.continuations) break;
-      const nextNode = currentNode.continuations[selectedOptions[i]];
+      const nextNode = currentNode.continuations?.[selectedOptions[i]];
       if (!nextNode) break;
       path.push(nextNode);
       currentNode = nextNode;
@@ -90,72 +106,32 @@ export function useStoryTree() {
     return path;
   }, [storyTree, selectedOptions]);
 
-  const generateRandomText = useCallback(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const adjectives = [
-      "mysterious",
-      "glowing",
-      "ancient",
-      "digital",
-      "quantum",
-      "neural",
-      "cybernetic",
-    ];
-    const nouns = [
-      "algorithm",
-      "signal",
-      "pattern",
-      "network",
-      "interface",
-      "matrix",
-      "protocol",
-    ];
-    const verbs = [
-      "pulsed",
-      "shimmered",
-      "transformed",
-      "resonated",
-      "manifested",
-      "evolved",
-      "interfaced",
-    ];
-
-    const randomWord = (arr: string[]) =>
-      arr[Math.floor(Math.random() * arr.length)];
-    return ` The ${randomWord(adjectives)} ${randomWord(nouns)} ${randomWord(
-      verbs
-    )} through the system.`;
-  }, []);
-
   const generateContinuations = useCallback(
     async (count: number): Promise<StoryNode[]> => {
+      const currentPath = getCurrentPath();
+
       const results = await Promise.all(
         Array(count)
           .fill(null)
           .map(async () => ({
             id: Math.random().toString(36).substring(2),
-            text: await generateRandomText(),
+            text: await generateContinuation(currentPath, currentDepth, params),
           }))
       );
       return results;
     },
-    [generateRandomText]
+    [getCurrentPath, currentDepth, params, generateContinuation]
   );
 
   const addContinuations = useCallback(
     (path: StoryNode[], newContinuations: StoryNode[]) => {
-      const newTree = JSON.parse(
-        JSON.stringify(storyTree)
-      ) as typeof INITIAL_STORY;
+      const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
       let current = newTree.root;
 
       for (let i = 1; i < path.length; i++) {
-        const continuationIndex = selectedOptions[i - 1];
-        if (current.continuations && current.continuations[continuationIndex]) {
-          current = current.continuations[continuationIndex];
-        } else {
-          return newTree;
-        }
+        const nextNode = current.continuations?.[selectedOptions[i - 1]];
+        if (!nextNode) return newTree;
+        current = nextNode;
       }
 
       if (!current.continuations) {
@@ -171,8 +147,11 @@ export function useStoryTree() {
 
   const handleStoryNavigation = useCallback(
     async (key: string) => {
+      if (isGenerating) return;
+
       const currentPath = getCurrentPath();
       const options = getOptionsAtDepth(currentDepth);
+      const currentOption = selectedOptions[currentDepth] || 0;
 
       switch (key) {
         case "ArrowUp":
@@ -192,30 +171,26 @@ export function useStoryTree() {
           }
           break;
         case "ArrowLeft":
-          if (options.length > 1) {
-            const currentIndex = selectedOptions[currentDepth] || 0;
-            if (currentIndex > 0) {
-              setSelectedOptions((prev) => {
-                const newOptions = [...prev];
-                newOptions[currentDepth] = currentIndex - 1;
-                return newOptions.slice(0, currentDepth + 1);
-              });
-            }
+          if (options.length > 1 && currentOption > 0) {
+            setSelectedOptions((prev) => {
+              const newOptions = [...prev];
+              newOptions[currentDepth] = currentOption - 1;
+              return newOptions.slice(0, currentDepth + 1);
+            });
           }
           break;
         case "ArrowRight":
-          if (options.length > 1) {
-            const currentIndex = selectedOptions[currentDepth] || 0;
-            if (currentIndex < options.length - 1) {
-              setSelectedOptions((prev) => {
-                const newOptions = [...prev];
-                newOptions[currentDepth] = currentIndex + 1;
-                return newOptions.slice(0, currentDepth + 1);
-              });
-            }
+          if (options.length > 1 && currentOption < options.length - 1) {
+            setSelectedOptions((prev) => {
+              const newOptions = [...prev];
+              newOptions[currentDepth] = currentOption + 1;
+              return newOptions.slice(0, currentDepth + 1);
+            });
           }
           break;
         case "Enter": {
+          if (error) return;
+
           const hasExistingContinuations =
             currentPath[currentDepth].continuations?.length > 0;
           const count = hasExistingContinuations ? 1 : 3;
@@ -223,57 +198,72 @@ export function useStoryTree() {
           setGeneratingAt({
             depth: currentDepth,
             index: hasExistingContinuations
-              ? currentPath[currentDepth].continuations.length
+              ? currentPath[currentDepth].continuations?.length ?? 0
               : null,
           });
 
-          const newContinuations = await generateContinuations(count);
-          const updatedTree = addContinuations(
-            currentPath.slice(0, currentDepth + 1),
-            newContinuations
-          );
-          setStoryTree(updatedTree);
+          try {
+            const newContinuations = await generateContinuations(count);
+            const updatedTree = addContinuations(
+              currentPath.slice(0, currentDepth + 1),
+              newContinuations
+            );
+            setStoryTree(updatedTree);
+            setTrees((prev) => ({
+              ...prev,
+              [currentTreeKey]: updatedTree,
+            }));
 
-          if (hasExistingContinuations) {
-            const newIndex = currentPath[currentDepth].continuations.length;
-            setSelectedOptions((prev) => {
-              const newOptions = [...prev];
-              newOptions[currentDepth] = newIndex;
-              return newOptions;
-            });
-          } else {
-            setSelectedOptions((prev) => [...prev, 0]);
+            if (hasExistingContinuations) {
+              const newIndex =
+                currentPath[currentDepth].continuations?.length ?? 0;
+              setSelectedOptions((prev) => {
+                const newOptions = [...prev];
+                newOptions[currentDepth] = newIndex;
+                return newOptions;
+              });
+            } else {
+              setSelectedOptions((prev) => [...prev, 0]);
+            }
+          } finally {
+            setGeneratingAt(null);
           }
-
-          setGeneratingAt(null);
           break;
         }
       }
     },
     [
-      currentDepth,
+      isGenerating,
+      error,
       getCurrentPath,
       getOptionsAtDepth,
+      currentDepth,
+      selectedOptions,
       generateContinuations,
       addContinuations,
+      currentTreeKey,
     ]
   );
 
   return {
-    trees,
-    setTrees,
-    currentTreeKey,
-    setCurrentTreeKey,
     storyTree,
-    setStoryTree,
     currentDepth,
-    setCurrentDepth,
     selectedOptions,
-    setSelectedOptions,
     generatingAt,
-    setGeneratingAt,
-    getOptionsAtDepth,
-    getCurrentPath,
+    isGenerating,
+    error,
     handleStoryNavigation,
+    trees,
+    currentTreeKey,
+    setCurrentTreeKey: (key: string) => {
+      setCurrentTreeKey(key);
+      setStoryTree(trees[key] || INITIAL_STORY);
+      setCurrentDepth(0);
+      setSelectedOptions([0]);
+    },
+    getCurrentPath,
+    getOptionsAtDepth,
+    setTrees,
+    setStoryTree,
   };
 }

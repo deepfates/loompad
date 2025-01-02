@@ -1,3 +1,5 @@
+import type { ModelId } from "../../../server/apis/generation";
+
 export interface StoryNode {
   id: string;
   text: string;
@@ -33,10 +35,11 @@ export interface SettingsMenuProps {
   params: {
     temperature: number;
     maxTokens: number;
-    model: string;
+    model: ModelId;
   };
   onParamChange: (param: string, value: number | string) => void;
   selectedParam: number;
+  isLoading?: boolean;
 }
 
 export interface TreeListProps {

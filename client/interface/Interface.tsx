@@ -16,7 +16,14 @@ import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
 
-import { StoryNode } from "./types";
+import type { StoryNode } from "./types";
+import type { ModelId } from "../../server/apis/generation";
+
+const DEFAULT_PARAMS = {
+  temperature: 0.7,
+  maxTokens: 100,
+  model: "mistralai/mixtral-8x7b" as ModelId,
+};
 
 const GamepadInterface = () => {
   const {
@@ -29,25 +36,24 @@ const GamepadInterface = () => {
     menuParams,
     setMenuParams,
     handleMenuNavigation,
-  } = useMenuSystem();
+  } = useMenuSystem(DEFAULT_PARAMS);
 
   const {
     trees,
-    setTrees,
     currentTreeKey,
-    setCurrentTreeKey,
     storyTree,
-    setStoryTree,
     currentDepth,
-    setCurrentDepth,
     selectedOptions,
-    setSelectedOptions,
     generatingAt,
-    setGeneratingAt,
-    getOptionsAtDepth,
-    getCurrentPath,
+    isGenerating,
+    error,
     handleStoryNavigation,
-  } = useStoryTree();
+    setCurrentTreeKey,
+    getCurrentPath,
+    getOptionsAtDepth,
+    setTrees,
+    setStoryTree,
+  } = useStoryTree(menuParams);
 
   useLocalStorage(
     trees,
@@ -92,12 +98,12 @@ const GamepadInterface = () => {
     if (storyTextRef.current) {
       const storyContainer = storyTextRef.current;
       const text = storyContainer.textContent || "";
-      const currentPath = getCurrentPath();
+      const path = getCurrentPath();
 
       // Calculate the position to scroll to
       let position = 0;
       for (let i = 0; i < currentDepth; i++) {
-        position += currentPath[i].text.length;
+        position += path[i].text.length;
       }
 
       // Create a temporary span to measure the position
@@ -149,14 +155,10 @@ const GamepadInterface = () => {
   };
 
   return (
-    <div className="terminal" role="application" aria-label="Story Interface">
+    <main className="terminal" aria-label="Story Interface">
       <div className="container">
         {/* Screen area */}
-        <div
-          className="terminal-screen"
-          role="region"
-          aria-label="Story Display"
-        >
+        <section className="terminal-screen" aria-label="Story Display">
           {activeMenu === "select" ? (
             <MenuScreen title="Settings" onClose={() => setActiveMenu(null)}>
               <SettingsMenu
@@ -165,6 +167,7 @@ const GamepadInterface = () => {
                   setMenuParams((prev) => ({ ...prev, [param]: value }))
                 }
                 selectedParam={selectedParam}
+                isLoading={isGenerating}
               />
             </MenuScreen>
           ) : activeMenu === "start" ? (
@@ -174,11 +177,8 @@ const GamepadInterface = () => {
                 selectedIndex={selectedTreeIndex}
                 onSelect={(key) => {
                   setCurrentTreeKey(key);
-                  setStoryTree(trees[key]);
                   setActiveMenu(null);
                   setSelectedTreeIndex(0);
-                  setCurrentDepth(0);
-                  setSelectedOptions([0]);
                 }}
               />
             </MenuScreen>
@@ -202,7 +202,6 @@ const GamepadInterface = () => {
                   }
 
                   current.text = text;
-                  setStoryTree(newTree);
                   setActiveMenu(null);
                 }}
                 onCancel={() => setActiveMenu(null)}
@@ -218,16 +217,17 @@ const GamepadInterface = () => {
                 activeControls={activeControls}
                 generatingAt={generatingAt}
               />
+              {error && (
+                <output className="error-message">
+                  Generation error: {error.message}
+                </output>
+              )}
             </>
           )}
-        </div>
+        </section>
 
         {/* Controls */}
-        <div
-          className="terminal-controls"
-          role="group"
-          aria-label="Game Controls"
-        >
+        <fieldset className="terminal-controls" aria-label="Game Controls">
           <div className="controls-top">
             <DPad
               activeDirection={activeControls.direction}
@@ -264,9 +264,9 @@ const GamepadInterface = () => {
               onMouseUp={() => handleControlRelease("Escape")}
             />
           </div>
-        </div>
+        </fieldset>
       </div>
-    </div>
+    </main>
   );
 };
 
