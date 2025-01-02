@@ -74,7 +74,6 @@
     ". down .";
   grid-template-columns: repeat(3, var(--button-size));
   grid-template-rows: repeat(3, var(--button-size));
-  gap: 0.125rem;
   align-self: center;
   justify-self: center;
 }
@@ -88,6 +87,22 @@
 .terminal-grid .btn {
   font-size: 1.5rem;
   padding: 0rem;
+}
+
+.terminal-grid .up-arrow .btn {
+  border-bottom: 0px;
+}
+
+.terminal-grid .down-arrow .btn {
+  border-top: 0px;
+}
+
+.terminal-grid .left-arrow .btn {
+  border-right: 0px;
+}
+
+.terminal-grid .right-arrow .btn {
+  border-left: 0px;
 }
 
 /* A/B buttons styling */

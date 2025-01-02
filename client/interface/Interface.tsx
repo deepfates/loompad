@@ -149,7 +149,7 @@ const DPad = ({
   onControlRelease,
 }: DPadProps) => (
   <div className="terminal-grid" role="group" aria-label="Direction Controls">
-    <div className="terminal-grid-cell">
+    <div className="terminal-grid-cell up-arrow">
       <GamepadButton
         label="▲"
         active={activeDirection === "up"}
@@ -157,7 +157,7 @@ const DPad = ({
         onMouseUp={() => onControlRelease("ArrowUp")}
       />
     </div>
-    <div className="terminal-grid-cell">
+    <div className="terminal-grid-cell left-arrow">
       <GamepadButton
         label="◀"
         active={activeDirection === "left"}
@@ -168,7 +168,7 @@ const DPad = ({
     <div className="terminal-grid-cell">
       <div />
     </div>
-    <div className="terminal-grid-cell">
+    <div className="terminal-grid-cell right-arrow">
       <GamepadButton
         label="▶"
         active={activeDirection === "right"}
@@ -176,7 +176,7 @@ const DPad = ({
         onMouseUp={() => onControlRelease("ArrowRight")}
       />
     </div>
-    <div className="terminal-grid-cell">
+    <div className="terminal-grid-cell down-arrow">
       <GamepadButton
         label="▼"
         active={activeDirection === "down"}
