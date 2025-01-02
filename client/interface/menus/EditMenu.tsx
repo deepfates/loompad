@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { StoryNode } from "../types";
 
 interface EditMenuProps {
@@ -9,11 +9,17 @@ interface EditMenuProps {
 
 export const EditMenu = ({ node, onSave, onCancel }: EditMenuProps) => {
   const [text, setText] = useState(node.text);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Reset text when node changes
   useEffect(() => {
     setText(node.text);
   }, [node]);
+
+  // Focus the textarea when mounted
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Don't let our keyboard controls interfere with typing
@@ -32,7 +38,7 @@ export const EditMenu = ({ node, onSave, onCancel }: EditMenuProps) => {
   };
 
   return (
-    <div className="menu-content">
+    <div className="menu-content" onKeyDown={handleKeyDown}>
       <div className="menu-header">
         <h2>Edit Node</h2>
         <div className="menu-close">
@@ -40,11 +46,10 @@ export const EditMenu = ({ node, onSave, onCancel }: EditMenuProps) => {
         </div>
       </div>
       <textarea
+        ref={textareaRef}
         className="edit-textarea"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        autoFocus
       />
     </div>
   );
