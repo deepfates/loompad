@@ -16,27 +16,17 @@ const openai = new OpenAI({
 export const AVAILABLE_MODELS = {
   "mistralai/mixtral-8x7b": {
     name: "Mixtral 8x7B",
-    maxTokens: 4096,
+    maxTokens: 1024,
+    defaultTemp: 0.7,
+  },
+  "deepseek/deepseek-chat": {
+    name: "DeepSeek v3",
+    maxTokens: 1024,
     defaultTemp: 0.7,
   },
   "meta-llama/llama-3.1-405b": {
     name: "Llama 3.1 405B",
-    maxTokens: 4096,
-    defaultTemp: 0.7,
-  },
-  "deepseek/deepseek-chat": {
-    name: "DeepSeek Chat",
-    maxTokens: 4096,
-    defaultTemp: 0.7,
-  },
-  "anthropic/claude-3.5-sonnet:beta": {
-    name: "Claude 3.5 Sonnet Beta",
-    maxTokens: 4096,
-    defaultTemp: 0.7,
-  },
-  "google/gemma-2-27b-it": {
-    name: "Gemma 2 27B IT",
-    maxTokens: 4096,
+    maxTokens: 1024,
     defaultTemp: 0.7,
   },
 } as const;
