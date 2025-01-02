@@ -141,12 +141,6 @@ const GamepadInterface = () => {
               className={isLoading ? "opacity-50" : ""}
             >
               {segment.text}
-              {isLoading && index === currentPath.length - 1 && (
-                <span
-                  className="inline-block w-2 h-2 ml-1 animate-pulse"
-                  style={{ background: "var(--secondary-color)" }}
-                />
-              )}
             </span>
           );
         })}

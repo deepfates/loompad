@@ -41,14 +41,37 @@
 .navigation-dots {
   display: flex;
   justify-content: center;
-  gap: 0.5rem; /* 8px to rem */
-  padding-top: 0.625rem; /* 10px to rem */
+  gap: 0.5rem;
+  padding-top: 0.625rem;
 }
 
 .navigation-dot {
-  width: 0.25rem; /* 4px to rem */
-  height: 0.25rem; /* 4px to rem */
-  border: 0.0625rem solid var(--font-color); /* 1px to rem */
+  width: 0.25rem;
+  height: 0.25rem;
+  border: 0.0625rem solid var(--font-color);
+  border-radius: 50%;
+}
+
+.navigation-dot.edge-bump {
+  animation: bump 0.3s ease-out;
+}
+
+.navigation-dot.generating {
+  animation: generatePulse 1.5s infinite;
+  opacity: 0.6;
+}
+
+@keyframes generatePulse {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+@keyframes bump {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(2px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
 }
 
 /* Game Boy layout container */
@@ -338,3 +361,35 @@
   50% { opacity: 1; }
   100% { opacity: 0.6; }
 } 
+
+/* Loading indicator */
+.loading-indicator {
+  display: inline-block;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.pulse-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--secondary-color);
+  animation: simplePulse 1s infinite;
+}
+
+@keyframes simplePulse {
+  0% { opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+/* Remove old loading styles */
+.loading-indicator,
+.pulse-dot,
+.loading-placeholder,
+.dot-1,
+.dot-2,
+.dot-3 {
+  display: none;
+}
