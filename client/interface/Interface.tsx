@@ -61,6 +61,11 @@ const GamepadInterface = () => {
 
   const handleControlAction = useCallback(
     async (key: string) => {
+      if (activeMenu === "edit") {
+        // Let EditMenu handle its own keyboard events
+        return;
+      }
+
       if (activeMenu) {
         handleMenuNavigation(key);
       } else {
@@ -70,7 +75,7 @@ const GamepadInterface = () => {
       // Handle menu activation/deactivation
       if (key === "`") {
         setActiveMenu((prev) => (prev === "select" ? null : "select"));
-      } else if (key === "Escape") {
+      } else if (key === "Escape" && !activeMenu) {
         setActiveMenu((prev) => (prev === "start" ? null : "start"));
       } else if (key === "Backspace" && !activeMenu) {
         setActiveMenu("edit");
@@ -178,7 +183,11 @@ const GamepadInterface = () => {
               />
             </MenuScreen>
           ) : activeMenu === "edit" ? (
-            <MenuScreen title="Edit" onClose={() => setActiveMenu(null)}>
+            <MenuScreen
+              title=""
+              onClose={() => setActiveMenu(null)}
+              showCloseInstructions={false}
+            >
               <EditMenu
                 node={getCurrentPath()[currentDepth]}
                 onSave={(text) => {
@@ -196,6 +205,7 @@ const GamepadInterface = () => {
                   setStoryTree(newTree);
                   setActiveMenu(null);
                 }}
+                onCancel={() => setActiveMenu(null)}
               />
             </MenuScreen>
           ) : (
