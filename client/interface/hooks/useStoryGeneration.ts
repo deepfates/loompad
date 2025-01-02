@@ -45,8 +45,6 @@ export function useStoryGeneration() {
         setGeneratedText(fullText);
       },
       () => {
-        // Clean up any trailing whitespace
-        fullText = fullText.trim();
         setGeneratedText(fullText);
       }
     );
