@@ -294,3 +294,21 @@
     transform: translateY(0);
   }
 } 
+
+/* Edit menu styles */
+.edit-textarea {
+  width: 100%;
+  height: calc(100vh - 12rem);
+  background: transparent;
+  color: var(--font-color);
+  border: 0.125rem solid var(--font-color);
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: inherit;
+  resize: none;
+}
+
+.edit-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+} 
