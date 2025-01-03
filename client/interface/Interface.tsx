@@ -98,7 +98,11 @@ const GamepadInterface = () => {
   const handleControlAction = useCallback(
     async (key: string) => {
       if (activeMenu === "edit") {
-        // Let EditMenu handle its own keyboard events
+        // Let EditMenu handle keyboard events, but also handle button clicks
+        if (key === "Escape" || key === "`") {
+          // Simulate keyboard event for the EditMenu
+          window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+        }
         return;
       }
 

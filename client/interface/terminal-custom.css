@@ -2,7 +2,7 @@
   --button-size: 3rem;
   --controls-height: 12.75rem;
   --max-width: 48rem;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -334,14 +334,36 @@
 /* Edit menu styles */
 .edit-textarea {
   width: 100%;
-  height: calc(100vh - 12rem);
+  min-height: 5rem;
+  max-height: calc(100dvh - 20rem);
+  height: auto;
   background: transparent;
   color: var(--font-color);
   border: 0.125rem solid var(--font-color);
   padding: 0.5rem;
   font-family: inherit;
   font-size: inherit;
+  line-height: 1.5;
   resize: none;
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: block;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) transparent;
+}
+
+/* Webkit scrollbar styles */
+.edit-textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.edit-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.edit-textarea::-webkit-scrollbar-thumb {
+  background-color: var(--primary-color);
+  border-radius: 3px;
 }
 
 .edit-textarea:focus {
