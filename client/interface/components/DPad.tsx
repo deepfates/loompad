@@ -9,7 +9,7 @@ export const DPad = ({
   <div className="terminal-grid" role="group" aria-label="Direction Controls">
     <div className="terminal-grid-cell up-arrow">
       <GamepadButton
-        label="▲"
+        label="▴"
         active={activeDirection === "up"}
         onMouseDown={() => onControlPress("ArrowUp")}
         onMouseUp={() => onControlRelease("ArrowUp")}
@@ -17,7 +17,7 @@ export const DPad = ({
     </div>
     <div className="terminal-grid-cell left-arrow">
       <GamepadButton
-        label="◀"
+        label="◂"
         active={activeDirection === "left"}
         onMouseDown={() => onControlPress("ArrowLeft")}
         onMouseUp={() => onControlRelease("ArrowLeft")}
@@ -28,7 +28,7 @@ export const DPad = ({
     </div>
     <div className="terminal-grid-cell right-arrow">
       <GamepadButton
-        label="▶"
+        label="▸"
         active={activeDirection === "right"}
         onMouseDown={() => onControlPress("ArrowRight")}
         onMouseUp={() => onControlRelease("ArrowRight")}
@@ -36,7 +36,7 @@ export const DPad = ({
     </div>
     <div className="terminal-grid-cell down-arrow">
       <GamepadButton
-        label="▼"
+        label="▾"
         active={activeDirection === "down"}
         onMouseDown={() => onControlPress("ArrowDown")}
         onMouseUp={() => onControlRelease("ArrowDown")}
