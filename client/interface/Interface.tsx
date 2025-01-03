@@ -145,16 +145,16 @@ const GamepadInterface = () => {
   const { activeControls, handleControlPress, handleControlRelease } =
     useKeyboardControls(handleControlAction);
 
-  // Scroll to current depth
+  // Scroll to next depth (highlighted text)
   useEffect(() => {
     if (storyTextRef.current) {
       const storyContainer = storyTextRef.current;
       const text = storyContainer.textContent || "";
       const path = getCurrentPath();
 
-      // Calculate the position to scroll to
+      // Calculate the position to scroll to the next depth (highlighted text)
       let position = 0;
-      for (let i = 0; i < currentDepth; i++) {
+      for (let i = 0; i <= currentDepth; i++) {
         position += path[i].text.length;
       }
 
@@ -166,7 +166,8 @@ const GamepadInterface = () => {
       const scrollPosition = temp.offsetHeight;
       document.body.removeChild(temp);
 
-      storyContainer.scrollTop = scrollPosition - 20;
+      // Scroll to show the highlighted text with some padding
+      storyContainer.scrollTop = scrollPosition - 60;
     }
   }, [currentDepth, getCurrentPath]);
 
