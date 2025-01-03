@@ -36,6 +36,22 @@
   flex: 1;
   overflow-y: auto;
   padding-right: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--secondary-color) transparent;
+}
+
+.story-text::-webkit-scrollbar {
+  width: 6px;
+}
+
+.story-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.story-text::-webkit-scrollbar-thumb {
+  background-color: var(--primary-color);
+  border-radius: 3px;
+  border: none;
 }
 
 .navigation-dots {
@@ -225,6 +241,21 @@
   flex: 1;
   overflow-y: auto;
   padding: 0 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--secondary-color) transparent;
+}
+
+.menu-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.menu-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.menu-content::-webkit-scrollbar-thumb {
+  background-color: var(--primary-color);
+  border-radius: 3px;
 }
 
 .menu-instructions {
@@ -348,22 +379,25 @@
   overflow-y: auto;
   box-sizing: border-box;
   display: block;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary-color) transparent;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--primary-color) transparent !important;
+  -webkit-appearance: none;
 }
 
 /* Webkit scrollbar styles */
 .edit-textarea::-webkit-scrollbar {
-  width: 6px;
+  width: 6px !important;
+  -webkit-appearance: none;
 }
 
 .edit-textarea::-webkit-scrollbar-track {
-  background: transparent;
+  background: transparent !important;
 }
 
 .edit-textarea::-webkit-scrollbar-thumb {
-  background-color: var(--primary-color);
-  border-radius: 3px;
+  background-color: var(--primary-color) !important;
+  border-radius: 3px !important;
+  border: none !important;
 }
 
 .edit-textarea:focus {
