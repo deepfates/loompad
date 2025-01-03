@@ -38,6 +38,7 @@
   padding-right: 0.5rem;
   scrollbar-width: thin;
   scrollbar-color: var(--secondary-color) transparent;
+  white-space: pre-wrap;
 }
 
 .story-text::-webkit-scrollbar {
