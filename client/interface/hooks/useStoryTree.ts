@@ -42,6 +42,21 @@ export function useStoryTree(params: StoryParams) {
     setStoryTree(trees[currentTreeKey] || INITIAL_STORY);
   }, [trees, currentTreeKey]);
 
+  // Helper to get the last selected index for a node
+  const getLastSelectedIndex = useCallback(
+    (node: StoryNode, defaultIndex: number) => {
+      if (
+        typeof node.lastSelectedIndex === "number" &&
+        node.continuations &&
+        node.lastSelectedIndex < node.continuations.length
+      ) {
+        return node.lastSelectedIndex;
+      }
+      return defaultIndex;
+    },
+    []
+  );
+
   const getOptionsAtDepth = useCallback(
     (depth: number): StoryNode[] => {
       if (depth === 0) return storyTree.root.continuations || [];
@@ -64,6 +79,7 @@ export function useStoryTree(params: StoryParams) {
     const path = [storyTree.root];
     let currentNode = storyTree.root;
 
+    // First follow the selected options
     for (let i = 0; i < selectedOptions.length; i++) {
       const nextNode = currentNode.continuations?.[selectedOptions[i]];
       if (!nextNode) break;
@@ -71,8 +87,47 @@ export function useStoryTree(params: StoryParams) {
       currentNode = nextNode;
     }
 
+    // Then continue following lastSelectedIndex or first child until we hit a leaf
+    while (currentNode.continuations?.length) {
+      const index = getLastSelectedIndex(currentNode, 0);
+      const nextNode = currentNode.continuations[index];
+      if (!nextNode) break;
+      path.push(nextNode);
+      currentNode = nextNode;
+    }
+
     return path;
-  }, [storyTree, selectedOptions]);
+  }, [storyTree, selectedOptions, getLastSelectedIndex]);
+
+  // Helper to update the lastSelectedIndex in the tree
+  const updateLastSelectedIndex = useCallback(
+    (path: StoryNode[], depth: number, index: number) => {
+      const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
+      let current = newTree.root;
+
+      // Navigate to the node at the specified depth using the path directly
+      for (let i = 1; i <= depth; i++) {
+        const pathNode = path[i];
+        if (!pathNode) break;
+        // Find the matching continuation
+        const continuationIndex =
+          current.continuations?.findIndex((node) => node.id === pathNode.id) ??
+          -1;
+        if (continuationIndex === -1) break;
+        current = current.continuations![continuationIndex];
+      }
+
+      // Update the lastSelectedIndex
+      current.lastSelectedIndex = index;
+
+      setStoryTree(newTree);
+      setTrees((prev) => ({
+        ...prev,
+        [currentTreeKey]: newTree,
+      }));
+    },
+    [storyTree, currentTreeKey, setTrees]
+  );
 
   const generateContinuations = useCallback(
     async (count: number): Promise<StoryNode[]> => {
@@ -84,6 +139,7 @@ export function useStoryTree(params: StoryParams) {
           .map(async () => ({
             id: Math.random().toString(36).substring(2),
             text: await generateContinuation(currentPath, currentDepth, params),
+            continuations: [],
           }))
       );
       return results;
@@ -92,25 +148,64 @@ export function useStoryTree(params: StoryParams) {
   );
 
   const addContinuations = useCallback(
-    (path: StoryNode[], newContinuations: StoryNode[]) => {
+    (
+      path: StoryNode[],
+      newContinuations: StoryNode[],
+      isNewChildren: boolean
+    ) => {
+      console.log("Adding continuations:", {
+        path: path.map((n) => ({ id: n.id, text: n.text.slice(0, 20) })),
+        newContinuations: newContinuations.map((n) => ({
+          id: n.id,
+          text: n.text.slice(0, 20),
+        })),
+      });
+
       const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
       let current = newTree.root;
 
+      // Navigate to the target node using path IDs to ensure we find the right node
       for (let i = 1; i < path.length; i++) {
-        const nextNode = current.continuations?.[selectedOptions[i - 1]];
-        if (!nextNode) return newTree;
-        current = nextNode;
+        const pathNode = path[i];
+        const continuationIndex =
+          current.continuations?.findIndex((node) => node.id === pathNode.id) ??
+          -1;
+        if (continuationIndex === -1) {
+          console.error("Failed to find node in path:", {
+            pathNode,
+            currentContinuations: current.continuations,
+          });
+          return newTree;
+        }
+        current = current.continuations![continuationIndex];
       }
 
+      // Initialize or append continuations
       if (!current.continuations) {
         current.continuations = newContinuations;
       } else {
         current.continuations = [...current.continuations, ...newContinuations];
       }
 
+      // Set lastSelectedIndex for the current node
+      if (isNewChildren) {
+        current.lastSelectedIndex = 0;
+      } else {
+        current.lastSelectedIndex = (current.continuations?.length ?? 1) - 1;
+      }
+
+      console.log("Updated tree node:", {
+        nodeId: current.id,
+        continuations: current.continuations.map((n) => ({
+          id: n.id,
+          text: n.text.slice(0, 20),
+        })),
+        lastSelectedIndex: current.lastSelectedIndex,
+      });
+
       return newTree;
     },
-    [storyTree, selectedOptions]
+    [storyTree]
   );
 
   const handleStoryNavigation = useCallback(
@@ -119,7 +214,7 @@ export function useStoryTree(params: StoryParams) {
 
       const currentPath = getCurrentPath();
       const options = getOptionsAtDepth(currentDepth);
-      const currentOption = selectedOptions[currentDepth] || 0;
+      const currentOption = selectedOptions[currentDepth] ?? 0;
 
       switch (key) {
         case "ArrowUp":
@@ -130,11 +225,20 @@ export function useStoryTree(params: StoryParams) {
             setCurrentDepth((prev) => prev + 1);
             const nextOptions = getOptionsAtDepth(currentDepth + 1);
             if (nextOptions.length > 0) {
-              setSelectedOptions((prev) => {
-                const newOptions = [...prev];
-                newOptions[currentDepth + 1] = 0;
-                return newOptions;
-              });
+              // Use lastSelectedIndex when moving down
+              const currentNode = currentPath[currentDepth];
+              const nextNode =
+                currentNode.continuations?.[selectedOptions[currentDepth]];
+              if (nextNode) {
+                const lastIndex = getLastSelectedIndex(nextNode, 0);
+                setSelectedOptions((prev) => {
+                  const newOptions = [...prev];
+                  newOptions[currentDepth + 1] = lastIndex;
+                  // Keep only the options up to the current depth + 1
+                  // This allows the getCurrentPath to follow lastSelectedIndex for the rest
+                  return newOptions.slice(0, currentDepth + 2);
+                });
+              }
             }
           }
           break;
@@ -145,6 +249,12 @@ export function useStoryTree(params: StoryParams) {
               newOptions[currentDepth] = currentOption - 1;
               return newOptions.slice(0, currentDepth + 1);
             });
+            // Update lastSelectedIndex when switching continuations
+            updateLastSelectedIndex(
+              currentPath,
+              currentDepth,
+              currentOption - 1
+            );
           }
           break;
         case "ArrowRight":
@@ -154,45 +264,78 @@ export function useStoryTree(params: StoryParams) {
               newOptions[currentDepth] = currentOption + 1;
               return newOptions.slice(0, currentDepth + 1);
             });
+            // Update lastSelectedIndex when switching continuations
+            updateLastSelectedIndex(
+              currentPath,
+              currentDepth,
+              currentOption + 1
+            );
           }
           break;
         case "Enter": {
           if (error) return;
 
+          const currentNode = currentPath[currentDepth];
           const hasExistingContinuations =
-            currentPath[currentDepth].continuations?.length > 0;
+            currentNode.continuations?.length > 0;
           const count = hasExistingContinuations ? 1 : 3;
+
+          console.log("Starting generation:", {
+            depth: currentDepth,
+            hasExisting: hasExistingContinuations,
+            count,
+            currentNode: {
+              id: currentNode.id,
+              text: currentNode.text.slice(0, 20),
+            },
+          });
 
           setGeneratingAt({
             depth: currentDepth,
             index: hasExistingContinuations
-              ? currentPath[currentDepth].continuations?.length ?? 0
+              ? currentNode.continuations?.length ?? 0
               : null,
           });
 
           try {
             const newContinuations = await generateContinuations(count);
+            console.log(
+              "Generated continuations:",
+              newContinuations.map((n) => ({
+                id: n.id,
+                text: n.text.slice(0, 20),
+              }))
+            );
+
             const updatedTree = addContinuations(
               currentPath.slice(0, currentDepth + 1),
-              newContinuations
+              newContinuations,
+              !hasExistingContinuations
             );
+
+            // Update all state at once
+            if (hasExistingContinuations) {
+              // For siblings, select the new continuation
+              const newIndex = currentNode.continuations?.length ?? 0;
+              setSelectedOptions((prev) => {
+                const newOptions = [...prev];
+                newOptions[currentDepth] = newIndex;
+                return newOptions.slice(0, currentDepth + 1);
+              });
+            } else {
+              // For new children, stay at current depth
+              // The children will be visible but not selected
+              console.log("Generated new children, staying at current depth");
+            }
+
+            // Update tree last to ensure all state is consistent
             setStoryTree(updatedTree);
             setTrees((prev) => ({
               ...prev,
               [currentTreeKey]: updatedTree,
             }));
-
-            if (hasExistingContinuations) {
-              const newIndex =
-                currentPath[currentDepth].continuations?.length ?? 0;
-              setSelectedOptions((prev) => {
-                const newOptions = [...prev];
-                newOptions[currentDepth] = newIndex;
-                return newOptions;
-              });
-            } else {
-              setSelectedOptions((prev) => [...prev, 0]);
-            }
+          } catch (e) {
+            console.error("Generation failed:", e);
           } finally {
             setGeneratingAt(null);
           }
@@ -210,6 +353,9 @@ export function useStoryTree(params: StoryParams) {
       generateContinuations,
       addContinuations,
       currentTreeKey,
+      setTrees,
+      getLastSelectedIndex,
+      updateLastSelectedIndex,
     ]
   );
 
