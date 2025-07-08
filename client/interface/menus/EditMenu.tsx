@@ -41,25 +41,57 @@ export const EditMenu = ({ node, onSave, onCancel }: EditMenuProps) => {
     // Don't let our keyboard controls interfere with typing
     e.stopPropagation();
 
-    // Save on Start (Escape)
+    const target = e.target as HTMLElement;
+    const isInTextarea = target && target.tagName === 'TEXTAREA';
+
+    // ESC and backtick always work (even when typing)
     if (e.key === "Escape") {
       e.preventDefault();
       onSave(text);
+      return;
     }
-    // Cancel on Select (`)
-    else if (e.key === "`") {
+    if (e.key === "`") {
       e.preventDefault();
       onCancel();
+      return;
+    }
+
+    // M and Z only work when NOT typing in textarea
+    if (!isInTextarea) {
+      if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        onSave(text);
+      }
+      else if (e.key === "z" || e.key === "Z") {
+        e.preventDefault();
+        onCancel();
+      }
     }
   };
 
   // Handle button clicks from parent
   useEffect(() => {
     const handleControlPress = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInTextarea = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+      
+      // ESC and backtick always work (even when typing)
       if (e.key === "Escape") {
         onSave(text);
-      } else if (e.key === "`") {
+        return;
+      }
+      if (e.key === "`") {
         onCancel();
+        return;
+      }
+      
+      // M and Z only work when NOT typing in textarea
+      if (!isInTextarea) {
+        if (e.key === "m" || e.key === "M") {
+          onSave(text);
+        } else if (e.key === "z" || e.key === "Z") {
+          onCancel();
+        }
       }
     };
 

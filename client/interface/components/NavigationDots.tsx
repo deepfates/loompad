@@ -6,6 +6,7 @@ interface NavigationDotsProps {
   selectedOptions: number[];
   activeControls: ActiveControls;
   generatingAt: GeneratingState | null;
+  generationCount: number;
 }
 
 export const NavigationDots = ({
@@ -14,9 +15,9 @@ export const NavigationDots = ({
   selectedOptions,
   activeControls,
   generatingAt,
+  generationCount,
 }: NavigationDotsProps) => {
-  // Only hide if there are no options AND we're not generating at this depth
-  if (!options.length && generatingAt?.depth !== currentDepth) return null;
+  // Always show the component to display depth indicator
 
   // Get which option is currently selected
   const currentIndex = selectedOptions[currentDepth] ?? 0;
@@ -27,16 +28,17 @@ export const NavigationDots = ({
     (currentIndex === options.length - 1 &&
       activeControls.direction === "right");
 
-  // If we're generating new nodes, show 3 loading dots
-  // If we're generating a sibling, show 1 loading dot
+  // If we're generating new nodes or siblings, show the configured number of loading dots
   const isGeneratingNew =
     generatingAt?.depth === currentDepth && generatingAt.index === null;
   const isGeneratingSibling =
     generatingAt?.depth === currentDepth && generatingAt.index !== null;
-  const loadingCount = isGeneratingNew ? 3 : isGeneratingSibling ? 1 : 0;
+  const loadingCount = (isGeneratingNew || isGeneratingSibling) ? generationCount : 0;
 
   return (
     <div className="navigation-dots">
+      {/* Depth indicator */}
+      <span className="depth-indicator">L{currentDepth}</span>
       {/* Show existing options */}
       {options.map((option, index) => {
         const isSelected = index === currentIndex;

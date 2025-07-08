@@ -9,6 +9,9 @@ export const SettingsMenu = ({
   onParamChange,
   selectedParam = 0,
   isLoading = false,
+  onManageModels,
+  onExportData,
+  onImportData,
 }: SettingsMenuProps) => {
   const { models, loading: loadingModels, error, getModelName } = useModels();
 
@@ -33,7 +36,7 @@ export const SettingsMenu = ({
       <MenuKnob
         label="Max Tokens"
         value={params.maxTokens}
-        min={10}
+        min={1}
         max={currentModel?.maxTokens ?? 500}
         step={10}
         onChange={(value) => onParamChange("maxTokens", value)}
@@ -57,6 +60,35 @@ export const SettingsMenu = ({
         }}
         selected={selectedParam === 2}
       />
+      <MenuKnob
+        label="Generation Count"
+        value={params.generationCount}
+        min={1}
+        max={10}
+        step={1}
+        onChange={(value) => onParamChange("generationCount", value)}
+        selected={selectedParam === 3}
+      />
+      <div
+        className={`menu-item ${selectedParam === 4 ? "selected" : ""}`}
+      >
+        <div className="menu-item-label">Manage Models</div>
+        <div className="menu-item-preview">Add, edit, or delete model configurations</div>
+      </div>
+      <div
+        className={`menu-item ${selectedParam === 5 ? "selected" : ""}`}
+        onClick={() => onExportData?.()}
+      >
+        <div className="menu-item-label">Export Data</div>
+        <div className="menu-item-preview">Download all story trees as JSON</div>
+      </div>
+      <div
+        className={`menu-item ${selectedParam === 6 ? "selected" : ""}`}
+        onClick={() => onImportData?.()}
+      >
+        <div className="menu-item-label">Import Data</div>
+        <div className="menu-item-preview">Load story trees from JSON file</div>
+      </div>
       {error && (
         <output className="error-message">
           Failed to load models: {error}

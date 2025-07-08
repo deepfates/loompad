@@ -21,14 +21,24 @@ export function render(url, context) {
     // Get the styles from styled-components
     const styledComponentsStyles = sheet.getStyleTags();
 
-    // Include Terminal CSS and your custom CSS
+    // Inline Terminal CSS and custom CSS to avoid MIME issues in production
+    const terminalCss = fs.readFileSync(
+      path.resolve(
+        process.cwd(),
+        "node_modules/terminal.css/dist/terminal.min.css"
+      ),
+      "utf8"
+    );
+
+    const customCss = fs.readFileSync(
+      path.resolve(process.cwd(), "client/interface/terminal-custom.css"),
+      "utf8"
+    );
+
     const externalStyles = `
-      <link rel="stylesheet" href="/node_modules/terminal.css/dist/terminal.min.css">
       <style>
-        ${fs.readFileSync(
-          path.resolve(process.cwd(), "client/interface/terminal-custom.css"),
-          "utf8"
-        )}
+        ${terminalCss}
+        ${customCss}
       </style>
     `;
 

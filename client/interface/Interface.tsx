@@ -1,19 +1,22 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import "./terminal-custom.css";
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
 import { useStoryTree } from "./hooks/useStoryTree";
+import { useModels } from "./hooks/useModels";
 
 import { DPad } from "./components/DPad";
-import { GamepadButton } from "./components/GamepadButton";
+import { GamepadButton, ShoulderButton } from "./components/GamepadButton";
 import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
+import { MetadataPanel } from "./components/MetadataPanel";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
+import { ModelManagementMenu } from "./menus/ModelManagementMenu";
 
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
@@ -21,7 +24,8 @@ import type { ModelId } from "../../server/apis/generation";
 const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 100,
-  model: "mistralai/mixtral-8x7b" as ModelId,
+  model: "deepseek-v3-base" as ModelId,
+  generationCount: 3,
 };
 
 const EMPTY_STORY = {
@@ -33,6 +37,9 @@ const EMPTY_STORY = {
 };
 
 const GamepadInterface = () => {
+  const { models, getModelName } = useModels();
+  const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
+  
   const {
     activeMenu,
     setActiveMenu,
@@ -40,10 +47,23 @@ const GamepadInterface = () => {
     setSelectedParam,
     selectedTreeIndex,
     setSelectedTreeIndex,
+    selectedModelIndex,
+    setSelectedModelIndex,
     menuParams,
     setMenuParams,
     handleMenuNavigation,
   } = useMenuSystem(DEFAULT_PARAMS);
+
+  const handleModelChange = useCallback((newModel: ModelId) => {
+    setMenuParams((prev) => ({
+      ...prev,
+      model: newModel,
+      // Adjust maxTokens if it exceeds the new model's limit
+      maxTokens: models?.[newModel]?.maxTokens 
+        ? Math.min(prev.maxTokens, models[newModel].maxTokens)
+        : prev.maxTokens,
+    }));
+  }, [models, setMenuParams]);
 
   const {
     trees,
@@ -60,7 +80,9 @@ const GamepadInterface = () => {
     getOptionsAtDepth,
     setTrees,
     setStoryTree,
-  } = useStoryTree(menuParams);
+    setSelectedOptions,
+    setCurrentDepth,
+  } = useStoryTree(menuParams, handleModelChange);
 
   const storyTextRef = useRef<HTMLDivElement>(null);
 
@@ -95,14 +117,77 @@ const GamepadInterface = () => {
     [currentTreeKey, trees, setTrees, setCurrentTreeKey]
   );
 
+  const handleExportData = useCallback(() => {
+    const dataToExport = localStorage.getItem("story-trees");
+    if (dataToExport) {
+      const blob = new Blob([dataToExport], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `loompad-stories-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    setActiveMenu(null);
+  }, [setActiveMenu]);
+
+  const handleImportData = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const importedData = e.target?.result as string;
+            const parsedData = JSON.parse(importedData);
+            
+            // Validate the data structure
+            if (typeof parsedData === "object" && parsedData !== null) {
+              // Merge with existing trees or replace
+              const shouldReplace = window.confirm(
+                "Replace all existing stories with imported data? Click Cancel to merge instead."
+              );
+              
+              if (shouldReplace) {
+                setTrees(parsedData);
+                localStorage.setItem("story-trees", importedData);
+              } else {
+                setTrees((prev) => {
+                  const merged = { ...prev, ...parsedData };
+                  localStorage.setItem("story-trees", JSON.stringify(merged));
+                  return merged;
+                });
+              }
+              
+              // Switch to the first imported tree
+              const importedKeys = Object.keys(parsedData);
+              if (importedKeys.length > 0) {
+                setCurrentTreeKey(importedKeys[0]);
+              }
+            } else {
+              alert("Invalid file format. Please select a valid JSON file.");
+            }
+          } catch (error) {
+            alert("Failed to parse JSON file. Please check the file format.");
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+    setActiveMenu(null);
+  }, [setTrees, setCurrentTreeKey, setActiveMenu]);
+
   const handleControlAction = useCallback(
     async (key: string) => {
       if (activeMenu === "edit") {
-        // Let EditMenu handle keyboard events, but also handle button clicks
-        if (key === "Escape" || key === "`") {
-          // Simulate keyboard event for the EditMenu
-          window.dispatchEvent(new KeyboardEvent("keydown", { key }));
-        }
+        // EditMenu handles its own keyboard events through multiple listeners
+        // No need to dispatch events here, just return to avoid interference
         return;
       }
 
@@ -115,23 +200,45 @@ const GamepadInterface = () => {
             setSelectedTreeIndex(0);
           },
           onDeleteTree: handleDeleteTree,
+          onExportData: handleExportData,
+          onImportData: handleImportData,
+          onModelAction: (action, modelId) => {
+            // Forward the action to trigger the ModelManagementMenu's internal logic
+            if (action === "add") {
+              // Trigger add model action by calling the component's onAction prop
+              // But we need to make the component handle this internally
+              console.log("Add model action triggered");
+            } else if (action === "edit" && modelId) {
+              console.log("Edit model action triggered:", modelId);
+            } else if (action === "delete" && modelId) {
+              console.log("Delete model action triggered:", modelId);
+            }
+          },
         });
       } else {
-        await handleStoryNavigation(key);
+        // Pass available models for L/R button switching
+        const availableModels = models ? Object.keys(models) : [];
+        await handleStoryNavigation(key, availableModels);
       }
 
       // Handle menu activation/deactivation
-      if (key === "`") {
+      if (key === "`" || key === "z" || key === "Z") {
         setActiveMenu((prev) => (prev === "select" ? null : "select"));
-      } else if (key === "Escape" && !activeMenu) {
+      } else if ((key === "Escape" || key === "m" || key === "M") && !activeMenu) {
         setActiveMenu((prev) => (prev === "start" ? null : "start"));
       } else if (key === "Backspace" && !activeMenu) {
+        const currentNode = getCurrentPath()[currentDepth];
+        // Prevent editing empty branching root nodes
+        if (!currentNode.text || currentNode.text.trim() === "") {
+          return;
+        }
         setActiveMenu("edit");
       }
     },
     [
       activeMenu,
       trees,
+      models,
       handleMenuNavigation,
       handleNewTree,
       handleDeleteTree,
@@ -139,6 +246,8 @@ const GamepadInterface = () => {
       setCurrentTreeKey,
       setActiveMenu,
       setSelectedTreeIndex,
+      handleExportData,
+      handleImportData,
     ]
   );
 
@@ -192,6 +301,7 @@ const GamepadInterface = () => {
                   : "var(--secondary-color)",
               }}
               className={isLoading ? "opacity-50" : ""}
+              title={segment.generatedByModel ? `Generated by: ${getModelName(segment.generatedByModel)}` : undefined}
             >
               {segment.text}
             </span>
@@ -199,6 +309,11 @@ const GamepadInterface = () => {
         })}
       </div>
     );
+  };
+
+  const getCurrentNode = () => {
+    const path = getCurrentPath();
+    return path[currentDepth] || storyTree.root;
   };
 
   return (
@@ -215,6 +330,32 @@ const GamepadInterface = () => {
                 }
                 selectedParam={selectedParam}
                 isLoading={isGenerating}
+                onManageModels={() => {
+                  setActiveMenu("models");
+                  setSelectedModelIndex(0);
+                }}
+                onExportData={handleExportData}
+                onImportData={handleImportData}
+              />
+            </MenuScreen>
+          ) : activeMenu === "models" ? (
+            <MenuScreen title="Manage Models" onClose={() => setActiveMenu("select")}>
+              <ModelManagementMenu
+                selectedIndex={selectedModelIndex}
+                onNavigate={(direction) => {
+                  if (direction === "up") {
+                    setSelectedModelIndex((prev) => Math.max(0, prev - 1));
+                  } else {
+                    const modelEntries = models ? Object.entries(models) : [];
+                    const totalItems = modelEntries.length + 1;
+                    setSelectedModelIndex((prev) => Math.min(totalItems - 1, prev + 1));
+                  }
+                }}
+                onAction={(action, modelId) => {
+                  // This is handled internally by ModelManagementMenu
+                  // Just log for debugging
+                  console.log("Model action from component:", action, modelId);
+                }}
               />
             </MenuScreen>
           ) : activeMenu === "start" ? (
@@ -255,14 +396,84 @@ const GamepadInterface = () => {
                     root: StoryNode;
                   };
                   let current = newTree.root;
+                  let parent = null;
 
+                  // Navigate to the node being edited
                   for (let i = 1; i <= currentDepth; i++) {
                     if (!current.continuations) break;
-                    current = current.continuations[selectedOptions[i - 1]];
+                    parent = current;
+                    const selectedIndex = selectedOptions[i - 1];
+                    if (selectedIndex >= 0 && selectedIndex < current.continuations.length) {
+                      current = current.continuations[selectedIndex];
+                    } else {
+                      console.error("Invalid navigation path", { selectedOptions, currentDepth, selectedIndex, continuationsLength: current.continuations?.length });
+                      return;
+                    }
                   }
 
-                  current.text = text;
+                  // Ensure we have a valid current node
+                  if (!current) {
+                    console.error("Failed to navigate to current node", { selectedOptions, currentDepth });
+                    return;
+                  }
+
+                  // Check if the current node has existing children
+                  const hasExistingChildren = current.continuations && current.continuations.length > 0;
+                  
+                  if (hasExistingChildren && current.text !== text) {
+                    // Create a new sibling node with the edited text
+                    const newSibling: StoryNode = {
+                      id: Math.random().toString(36).substring(2),
+                      text: text,
+                      continuations: [],
+                      // Mark as edited if the original was generated content
+                      ...(current.generationMetadata && { isEdited: true })
+                    };
+                    
+                    if (currentDepth === 0) {
+                      // Root node: create a branching structure with original and edited versions
+                      const originalRoot = { ...current };
+                      const newRoot = {
+                        id: Math.random().toString(36).substring(2),
+                        text: text,
+                        continuations: [],
+                        // Mark as edited if the original was generated content
+                        ...(current.generationMetadata && { isEdited: true })
+                      };
+                      
+                      // Create a new root that branches to both versions
+                      current.text = ""; // Empty text for branching root
+                      current.continuations = [originalRoot, newRoot];
+                      
+                      // Select the new version (second option)
+                      const newSelectedOptions = [1];
+                      setSelectedOptions(newSelectedOptions);
+                      setCurrentDepth(1);
+                    } else if (parent && parent.continuations) {
+                      // Add the new sibling to the parent's continuations
+                      parent.continuations.push(newSibling);
+                      
+                      // Update selectedOptions to point to the new sibling
+                      const newSelectedOptions = [...selectedOptions];
+                      newSelectedOptions[currentDepth - 1] = parent.continuations.length - 1;
+                      setSelectedOptions(newSelectedOptions);
+                    }
+                  } else {
+                    // No existing children, or text unchanged - just update the text
+                    const textChanged = current.text !== text;
+                    current.text = text;
+                    // Mark as edited if this was originally generated content and text actually changed
+                    if (current.generationMetadata && textChanged) {
+                      current.isEdited = true;
+                    }
+                  }
+                  
                   setStoryTree(newTree);
+                  // Update the trees storage
+                  setTrees((prev) => ({
+                    ...prev,
+                    [currentTreeKey]: newTree,
+                  }));
                   setActiveMenu(null);
                 }}
                 onCancel={() => setActiveMenu(null)}
@@ -277,6 +488,7 @@ const GamepadInterface = () => {
                 selectedOptions={selectedOptions}
                 activeControls={activeControls}
                 generatingAt={generatingAt}
+                generationCount={menuParams.generationCount}
               />
               {error && (
                 <output className="error-message">
@@ -285,10 +497,41 @@ const GamepadInterface = () => {
               )}
             </>
           )}
+
+          {/* Metadata panel - only show when not in a menu */}
+          {!activeMenu && (
+            <MetadataPanel
+              currentNode={getCurrentNode()}
+              currentDepth={currentDepth}
+              totalDepth={getCurrentPath().length}
+              selectedOptions={selectedOptions}
+              isExpanded={isMetadataExpanded}
+              onToggle={() => setIsMetadataExpanded(!isMetadataExpanded)}
+            />
+          )}
         </section>
 
         {/* Controls */}
         <div className="terminal-controls" aria-label="Game Controls">
+          {/* Shoulder buttons and model display */}
+          <div className="controls-shoulders">
+            <ShoulderButton
+              label="L"
+              active={activeControls.l}
+              onMouseDown={() => handleControlPress("q")}
+              onMouseUp={() => handleControlRelease("q")}
+            />
+            <div className="model-display">
+              {getModelName(menuParams.model)}
+            </div>
+            <ShoulderButton
+              label="R"
+              active={activeControls.r}
+              onMouseDown={() => handleControlPress("e")}
+              onMouseUp={() => handleControlRelease("e")}
+            />
+          </div>
+
           <div className="controls-top">
             <DPad
               activeDirection={activeControls.direction}

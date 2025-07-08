@@ -20,9 +20,10 @@ interface StoryParams {
   temperature: number;
   maxTokens: number;
   model: ModelId;
+  generationCount: number;
 }
 
-export function useStoryTree(params: StoryParams) {
+export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelId) => void) {
   const [trees, setTrees] = useLocalStorage(DEFAULT_TREES);
   const [currentTreeKey, setCurrentTreeKey] = useState(
     () => Object.keys(trees)[0]
@@ -136,11 +137,16 @@ export function useStoryTree(params: StoryParams) {
       const results = await Promise.all(
         Array(count)
           .fill(null)
-          .map(async () => ({
-            id: Math.random().toString(36).substring(2),
-            text: await generateContinuation(currentPath, currentDepth, params),
-            continuations: [],
-          }))
+          .map(async () => {
+            const result = await generateContinuation(currentPath, currentDepth, params);
+            return {
+              id: Math.random().toString(36).substring(2),
+              text: result.text,
+              continuations: [],
+              generatedByModel: result.generatedByModel,
+              generationMetadata: result.generationMetadata,
+            };
+          })
       );
       return results;
     },
@@ -208,9 +214,38 @@ export function useStoryTree(params: StoryParams) {
     [storyTree]
   );
 
+  const handleModelSwitch = useCallback(
+    (availableModels: string[], direction: "left" | "right") => {
+      if (!availableModels.length) return;
+
+      const currentIndex = availableModels.indexOf(params.model);
+      let newIndex: number;
+
+      if (direction === "left") {
+        newIndex = currentIndex <= 0 ? availableModels.length - 1 : currentIndex - 1;
+      } else {
+        newIndex = currentIndex >= availableModels.length - 1 ? 0 : currentIndex + 1;
+      }
+
+      const newModel = availableModels[newIndex] as ModelId;
+      onModelChange?.(newModel);
+    },
+    [params.model, onModelChange]
+  );
+
   const handleStoryNavigation = useCallback(
-    async (key: string) => {
+    async (key: string, availableModels: string[] = []) => {
       if (isGenerating) return;
+
+      // Handle model switching with L/R buttons
+      if (key === "q" || key === "Q") {
+        handleModelSwitch(availableModels, "left");
+        return;
+      }
+      if (key === "e" || key === "E" || key === "r" || key === "R" || key === "p" || key === "P") {
+        handleModelSwitch(availableModels, "right");
+        return;
+      }
 
       const currentPath = getCurrentPath();
       const options = getOptionsAtDepth(currentDepth);
@@ -276,14 +311,22 @@ export function useStoryTree(params: StoryParams) {
           if (error) return;
 
           const currentNode = currentPath[currentDepth];
+          
+          // Prevent generation from empty branching root nodes
+          if (!currentNode.text || currentNode.text.trim() === "") {
+            return;
+          }
+          
           const hasExistingContinuations =
             currentNode.continuations?.length > 0;
-          const count = hasExistingContinuations ? 1 : 3;
+          const count = params.generationCount;
 
           console.log("Starting generation:", {
             depth: currentDepth,
             hasExisting: hasExistingContinuations,
             count,
+            paramsGenerationCount: params.generationCount,
+            allParams: params,
             currentNode: {
               id: currentNode.id,
               text: currentNode.text.slice(0, 20),
@@ -356,6 +399,7 @@ export function useStoryTree(params: StoryParams) {
       setTrees,
       getLastSelectedIndex,
       updateLastSelectedIndex,
+      handleModelSwitch,
     ]
   );
 
@@ -379,5 +423,7 @@ export function useStoryTree(params: StoryParams) {
     getOptionsAtDepth,
     setTrees,
     setStoryTree,
+    setSelectedOptions,
+    setCurrentDepth,
   };
 }

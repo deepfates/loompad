@@ -27,7 +27,17 @@ export function useStoryGeneration() {
     path: StoryNode[],
     depth: number,
     params: GenerationParams
-  ): Promise<string> => {
+  ): Promise<{ 
+    text: string; 
+    generatedByModel: ModelId;
+    generationMetadata: {
+      model: ModelId;
+      temperature: number;
+      maxTokens: number;
+      timestamp: number;
+      depth: number;
+    };
+  }> => {
     setGeneratedText("");
     let fullText = "";
 
@@ -49,7 +59,19 @@ export function useStoryGeneration() {
       }
     );
 
-    return fullText;
+    const metadata = {
+      model: params.model,
+      temperature: params.temperature,
+      maxTokens: params.maxTokens,
+      timestamp: Date.now(),
+      depth: depth + 1, // The depth where this generation will be placed
+    };
+
+    return {
+      text: fullText,
+      generatedByModel: params.model,
+      generationMetadata: metadata,
+    };
   };
 
   return {

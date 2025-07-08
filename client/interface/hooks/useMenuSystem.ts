@@ -7,18 +7,23 @@ interface MenuParams {
   temperature: number;
   maxTokens: number;
   model: ModelId;
+  generationCount: number;
 }
 
 interface MenuCallbacks {
   onNewTree?: () => void;
   onSelectTree?: (key: string) => void;
   onDeleteTree?: (key: string) => void;
+  onExportData?: () => void;
+  onImportData?: () => void;
+  onModelAction?: (action: "add" | "edit" | "delete", modelId?: string) => void;
 }
 
 export function useMenuSystem(defaultParams: MenuParams) {
   const [activeMenu, setActiveMenu] = useState<MenuType>(null);
   const [selectedParam, setSelectedParam] = useState(0);
   const [selectedTreeIndex, setSelectedTreeIndex] = useState(0);
+  const [selectedModelIndex, setSelectedModelIndex] = useState(0);
   const [menuParams, setMenuParams] = useState<MenuParams>(defaultParams);
   const { models } = useModels();
 
@@ -34,10 +39,23 @@ export function useMenuSystem(defaultParams: MenuParams) {
             setSelectedParam((prev) => Math.max(0, prev - 1));
             break;
           case "ArrowDown":
-            setSelectedParam((prev) => Math.min(2, prev + 1));
+            setSelectedParam((prev) => Math.min(6, prev + 1)); // Increased to 6 for import/export options
             break;
-          case "ArrowLeft": {
-            const param = ["temperature", "maxTokens", "model"][selectedParam];
+          case "Enter":
+            if (selectedParam === 4) {
+              // "Manage Models" selected
+              setActiveMenu("models");
+              setSelectedModelIndex(0);
+            } else if (selectedParam === 5) {
+              // "Export Data" selected
+              callbacks.onExportData?.();
+            } else if (selectedParam === 6) {
+              // "Import Data" selected
+              callbacks.onImportData?.();
+            }
+            break;
+          case "ArrowLeft":
+            const param = ["temperature", "maxTokens", "model", "generationCount"][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -47,6 +65,11 @@ export function useMenuSystem(defaultParams: MenuParams) {
               setMenuParams((prev) => ({
                 ...prev,
                 maxTokens: Math.max(10, prev.maxTokens - 10),
+              }));
+            } else if (param === "generationCount") {
+              setMenuParams((prev) => ({
+                ...prev,
+                generationCount: Math.max(1, prev.generationCount - 1),
               }));
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
@@ -64,9 +87,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
               }
             }
             break;
-          }
           case "ArrowRight": {
-            const param = ["temperature", "maxTokens", "model"][selectedParam];
+            const param = ["temperature", "maxTokens", "model", "generationCount"][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -76,6 +98,11 @@ export function useMenuSystem(defaultParams: MenuParams) {
               setMenuParams((prev) => ({
                 ...prev,
                 maxTokens: Math.min(500, prev.maxTokens + 10),
+              }));
+            } else if (param === "generationCount") {
+              setMenuParams((prev) => ({
+                ...prev,
+                generationCount: Math.min(10, prev.generationCount + 1),
               }));
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
@@ -94,6 +121,36 @@ export function useMenuSystem(defaultParams: MenuParams) {
             }
             break;
           }
+        }
+      } else if (activeMenu === "models") {
+        const modelEntries = models ? Object.entries(models) : [];
+        const totalItems = modelEntries.length + 1; // +1 for "Add New Model"
+
+        switch (key) {
+          case "ArrowUp":
+            setSelectedModelIndex((prev) => Math.max(0, prev - 1));
+            break;
+          case "ArrowDown":
+            setSelectedModelIndex((prev) => Math.min(totalItems - 1, prev + 1));
+            break;
+          case "Enter":
+            // Handle model selection/editing
+            if (selectedModelIndex === modelEntries.length) {
+              // "Add New Model" selected
+              callbacks.onModelAction?.("add");
+            } else if (selectedModelIndex < modelEntries.length) {
+              // Existing model selected
+              const [modelId] = modelEntries[selectedModelIndex];
+              callbacks.onModelAction?.("edit", modelId);
+            }
+            break;
+          case "Backspace":
+            // Handle model deletion
+            if (selectedModelIndex < modelEntries.length) {
+              const [modelId] = modelEntries[selectedModelIndex];
+              callbacks.onModelAction?.("delete", modelId);
+            }
+            break;
         }
       } else if (activeMenu === "start") {
         const totalItems = Object.keys(trees).length + 1; // +1 for New Story
@@ -123,11 +180,11 @@ export function useMenuSystem(defaultParams: MenuParams) {
       }
 
       // Global menu controls
-      if (key === "Escape" || key === "Enter") {
+      if (key === "Escape" || key === "m" || key === "M") {
         setActiveMenu(null);
       }
     },
-    [activeMenu, selectedParam, selectedTreeIndex, menuParams, models]
+    [activeMenu, selectedParam, selectedTreeIndex, selectedModelIndex, menuParams, models]
   );
 
   return {
@@ -137,6 +194,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
     setSelectedParam,
     selectedTreeIndex,
     setSelectedTreeIndex,
+    selectedModelIndex,
+    setSelectedModelIndex,
     menuParams,
     setMenuParams,
     handleMenuNavigation,

@@ -5,6 +5,15 @@ export interface StoryNode {
   text: string;
   continuations?: StoryNode[];
   lastSelectedIndex?: number;
+  generatedByModel?: ModelId;
+  generationMetadata?: {
+    model: ModelId;
+    temperature: number;
+    maxTokens: number;
+    timestamp: number;
+    depth: number;
+  };
+  isEdited?: boolean;
 }
 
 export interface MenuScreenProps {
@@ -37,10 +46,14 @@ export interface SettingsMenuProps {
     temperature: number;
     maxTokens: number;
     model: ModelId;
+    generationCount: number;
   };
   onParamChange: (param: string, value: number | string) => void;
   selectedParam: number;
   isLoading?: boolean;
+  onManageModels?: () => void;
+  onExportData?: () => void;
+  onImportData?: () => void;
 }
 
 export interface TreeListProps {
@@ -83,6 +96,8 @@ export interface ActiveControls {
   b: boolean;
   select: boolean;
   start: boolean;
+  l: boolean;
+  r: boolean;
 }
 
-export type MenuType = "select" | "start" | "edit" | null;
+export type MenuType = "select" | "start" | "edit" | "models" | null;
