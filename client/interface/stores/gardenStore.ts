@@ -384,56 +384,42 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
 
   orbitCamera: (deltaX: number, deltaY: number) => {
     set(state => {
-      const { camera, invertedControls } = state;
-      const sensitivity = 0.01;
-      const multiplier = invertedControls ? -1 : 1;
-      
+      const sensitivity = 0.005;
+      const multiplier = state.invertedControls ? -1 : 1;
+      const newRotation = {
+        x: state.camera.rotation.x + deltaY * sensitivity * multiplier,
+        y: state.camera.rotation.y + deltaX * sensitivity * multiplier,
+        z: state.camera.rotation.z
+      };
       return {
-        camera: {
-          ...camera,
-          rotation: {
-            x: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x + deltaY * sensitivity * multiplier)),
-            y: camera.rotation.y + deltaX * sensitivity * multiplier,
-            z: camera.rotation.z
-          }
-        }
+        camera: { ...state.camera, rotation: newRotation }
       };
     });
   },
 
   panCamera: (deltaX: number, deltaY: number) => {
     set(state => {
-      const { camera } = state;
-      const sensitivity = 2;
-      
-      // Calculate pan direction based on camera rotation
-      const panX = -deltaX * sensitivity * Math.cos(camera.rotation.y) - deltaY * sensitivity * Math.sin(camera.rotation.y);
-      const panZ = deltaX * sensitivity * Math.sin(camera.rotation.y) - deltaY * sensitivity * Math.cos(camera.rotation.y);
-      
+      const sensitivity = 1;
+      const multiplier = state.invertedControls ? -1 : 1;
+      const newPosition = {
+        x: state.camera.position.x + deltaX * sensitivity * multiplier,
+        y: state.camera.position.y - deltaY * sensitivity * multiplier,
+        z: state.camera.position.z
+      };
       return {
-        camera: {
-          ...camera,
-          position: {
-            x: camera.position.x + panX,
-            y: camera.position.y,
-            z: camera.position.z + panZ
-          }
-        }
+        camera: { ...state.camera, position: newPosition }
       };
     });
   },
 
   zoomCamera: (delta: number) => {
     set(state => {
-      const { camera } = state;
-      const zoomSpeed = 0.1;
-      const newZoom = Math.max(0.1, Math.min(10, camera.zoom + delta * zoomSpeed));
-      
+      const sensitivity = 0.005; // Reduced for smoother zoom
+      const multiplier = state.invertedControls ? -1 : 1;
+      const zoomChange = Math.max(-0.2, Math.min(0.2, delta * sensitivity * multiplier)); // Clamp per event
+      const newZoom = Math.max(0.1, state.camera.zoom + zoomChange);
       return {
-        camera: {
-          ...camera,
-          zoom: newZoom
-        }
+        camera: { ...state.camera, zoom: newZoom }
       };
     });
   },

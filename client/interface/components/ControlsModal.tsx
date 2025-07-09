@@ -64,6 +64,26 @@ const CONTROL_MAPPINGS: ControlMapping[] = [
     button: "R Shoulder",
     keys: ["E", "R", "P"],
     description: "Switch to next story"
+  },
+  {
+    button: "Mouse Drag",
+    keys: ["Left Click + Drag"],
+    description: "Orbit camera around 3D scene"
+  },
+  {
+    button: "Mouse Drag + Shift",
+    keys: ["Shift + Left Click + Drag"],
+    description: "Pan camera across 3D scene"
+  },
+  {
+    button: "Mouse Wheel",
+    keys: ["Scroll Wheel"],
+    description: "Zoom camera in/out"
+  },
+  {
+    button: "Mouse Click",
+    keys: ["Left Click"],
+    description: "Select story nodes in 3D scene"
   }
 ];
 

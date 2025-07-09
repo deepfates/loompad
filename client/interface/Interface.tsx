@@ -50,7 +50,7 @@ const GamepadInterface = () => {
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
   
   // Garden store integration
-  const { syncWithStoryTrees, setGenerating } = useGardenStore();
+  const { syncWithStoryTrees, setGenerating, selectedNode } = useGardenStore();
   
   const {
     activeMenu,
@@ -156,6 +156,66 @@ const GamepadInterface = () => {
       useGardenStore.getState().selectNode(currentNode.id);
     }
   }, [currentDepth, selectedOptions, getCurrentPath, storyTree.root]);
+
+  // Sync garden store selectedNode back to text interface
+  const lastGardenSelectedNodeId = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedNode && selectedNode.id && selectedNode.id !== lastGardenSelectedNodeId.current) {
+      lastGardenSelectedNodeId.current = selectedNode.id;
+      console.log('🔄 Garden Store -> Text Interface: Node selected in visualizer:', {
+        nodeId: selectedNode.id,
+        nodeText: selectedNode.text?.slice(0, 50),
+        currentTreeKey
+      });
+      
+      // Find the node in the current story tree and navigate to it
+      const findNodeInTree = (node: StoryNode, targetId: string, path: StoryNode[] = []): StoryNode[] | null => {
+        const currentPath = [...path, node];
+        
+        if (node.id === targetId) {
+          return currentPath;
+        }
+        
+        if (node.continuations) {
+          for (const child of node.continuations) {
+            const result = findNodeInTree(child, targetId, currentPath);
+            if (result) return result;
+          }
+        }
+        
+        return null;
+      };
+      
+      const pathToNode = findNodeInTree(storyTree.root, selectedNode.id);
+      if (pathToNode) {
+        // Navigate to the selected node by updating depth and selectedOptions
+        const newDepth = pathToNode.length - 1;
+        const newSelectedOptions: number[] = [];
+        
+        // Calculate selectedOptions based on the path
+        for (let i = 1; i < pathToNode.length; i++) {
+          const parentNode = pathToNode[i - 1];
+          const currentNode = pathToNode[i];
+          
+          if (parentNode.continuations) {
+            const index = parentNode.continuations.findIndex(child => child.id === currentNode.id);
+            if (index !== -1) {
+              newSelectedOptions.push(index);
+            }
+          }
+        }
+        
+        console.log('🔄 Garden Store -> Text Interface: Navigating to node:', {
+          newDepth,
+          newSelectedOptions,
+          pathLength: pathToNode.length
+        });
+        
+        setCurrentDepth(newDepth);
+        setSelectedOptions(newSelectedOptions);
+      }
+    }
+  }, [selectedNode, storyTree.root, setCurrentDepth, setSelectedOptions]);
 
   const handleNewTree = useCallback(() => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;
