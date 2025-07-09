@@ -47,6 +47,7 @@ const EMPTY_STORY = {
 const GamepadInterface = () => {
   const { models, getModelName } = useModels();
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
   
   // Garden store integration
@@ -499,10 +500,10 @@ const GamepadInterface = () => {
   };
 
   return (
-    <main className="terminal" aria-label="Story Interface">
-      <div className="container">
+    <main className={`terminal ${isFullscreen ? 'fullscreen' : ''}`} aria-label="Story Interface">
+      <div className={`container ${isFullscreen ? 'fullscreen' : ''}`}>
         {/* Screen area */}
-        <section className="terminal-screen" aria-label="Story Display">
+        <section className={`terminal-screen ${isFullscreen ? 'fullscreen' : ''}`} aria-label="Story Display">
           {activeMenu === "select" ? (
             <MenuScreen title="Settings" onClose={() => setActiveMenu(null)}>
               <SettingsMenu
@@ -697,6 +698,8 @@ const GamepadInterface = () => {
               selectedOptions={selectedOptions}
               isExpanded={isMetadataExpanded}
               onToggle={() => setIsMetadataExpanded(!isMetadataExpanded)}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
             />
           )}
         </section>

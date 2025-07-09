@@ -349,17 +349,36 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     scene.add(indicator);
     setSelectionIndicator(indicator);
 
-    // Handle window resize
+    // Handle resize (both window and container)
     const handleResize = () => {
       if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
-      cameraRef.current.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+      
+      const container = containerRef.current;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      // Update camera aspect ratio
+      cameraRef.current.aspect = width / height;
       cameraRef.current.updateProjectionMatrix();
-      rendererRef.current.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+      
+      // Update renderer size
+      rendererRef.current.setSize(width, height, false);
+      
+      console.log('GardenVisualizer resized:', { width, height, aspect: width / height });
     };
+    
+    // Listen to window resize
     window.addEventListener('resize', handleResize);
+    
+    // Listen to container size changes (for fullscreen mode)
+    const resizeObserver = new ResizeObserver(handleResize);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (containerRef.current && renderer.domElement) {
         containerRef.current.removeChild(renderer.domElement);
       }

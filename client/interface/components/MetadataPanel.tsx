@@ -8,6 +8,8 @@ interface MetadataPanelProps {
   selectedOptions: number[];
   isExpanded: boolean;
   onToggle: () => void;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
 }
 
 export const MetadataPanel = ({
@@ -17,6 +19,8 @@ export const MetadataPanel = ({
   selectedOptions,
   isExpanded,
   onToggle,
+  isFullscreen,
+  onToggleFullscreen,
 }: MetadataPanelProps) => {
   const { getModelName } = useModels();
 
@@ -54,7 +58,17 @@ export const MetadataPanel = ({
         aria-label={isExpanded ? "Hide metadata" : "Show metadata"}
       >
         <span className="metadata-toggle-icon">
-          ▶
+          {isFullscreen ? '◀' : '▶'}
+        </span>
+      </button>
+      
+      <button 
+        className="fullscreen-toggle"
+        onClick={onToggleFullscreen}
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      >
+        <span className="fullscreen-toggle-icon">
+          {isFullscreen ? '⤓' : '⤢'}
         </span>
       </button>
       
