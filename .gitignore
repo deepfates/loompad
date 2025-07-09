@@ -24,6 +24,6 @@ dist-ssr
 *.sw?
 
 bun.lockb
-**/credentials/*.json
+**/credentials/api_keys.json
 
 .env
