@@ -361,12 +361,11 @@ body {
 }
 
 .metadata-toggle:hover {
-  background: var(--primary-color);
   transform: translateX(-0.25rem);
 }
 
 .metadata-toggle:active {
-  transform: translateX(-0.125rem);
+  transform: translateX(0.0rem);
 }
 
 .metadata-toggle-icon {
@@ -375,9 +374,10 @@ body {
   transition: transform 0.2s ease;
 }
 
-.metadata-panel.expanded .metadata-toggle-icon {
+/* Remove this rule to prevent triangle icon rotation on info toggle */
+/* .metadata-panel.expanded .metadata-toggle-icon {
   transform: rotate(180deg);
-}
+} */
 
 .fullscreen-toggle {
   width: 2rem;
@@ -385,8 +385,6 @@ body {
   background: var(--background-color);
   border: 0.125rem solid var(--font-color);
   border-radius: 0 0.5rem 0.5rem 0;
-  border-left: none;
-  border-top: none;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -400,13 +398,16 @@ body {
   margin-top: 0.125rem;
 }
 
+.metadata-panel.expanded .fullscreen-toggle {
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
 .fullscreen-toggle:hover {
-  background: var(--primary-color);
   transform: translateX(-0.25rem);
 }
 
 .fullscreen-toggle:active {
-  transform: translateX(-0.125rem);
+  transform: translateX(0.0rem);
 }
 
 .fullscreen-toggle-icon {
@@ -417,17 +418,16 @@ body {
 .metadata-content-wrapper {
   position: absolute;
   top: 0;
-  right: 2rem;
+  right: 2.5rem;
   width: 16rem;
   background: var(--background-color);
   border: 0.125rem solid var(--font-color);
-  border-right: none;
   border-radius: 0.5rem 0 0 0.5rem;
   padding: 1rem;
   font-size: 0.75rem;
   max-height: calc(100vh - 8rem);
   overflow-y: auto;
-  box-shadow: -0.25rem 0 0.5rem rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 1.5rem rgba(0,0,0,0.5);
 }
 
 .metadata-header {
@@ -503,7 +503,7 @@ body {
   }
 
   .metadata-panel.expanded .metadata-toggle:hover {
-    transform: scale(1.1);
+    transform: scale(1.0);
   }
 
   .metadata-toggle-icon {
@@ -541,7 +541,7 @@ body {
   }
 
   .metadata-panel.expanded .fullscreen-toggle:hover {
-    transform: scale(1.1);
+    transform: scale(1.0);
   }
 
   .metadata-panel.expanded {
@@ -597,6 +597,10 @@ body {
     font-size: 1rem;
     font-weight: bold;
   }
+}
+
+.metadata-panel.expanded .metadata-content-wrapper {
+  border-radius: 0.5rem;
 }
 
 /* Shoulder buttons row */

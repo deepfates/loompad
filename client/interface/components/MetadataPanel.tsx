@@ -54,8 +54,8 @@ export const MetadataPanel = ({
     <div className={`metadata-panel ${isExpanded ? 'expanded' : 'collapsed'}`}>
       <button 
         className="metadata-toggle"
-        onClick={onToggle}
-        aria-label={isExpanded ? "Hide metadata" : "Show metadata"}
+        onClick={onToggleFullscreen}
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
       >
         <span className="metadata-toggle-icon">
           {isFullscreen ? '◀' : '▶'}
@@ -64,11 +64,11 @@ export const MetadataPanel = ({
       
       <button 
         className="fullscreen-toggle"
-        onClick={onToggleFullscreen}
-        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        onClick={onToggle}
+        aria-label={isExpanded ? "Hide segment info" : "Show segment info"}
       >
         <span className="fullscreen-toggle-icon">
-          {isFullscreen ? '⤓' : '⤢'}
+          ℹ
         </span>
       </button>
       
