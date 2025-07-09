@@ -12,6 +12,7 @@ import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { MetadataPanel } from "./components/MetadataPanel";
+import TreeVisualizerThree from "./components/TreeVisualizerThree";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
@@ -481,20 +482,28 @@ const GamepadInterface = () => {
             </MenuScreen>
           ) : (
             <>
-              {renderStoryText()}
-              <NavigationDots
-                options={getOptionsAtDepth(currentDepth)}
+              <div className="story-content">
+                {renderStoryText()}
+                <NavigationDots
+                  options={getOptionsAtDepth(currentDepth)}
+                  currentDepth={currentDepth}
+                  selectedOptions={selectedOptions}
+                  activeControls={activeControls}
+                  generatingAt={generatingAt}
+                  generationCount={menuParams.generationCount}
+                />
+                {error && (
+                  <output className="error-message">
+                    Generation error: {error.message}
+                  </output>
+                )}
+              </div>
+              <TreeVisualizerThree
+                storyTree={storyTree}
                 currentDepth={currentDepth}
                 selectedOptions={selectedOptions}
-                activeControls={activeControls}
-                generatingAt={generatingAt}
-                generationCount={menuParams.generationCount}
+                getCurrentPath={getCurrentPath}
               />
-              {error && (
-                <output className="error-message">
-                  Generation error: {error.message}
-                </output>
-              )}
             </>
           )}
 

@@ -20,7 +20,7 @@ body {
 .terminal {
   --button-size: 3rem;
   --controls-height: 12.75rem;
-  --max-width: 48rem;
+  --max-width: 75rem;
   height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -47,9 +47,77 @@ body {
   margin-top: 1.25rem;
   background: var(--background-color);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   overflow: hidden;
   position: relative;
+  gap: 1rem;
+}
+
+.story-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tree-visualizer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 0.0625rem solid var(--secondary-color);
+  padding-left: 1rem;
+}
+
+.tree-header {
+  font-size: 0.75rem;
+  color: var(--secondary-color);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tree-display {
+  flex: 1;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: pre;
+  scrollbar-width: thin;
+  scrollbar-color: var(--secondary-color) transparent;
+}
+
+.tree-display::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tree-display::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tree-display::-webkit-scrollbar-thumb {
+  background-color: var(--secondary-color);
+  border-radius: 2px;
+}
+
+.tree-node {
+  color: var(--font-color);
+}
+
+.tree-node.current {
+  color: var(--primary-color);
+  font-weight: bold;
+}
+
+.tree-node.in-path {
+  color: var(--primary-color);
+  opacity: 0.7;
+}
+
+.tree-node.selected {
+  background: var(--primary-color);
+  color: var(--background-color);
 }
 
 .story-text {
@@ -122,6 +190,10 @@ body {
 
 /* Game Boy layout container */
 .terminal-controls {
+  max-width: 80%;
+  width: 100%;
+  
+  margin: 0 auto;
   min-height: var(--controls-height);
   display: grid;
   grid-template-columns: 1fr;
