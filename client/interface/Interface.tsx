@@ -1,6 +1,11 @@
 import { useCallback, useRef, useEffect, useState } from "react";
 import "./terminal-custom.css";
 
+// Helper function to generate unique node IDs (same as in useStoryTree)
+const generateNodeId = (prefix: string = 'node') => {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
 import { useStoryTree } from "./hooks/useStoryTree";
@@ -101,7 +106,56 @@ const GamepadInterface = () => {
     setGenerating(isGenerating);
   }, [isGenerating, setGenerating]);
 
+  // Sync story switching with garden store
+  useEffect(() => {
+    if (currentTreeKey && trees[currentTreeKey]) {
+      // When story is switched, update the garden store
+      const currentStoryTree = trees[currentTreeKey];
+      if (currentStoryTree && currentStoryTree.root) {
+        console.log('🔄 Story switched, updating garden store:', {
+          storyKey: currentTreeKey,
+          rootNodeId: currentStoryTree.root.id,
+          rootText: currentStoryTree.root.text.slice(0, 50)
+        });
+        
+        // Sync the story trees to update garden store
+        syncWithStoryTrees(trees);
+        
+        // Find and select the corresponding garden tree
+        const gardenStore = useGardenStore.getState();
+        const gardenTree = gardenStore.trees.find(t => t.name === currentTreeKey);
+        if (gardenTree) {
+          gardenStore.selectTree(gardenTree.id);
+          gardenStore.selectNode(currentStoryTree.root.id);
+        }
+      }
+    }
+  }, [currentTreeKey, trees, syncWithStoryTrees]);
+
   const storyTextRef = useRef<HTMLDivElement>(null);
+
+  const getCurrentNode = useCallback(() => {
+    const path = getCurrentPath();
+    return path[currentDepth] || storyTree.root;
+  }, [getCurrentPath, currentDepth]);
+
+  // Sync selected node with garden store
+  const lastSelectedNodeId = useRef<string | null>(null);
+  useEffect(() => {
+    const path = getCurrentPath();
+    const currentNode = path[currentDepth] || storyTree.root;
+    if (currentNode && currentNode.id && currentNode.id !== lastSelectedNodeId.current) {
+      lastSelectedNodeId.current = currentNode.id;
+      console.log('🔄 Text Interface -> Garden Store: Selecting node:', {
+        nodeId: currentNode.id,
+        nodeText: currentNode.text.slice(0, 50),
+        currentDepth,
+        selectedOptions,
+        pathLength: path.length
+      });
+      useGardenStore.getState().selectNode(currentNode.id);
+    }
+  }, [currentDepth, selectedOptions, getCurrentPath, storyTree.root]);
 
   const handleNewTree = useCallback(() => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;
@@ -328,11 +382,6 @@ const GamepadInterface = () => {
     );
   };
 
-  const getCurrentNode = () => {
-    const path = getCurrentPath();
-    return path[currentDepth] || storyTree.root;
-  };
-
   return (
     <main className="terminal" aria-label="Story Interface">
       <div className="container">
@@ -440,7 +489,7 @@ const GamepadInterface = () => {
                   if (hasExistingChildren && current.text !== text) {
                     // Create a new sibling node with the edited text
                     const newSibling: StoryNode = {
-                      id: Math.random().toString(36).substring(2),
+                      id: generateNodeId('node'),
                       text: text,
                       continuations: [],
                       // Mark as edited if the original was generated content
@@ -451,7 +500,7 @@ const GamepadInterface = () => {
                       // Root node: create a branching structure with original and edited versions
                       const originalRoot = { ...current };
                       const newRoot = {
-                        id: Math.random().toString(36).substring(2),
+                        id: generateNodeId('root'),
                         text: text,
                         continuations: [],
                         // Mark as edited if the original was generated content
@@ -545,7 +594,7 @@ const GamepadInterface = () => {
               onMouseUp={() => handleControlRelease("q")}
             />
             <div className="model-display">
-              {getModelName(menuParams.model)}
+              {currentTreeKey || "No Story"}
             </div>
             <ShoulderButton
               label="R"

@@ -602,6 +602,16 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true
     }
   }, [threeNodes, selectedNode, pathData, isGenerating]);
 
+  // Log selected node changes in visualizer
+  useEffect(() => {
+    console.log('👁️ Garden Visualizer: Selected node changed:', {
+      selectedNodeId: selectedNode?.id,
+      selectedNodeText: selectedNode?.text?.slice(0, 50),
+      pathLength: pathData.pathFromRoot.length,
+      pathNodeIds: pathData.pathFromRoot.map(n => n.id)
+    });
+  }, [selectedNode, pathData]);
+
   // Main animation loop - always running
   useEffect(() => {
     if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
@@ -660,6 +670,40 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true
   const handleMouseMove = (e: React.MouseEvent) => {
     e.preventDefault();
     
+    // Update selection indicator position
+    if (containerRef.current && selectionIndicator && cameraRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const mouse = new THREE.Vector2();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // Use raycaster to find the correct world position at the same Z plane as the text meshes
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, cameraRef.current);
+      
+      // Find the average Z position of text meshes to position indicator correctly
+      let averageZ = 0;
+      if (threeNodes.length > 0) {
+        averageZ = threeNodes.reduce((sum, node) => sum + node.mesh.position.z, 0) / threeNodes.length;
+      }
+      
+      // Calculate where the ray intersects the plane at the text mesh Z level
+      const t = (averageZ - raycaster.ray.origin.z) / raycaster.ray.direction.z;
+      const worldPos = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(t));
+      
+      selectionIndicator.position.copy(worldPos);
+      selectionIndicator.lookAt(cameraRef.current.position);
+      
+      // Scale based on click threshold and distance to camera
+      const clickThreshold = 0.2; // Match the threshold from handleClick
+      const distance = cameraRef.current.position.distanceTo(worldPos);
+      const scale = clickThreshold * distance * 0.02; // Adjust scaling factor
+      selectionIndicator.scale.set(scale, scale, scale);
+      
+      selectionIndicator.visible = true;
+      setShowCustomCursor(true);
+    }
+    
     if (isMouseDown) {
       setIsDragging(true);
     }
@@ -682,6 +726,16 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true
     setIsMouseDown(false);
     // Small delay to prevent click from firing immediately after drag
     setTimeout(() => setIsDragging(false), 10);
+  };
+
+  const handleMouseLeave = () => {
+    setIsMouseDown(false);
+    setIsDragging(false);
+    // Hide selection indicator when mouse leaves canvas
+    if (selectionIndicator) {
+      selectionIndicator.visible = false;
+    }
+    setShowCustomCursor(false);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -751,12 +805,13 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true
       style={{ 
         width: '100%', 
         height: '100%',
-        cursor: isDragging ? 'grabbing' : 'grab'
+        cursor: showCustomCursor ? 'none' : (isDragging ? 'grabbing' : 'grab'),
+        overflow: 'hidden'
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       onWheel={handleWheel}
       onClick={handleClick}
     />

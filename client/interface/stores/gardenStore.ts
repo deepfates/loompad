@@ -292,8 +292,14 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
 
   // Node management
   selectNode: (nodeId: string) => {
-    const { selectedTree } = get();
+    const { selectedTree, selectedNode } = get();
     if (!selectedTree) return;
+    
+    console.log('🎯 Garden Store: selectNode called with:', {
+      nodeId,
+      currentSelectedNodeId: selectedNode?.id,
+      treeName: selectedTree.name
+    });
     
     // Find the node in the tree
     const findNode = (node: StoryNode): StoryNode | null => {
@@ -309,7 +315,18 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
     
     const foundNode = findNode(selectedTree.root);
     if (foundNode) {
+      console.log('✅ Garden Store: Node found and selected:', {
+        nodeId: foundNode.id,
+        nodeText: foundNode.text.slice(0, 50),
+        treeName: selectedTree.name
+      });
       set({ selectedNode: foundNode });
+    } else {
+      console.warn('❌ Garden Store: Node not found:', {
+        nodeId,
+        treeName: selectedTree.name,
+        availableNodes: selectedTree.root.id
+      });
     }
   },
 
@@ -463,6 +480,12 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
     const { trees } = get();
     const storyTreeKeys = Object.keys(storyTrees);
     
+    console.log('🌳 Garden Store: Syncing with story trees:', {
+      storyTreeKeys,
+      currentGardenTrees: trees.map(t => t.name),
+      currentSelectedTree: trees.find(t => t.id === get().selectedTree?.id)?.name
+    });
+    
     // Remove garden trees that no longer exist in story trees
     const validTrees = trees.filter(tree => 
       storyTreeKeys.some(key => key === tree.name)
@@ -485,6 +508,11 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
         };
         newGardenTrees.push(updatedTree);
       }
+    });
+    
+    console.log('🌳 Garden Store: Sync complete:', {
+      newGardenTrees: newGardenTrees.map(t => t.name),
+      selectedTreeAfterSync: newGardenTrees.length > 0 ? newGardenTrees[0].name : null
     });
     
     set({

@@ -58,12 +58,12 @@ const CONTROL_MAPPINGS: ControlMapping[] = [
   {
     button: "L Shoulder",
     keys: ["Q"],
-    description: "Switch to previous model"
+    description: "Switch to previous story"
   },
   {
     button: "R Shoulder",
     keys: ["E", "R", "P"],
-    description: "Switch to next model"
+    description: "Switch to next story"
   }
 ];
 
@@ -108,7 +108,7 @@ export const ControlsModal = ({ isOpen, onClose }: ControlsModalProps) => {
                   onMouseDown={() => {}}
                   onMouseUp={() => {}}
                 />
-                <div className="model-display">MODEL</div>
+                <div className="model-display">STORY</div>
                 <ShoulderButton
                   label="R"
                   active={false}

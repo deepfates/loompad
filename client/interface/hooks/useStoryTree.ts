@@ -4,9 +4,14 @@ import { useStoryGeneration } from "./useStoryGeneration";
 import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../server/apis/generation";
 
+// Helper function to generate unique node IDs
+const generateNodeId = (prefix: string = 'node') => {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
 const INITIAL_STORY = {
   root: {
-    id: "root",
+    id: generateNodeId('root'),
     text: "Once upon a time...",
     continuations: [],
   },
@@ -31,6 +36,39 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
   const [storyTree, setStoryTree] = useState<{ root: StoryNode }>(
     () => trees[currentTreeKey]
   );
+
+  // Migration effect to update old "root" IDs to proper IDs
+  useEffect(() => {
+    let hasChanges = false;
+    const migratedTrees = { ...trees };
+
+    Object.keys(migratedTrees).forEach(treeKey => {
+      const tree = migratedTrees[treeKey];
+      if (tree.root.id === "root") {
+        console.log("🔄 Migrating old story with 'root' ID:", treeKey);
+        tree.root.id = generateNodeId('root');
+        hasChanges = true;
+      }
+      
+      // Also migrate any continuations that might have simple IDs
+      const migrateNode = (node: StoryNode) => {
+        if (node.id && node.id.length < 10) {
+          // Simple ID detected, migrate it
+          node.id = generateNodeId('node');
+        }
+        if (node.continuations) {
+          node.continuations.forEach(migrateNode);
+        }
+      };
+      
+      migrateNode(tree.root);
+    });
+
+    if (hasChanges) {
+      console.log("🔄 Migration completed, updating localStorage");
+      setTrees(migratedTrees);
+    }
+  }, [trees, setTrees]);
   const [currentDepth, setCurrentDepth] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
   const [generatingAt, setGeneratingAt] = useState<GeneratingState | null>(
@@ -140,7 +178,7 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
           .map(async () => {
             const result = await generateContinuation(currentPath, currentDepth, params);
             return {
-              id: Math.random().toString(36).substring(2),
+              id: generateNodeId('node'),
               text: result.text,
               continuations: [],
               generatedByModel: result.generatedByModel,
@@ -237,13 +275,29 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
     async (key: string, availableModels: string[] = []) => {
       if (isGenerating) return;
 
-      // Handle model switching with L/R buttons
+      // Handle story switching with L/R buttons
       if (key === "q" || key === "Q") {
-        handleModelSwitch(availableModels, "left");
+        // Cycle to previous story
+        const treeKeys = Object.keys(trees);
+        if (treeKeys.length > 1) {
+          const currentIndex = treeKeys.indexOf(currentTreeKey);
+          const newIndex = currentIndex > 0 ? currentIndex - 1 : treeKeys.length - 1;
+          const newTreeKey = treeKeys[newIndex];
+          setCurrentTreeKey(newTreeKey);
+          console.log('🔄 Switched to previous story:', newTreeKey);
+        }
         return;
       }
       if (key === "e" || key === "E" || key === "r" || key === "R" || key === "p" || key === "P") {
-        handleModelSwitch(availableModels, "right");
+        // Cycle to next story
+        const treeKeys = Object.keys(trees);
+        if (treeKeys.length > 1) {
+          const currentIndex = treeKeys.indexOf(currentTreeKey);
+          const newIndex = currentIndex < treeKeys.length - 1 ? currentIndex + 1 : 0;
+          const newTreeKey = treeKeys[newIndex];
+          setCurrentTreeKey(newTreeKey);
+          console.log('🔄 Switched to next story:', newTreeKey);
+        }
         return;
       }
 
@@ -399,7 +453,8 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
       setTrees,
       getLastSelectedIndex,
       updateLastSelectedIndex,
-      handleModelSwitch,
+      trees,
+      setCurrentTreeKey,
     ]
   );
 
