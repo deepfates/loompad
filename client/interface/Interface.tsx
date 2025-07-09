@@ -50,7 +50,7 @@ const GamepadInterface = () => {
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
   
   // Garden store integration
-  const { syncWithStoryTrees, setGenerating, selectedNode } = useGardenStore();
+  const { syncWithStoryTrees, setGenerating, selectedNode, getPathFromRoot } = useGardenStore();
   
   const {
     activeMenu,
@@ -135,9 +135,26 @@ const GamepadInterface = () => {
   const storyTextRef = useRef<HTMLDivElement>(null);
 
   const getCurrentNode = useCallback(() => {
+    // If there's a selected node from the garden store, use that
+    // Otherwise, fall back to the text interface's current node
+    if (selectedNode && selectedNode.id) {
+      return selectedNode;
+    }
+    
     const path = getCurrentPath();
     return path[currentDepth] || storyTree.root;
-  }, [getCurrentPath, currentDepth]);
+  }, [getCurrentPath, currentDepth, selectedNode]);
+
+  const getCurrentNodeDepth = useCallback(() => {
+    // If there's a selected node from the garden store, calculate its depth
+    if (selectedNode && selectedNode.id) {
+      const path = getPathFromRoot(selectedNode.id);
+      return path.length - 1; // Depth is 0-based
+    }
+    
+    // Otherwise, use the text interface's current depth
+    return currentDepth;
+  }, [selectedNode, getPathFromRoot, currentDepth]);
 
   // Sync selected node with garden store
   const lastSelectedNodeId = useRef<string | null>(null);
@@ -675,7 +692,7 @@ const GamepadInterface = () => {
           {!activeMenu && (
             <MetadataPanel
               currentNode={getCurrentNode()}
-              currentDepth={currentDepth}
+              currentDepth={getCurrentNodeDepth()}
               totalDepth={getCurrentPath().length}
               selectedOptions={selectedOptions}
               isExpanded={isMetadataExpanded}

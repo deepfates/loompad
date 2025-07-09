@@ -39,6 +39,11 @@ export const MetadataPanel = ({
     return "Generated";
   };
 
+  // Add node ID for debugging
+  const getNodeId = () => {
+    return currentNode.id || "Unknown";
+  };
+
   const metadata = currentNode.generationMetadata;
 
   return (
@@ -73,6 +78,11 @@ export const MetadataPanel = ({
             <div className="metadata-row">
               <span className="metadata-label">Path:</span>
               <span className="metadata-value">{formatDepthPath()}</span>
+            </div>
+            
+            <div className="metadata-row">
+              <span className="metadata-label">Node ID:</span>
+              <span className="metadata-value">{getNodeId()}</span>
             </div>
             
             {currentNode.generatedByModel && (
