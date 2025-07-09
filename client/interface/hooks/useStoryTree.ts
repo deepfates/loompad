@@ -302,7 +302,6 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
       }
 
       const currentPath = getCurrentPath();
-      const options = getOptionsAtDepth(currentDepth);
       const currentOption = selectedOptions[currentDepth] ?? 0;
 
       switch (key) {
@@ -342,33 +341,49 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
           }
           break;
         case "ArrowLeft":
-          if (options.length > 1 && currentOption > 0) {
-            setSelectedOptions((prev) => {
-              const newOptions = [...prev];
-              newOptions[currentDepth] = currentOption - 1;
-              return newOptions.slice(0, currentDepth + 1);
-            });
-            // Update lastSelectedIndex when switching continuations
-            updateLastSelectedIndex(
-              currentPath,
-              currentDepth,
-              currentOption - 1
-            );
-          }
-          break;
         case "ArrowRight":
-          if (options.length > 1 && currentOption < options.length - 1) {
+          // Get the current node's siblings using the same method as NavigationDots
+          const siblings = getOptionsAtDepth(currentDepth);
+          
+          console.log('Left/Right navigation debug:', {
+            currentDepth,
+            currentOption,
+            siblingsCount: siblings.length,
+            siblings: siblings.map(s => ({ id: s.id, text: s.text.slice(0, 20) })),
+            currentPath: currentPath.map(n => ({ id: n.id, text: n.text.slice(0, 20) })),
+            selectedOptions
+          });
+          
+          const direction = key === "ArrowLeft" ? -1 : 1;
+          const newOption = currentOption + direction;
+          
+          console.log('Boundary check:', {
+            siblingsLength: siblings.length,
+            currentOption,
+            newOption,
+            direction,
+            leftBoundary: newOption >= 0,
+            rightBoundary: newOption < siblings.length,
+            willNavigate: siblings.length > 1 && newOption >= 0 && newOption < siblings.length
+          });
+          
+          // Check both left and right boundaries
+          if (siblings.length > 1 && newOption >= 0 && newOption < siblings.length) {
+            console.log('Navigating to sibling:', { from: currentOption, to: newOption, direction });
             setSelectedOptions((prev) => {
               const newOptions = [...prev];
-              newOptions[currentDepth] = currentOption + 1;
+              newOptions[currentDepth] = newOption;
               return newOptions.slice(0, currentDepth + 1);
             });
-            // Update lastSelectedIndex when switching continuations
-            updateLastSelectedIndex(
-              currentPath,
-              currentDepth,
-              currentOption + 1
-            );
+            // Note: We don't need to update lastSelectedIndex for sibling navigation
+            // as we're just changing which sibling is selected at the current depth
+          } else {
+            console.log('Cannot navigate - invalid bounds:', { 
+              siblingsLength: siblings.length, 
+              newOption, 
+              currentOption,
+              direction 
+            });
           }
           break;
         case "Enter": {
