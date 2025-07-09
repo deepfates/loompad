@@ -292,40 +292,63 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
 
   // Node management
   selectNode: (nodeId: string) => {
-    const { selectedTree, selectedNode } = get();
-    if (!selectedTree) return;
+    const { trees, selectedTree, selectedNode } = get();
+    if (!trees.length) return;
     
     console.log('🎯 Garden Store: selectNode called with:', {
       nodeId,
       currentSelectedNodeId: selectedNode?.id,
-      treeName: selectedTree.name
+      currentTreeName: selectedTree?.name,
+      availableTrees: trees.map(t => t.name)
     });
     
-    // Find the node in the tree
-    const findNode = (node: StoryNode): StoryNode | null => {
+    // Search through all trees to find the node
+    let foundNode: StoryNode | null = null;
+    let foundTree: GardenTree | null = null;
+    
+    const findNodeInTree = (node: StoryNode, tree: GardenTree): StoryNode | null => {
       if (node.id === nodeId) return node;
       if (node.continuations) {
         for (const child of node.continuations) {
-          const found = findNode(child);
+          const found = findNodeInTree(child, tree);
           if (found) return found;
         }
       }
       return null;
     };
     
-    const foundNode = findNode(selectedTree.root);
-    if (foundNode) {
+    // Search through all trees
+    for (const tree of trees) {
+      const node = findNodeInTree(tree.root, tree);
+      if (node) {
+        foundNode = node;
+        foundTree = tree;
+        break;
+      }
+    }
+    
+    if (foundNode && foundTree) {
+      const wasInDifferentTree = foundTree.id !== selectedTree?.id;
       console.log('✅ Garden Store: Node found and selected:', {
         nodeId: foundNode.id,
         nodeText: foundNode.text.slice(0, 50),
-        treeName: selectedTree.name
+        treeName: foundTree.name,
+        wasInDifferentTree
       });
-      set({ selectedNode: foundNode });
+      
+      // If the node is in a different tree, switch to that tree
+      if (wasInDifferentTree) {
+        set({ 
+          selectedTree: foundTree,
+          selectedNode: foundNode 
+        });
+      } else {
+        set({ selectedNode: foundNode });
+      }
     } else {
-      console.warn('❌ Garden Store: Node not found:', {
+      console.warn('❌ Garden Store: Node not found in any tree:', {
         nodeId,
-        treeName: selectedTree.name,
-        availableNodes: selectedTree.root.id
+        availableTrees: trees.map(t => t.name)
       });
     }
   },
@@ -437,9 +460,10 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
 
   // Path calculation
   getPathFromRoot: (nodeId: string) => {
-    const { selectedTree } = get();
+    const { trees, selectedTree } = get();
     if (!selectedTree) return [];
     
+    // First try to find the path in the currently selected tree
     const findPath = (node: StoryNode, targetId: string, path: StoryNode[] = []): StoryNode[] | null => {
       const currentPath = [...path, node];
       
@@ -457,7 +481,18 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
       return null;
     };
     
-    const path = findPath(selectedTree.root, nodeId);
+    let path = findPath(selectedTree.root, nodeId);
+    
+    // If not found in selected tree, search through all trees
+    if (!path) {
+      for (const tree of trees) {
+        if (tree.id !== selectedTree.id) {
+          path = findPath(tree.root, nodeId);
+          if (path) break;
+        }
+      }
+    }
+    
     return path || [];
   },
 

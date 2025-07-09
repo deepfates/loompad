@@ -168,7 +168,7 @@ const GamepadInterface = () => {
         currentTreeKey
       });
       
-      // Find the node in the current story tree and navigate to it
+      // Find the node in all story trees and navigate to it
       const findNodeInTree = (node: StoryNode, targetId: string, path: StoryNode[] = []): StoryNode[] | null => {
         const currentPath = [...path, node];
         
@@ -186,8 +186,35 @@ const GamepadInterface = () => {
         return null;
       };
       
-      const pathToNode = findNodeInTree(storyTree.root, selectedNode.id);
+      // First try to find the node in the current story tree
+      let pathToNode = findNodeInTree(storyTree.root, selectedNode.id);
+      let targetTreeKey = currentTreeKey;
+      
+      // If not found in current story, search through all stories
+      if (!pathToNode) {
+        for (const [treeKey, treeData] of Object.entries(trees)) {
+          if (treeKey !== currentTreeKey) {
+            pathToNode = findNodeInTree(treeData.root, selectedNode.id);
+            if (pathToNode) {
+              targetTreeKey = treeKey;
+              console.log('🔄 Garden Store -> Text Interface: Node found in different story:', {
+                nodeId: selectedNode.id,
+                targetTreeKey,
+                currentTreeKey
+              });
+              break;
+            }
+          }
+        }
+      }
+      
       if (pathToNode) {
+        // If the node is in a different story, switch to that story first
+        if (targetTreeKey !== currentTreeKey) {
+          console.log('🔄 Garden Store -> Text Interface: Switching to story:', targetTreeKey);
+          setCurrentTreeKey(targetTreeKey);
+        }
+        
         // Navigate to the selected node by updating depth and selectedOptions
         const newDepth = pathToNode.length - 1;
         const newSelectedOptions: number[] = [];
@@ -212,17 +239,6 @@ const GamepadInterface = () => {
           newSelectedOptions.push(0); // Default to first option for missing depths
         }
         
-        console.log('🔄 Garden Store -> Text Interface: Navigating to node:', {
-          newDepth,
-          newSelectedOptions,
-          pathLength: pathToNode.length,
-          arrayLength: newSelectedOptions.length,
-          selectedNodeId: selectedNode.id,
-          selectedNodeText: selectedNode.text?.slice(0, 50),
-          currentSelectedOptions: selectedOptions, // Log current state
-          currentDepth: currentDepth // Log current depth
-        });
-        
         // Update depth and preserve existing selectedOptions for depths up to newDepth
         setCurrentDepth(newDepth);
         
@@ -238,7 +254,7 @@ const GamepadInterface = () => {
         });
       }
     }
-  }, [selectedNode, storyTree.root, setCurrentDepth, setSelectedOptions]);
+  }, [selectedNode, storyTree.root, trees, currentTreeKey, setCurrentDepth, setSelectedOptions, setCurrentTreeKey]);
 
   const handleNewTree = useCallback(() => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;

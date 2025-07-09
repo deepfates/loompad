@@ -21,15 +21,6 @@ export const NavigationDots = ({
 
   // Get which option is currently selected
   const currentIndex = selectedOptions[currentDepth] ?? 0;
-  
-  // Debug logging
-  console.log('🎯 NavigationDots:', {
-    currentDepth,
-    selectedOptions,
-    currentIndex,
-    optionsLength: options.length,
-    optionsIds: options.map(o => o.id)
-  });
 
   // Determine whether we are pushing beyond the left or right edge
   const isEdgePress =
