@@ -192,7 +192,8 @@ const GamepadInterface = () => {
         const newDepth = pathToNode.length - 1;
         const newSelectedOptions: number[] = [];
         
-        // Calculate selectedOptions based on the path
+        // Calculate selectedOptions based on the path TO the selected node
+        // This gives us the path from root to the selected node
         for (let i = 1; i < pathToNode.length; i++) {
           const parentNode = pathToNode[i - 1];
           const currentNode = pathToNode[i];
@@ -205,14 +206,36 @@ const GamepadInterface = () => {
           }
         }
         
+        // Ensure the selectedOptions array has the correct length for the new depth
+        // The array should have values for depths 0 to newDepth-1
+        while (newSelectedOptions.length < newDepth) {
+          newSelectedOptions.push(0); // Default to first option for missing depths
+        }
+        
         console.log('🔄 Garden Store -> Text Interface: Navigating to node:', {
           newDepth,
           newSelectedOptions,
-          pathLength: pathToNode.length
+          pathLength: pathToNode.length,
+          arrayLength: newSelectedOptions.length,
+          selectedNodeId: selectedNode.id,
+          selectedNodeText: selectedNode.text?.slice(0, 50),
+          currentSelectedOptions: selectedOptions, // Log current state
+          currentDepth: currentDepth // Log current depth
         });
         
+        // Update depth and preserve existing selectedOptions for depths up to newDepth
         setCurrentDepth(newDepth);
-        setSelectedOptions(newSelectedOptions);
+        
+        // Preserve existing selectedOptions for depths 0 to newDepth-1
+        // Only update if the newSelectedOptions are different from current
+        setSelectedOptions(prev => {
+          const updated = [...prev];
+          // Update only the depths that are in the path to the selected node
+          for (let i = 0; i < newSelectedOptions.length && i < newDepth; i++) {
+            updated[i] = newSelectedOptions[i];
+          }
+          return updated;
+        });
       }
     }
   }, [selectedNode, storyTree.root, setCurrentDepth, setSelectedOptions]);

@@ -307,7 +307,17 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
 
       switch (key) {
         case "ArrowUp":
-          setCurrentDepth((prev) => Math.max(0, prev - 1));
+          const newDepth = Math.max(0, currentDepth - 1);
+          setCurrentDepth(newDepth);
+          // Ensure selectedOptions array has the correct value for the new depth
+          // If the selectedOptions array doesn't have a value for this depth, use 0 as default
+          if (selectedOptions[newDepth] === undefined) {
+            setSelectedOptions((prev) => {
+              const newOptions = [...prev];
+              newOptions[newDepth] = 0;
+              return newOptions;
+            });
+          }
           break;
         case "ArrowDown":
           if (currentDepth < currentPath.length - 1) {
