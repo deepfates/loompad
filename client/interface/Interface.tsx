@@ -5,6 +5,7 @@ import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
 import { useStoryTree } from "./hooks/useStoryTree";
 import { useModels } from "./hooks/useModels";
+import { useGardenStore } from "./stores/gardenStore";
 
 import { DPad } from "./components/DPad";
 import { GamepadButton, ShoulderButton } from "./components/GamepadButton";
@@ -12,7 +13,7 @@ import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { MetadataPanel } from "./components/MetadataPanel";
-import TreeVisualizerThree from "./components/TreeVisualizerThree";
+import GardenVisualizer from "./components/GardenVisualizer";
 import { ControlsModal } from "./components/ControlsModal";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
@@ -26,7 +27,7 @@ import type { ModelId } from "../../server/apis/generation";
 const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 100,
-  model: "deepseek-v3-base" as ModelId,
+  model: "llama-3.1-405b-base" as ModelId,
   generationCount: 3,
 };
 
@@ -42,6 +43,9 @@ const GamepadInterface = () => {
   const { models, getModelName } = useModels();
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
+  
+  // Garden store integration
+  const { syncWithStoryTrees, setGenerating } = useGardenStore();
   
   const {
     activeMenu,
@@ -86,6 +90,16 @@ const GamepadInterface = () => {
     setSelectedOptions,
     setCurrentDepth,
   } = useStoryTree(menuParams, handleModelChange);
+
+  // Sync garden store with story trees
+  useEffect(() => {
+    syncWithStoryTrees(trees);
+  }, [trees, syncWithStoryTrees]);
+
+  // Sync generation state
+  useEffect(() => {
+    setGenerating(isGenerating);
+  }, [isGenerating, setGenerating]);
 
   const storyTextRef = useRef<HTMLDivElement>(null);
 
@@ -500,11 +514,9 @@ const GamepadInterface = () => {
                   </output>
                 )}
               </div>
-              <TreeVisualizerThree
-                storyTree={storyTree}
-                currentDepth={currentDepth}
-                selectedOptions={selectedOptions}
-                getCurrentPath={getCurrentPath}
+              <GardenVisualizer
+                showMeshGrid={true}
+                showAxis={false}
               />
             </>
           )}

@@ -18,6 +18,7 @@
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
+    "delaunator": "^5.0.1",
     "express": "^4.19.2",
     "mime": "^4.0.1",
     "nocache": "^4.0.0",
@@ -31,7 +32,8 @@
     "terminal.css": "^0.7.5",
     "three": "^0.178.0",
     "wouter": "^3.3.5",
-    "yargs": "^17.7.2"
+    "yargs": "^17.7.2",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
