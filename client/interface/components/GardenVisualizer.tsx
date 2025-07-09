@@ -8,6 +8,8 @@ import type { StoryNode } from '../types';
 interface GardenVisualizerProps {
   showMeshGrid?: boolean;
   showAxis?: boolean;
+  currentDepth?: number;
+  selectedOptions?: number[];
 }
 
 interface ThreeNode {
@@ -18,7 +20,12 @@ interface ThreeNode {
   position: TreePosition;
 }
 
-const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true, showAxis = false }) => {
+const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ 
+  showMeshGrid = true, 
+  showAxis = false,
+  currentDepth = 0,
+  selectedOptions = []
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
@@ -547,10 +554,32 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true
 
     const timeToUse = currentAnimationTime !== undefined ? currentAnimationTime : animationTime;
 
+    // Calculate which node should be preview highlighted (yellow)
+    let previewNodeId: string | null = null;
+    if (selectedTree && currentDepth >= 0 && selectedOptions.length > currentDepth) {
+      const currentPath = getPathFromRoot(selectedNode?.id || '');
+      if (currentPath.length > currentDepth) {
+        const currentNodeAtDepth = currentPath[currentDepth];
+        if (currentNodeAtDepth && currentNodeAtDepth.continuations) {
+          const selectedOptionIndex = selectedOptions[currentDepth];
+          if (selectedOptionIndex >= 0 && selectedOptionIndex < currentNodeAtDepth.continuations.length) {
+            previewNodeId = currentNodeAtDepth.continuations[selectedOptionIndex].id;
+            console.log('🎯 Preview highlighting:', {
+              currentDepth,
+              selectedOptionIndex,
+              previewNodeId,
+              currentNodeAtDepth: currentNodeAtDepth.id,
+              continuationsCount: currentNodeAtDepth.continuations.length
+            });
+          }
+        }
+      }
+    }
+
     threeNodes.forEach(node => {
       const material = (node.mesh as THREE.Mesh).material as THREE.MeshBasicMaterial;
       
-      // Set color based on selection and path
+      // Set color based on selection, path, and preview
       if (selectedNode && selectedNode.id === node.nodeId) {
         if (isGenerating && pathData.pathNodeIds.has(node.nodeId)) {
           // Smooth animated blue for selected node during generation
@@ -564,6 +593,9 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true
         } else {
           material.color.setRGB(0, 1, 0); // Green for selected
         }
+      } else if (previewNodeId && previewNodeId === node.nodeId) {
+        // Yellow for preview selected node (D-pad left/right target)
+        material.color.setRGB(1, 1, 0); // Yellow
       } else if (pathData.pathNodeIds.has(node.nodeId)) {
         const pathIndex = pathData.pathFromRoot.findIndex(n => n.id === node.nodeId);
         const totalPathLength = pathData.pathFromRoot.length;
@@ -600,7 +632,7 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ showMeshGrid = true
     if (!isGenerating) {
       updateNodeColors();
     }
-  }, [threeNodes, selectedNode, pathData, isGenerating]);
+  }, [threeNodes, selectedNode, pathData, isGenerating, currentDepth, selectedOptions]);
 
   // Log selected node changes in visualizer
   useEffect(() => {

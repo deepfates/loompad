@@ -665,6 +665,8 @@ const GamepadInterface = () => {
               <GardenVisualizer
                 showMeshGrid={true}
                 showAxis={false}
+                currentDepth={currentDepth}
+                selectedOptions={selectedOptions}
               />
             </>
           )}
