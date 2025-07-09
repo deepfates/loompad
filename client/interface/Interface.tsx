@@ -13,6 +13,7 @@ import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { MetadataPanel } from "./components/MetadataPanel";
 import TreeVisualizerThree from "./components/TreeVisualizerThree";
+import { ControlsModal } from "./components/ControlsModal";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
@@ -40,6 +41,7 @@ const EMPTY_STORY = {
 const GamepadInterface = () => {
   const { models, getModelName } = useModels();
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
+  const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
   
   const {
     activeMenu,
@@ -549,13 +551,13 @@ const GamepadInterface = () => {
             />
             <div className="terminal-buttons">
               <GamepadButton
-                label="⌫"
+                label="B"
                 active={activeControls.b}
                 onMouseDown={() => handleControlPress("Backspace")}
                 onMouseUp={() => handleControlRelease("Backspace")}
               />
               <GamepadButton
-                label="↵"
+                label="A"
                 active={activeControls.a}
                 onMouseDown={() => handleControlPress("Enter")}
                 onMouseUp={() => handleControlRelease("Enter")}
@@ -576,9 +578,20 @@ const GamepadInterface = () => {
               onMouseDown={() => handleControlPress("Escape")}
               onMouseUp={() => handleControlRelease("Escape")}
             />
+            <MenuButton
+              label="HELP"
+              active={false}
+              onMouseDown={() => setIsControlsModalOpen(true)}
+              onMouseUp={() => {}}
+            />
           </div>
         </div>
       </div>
+      
+      <ControlsModal 
+        isOpen={isControlsModalOpen}
+        onClose={() => setIsControlsModalOpen(false)}
+      />
     </main>
   );
 };

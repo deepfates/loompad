@@ -24,8 +24,6 @@ export default function getCredentials(namespace: String, key: string, defaultVa
         }
         return credentials[key]
     } else {
-        console.warn("** Auto-creating missing credentials file, please edit:", filename);
-        fs.writeFileSync(filename, JSON.stringify({key: ""}, null, 4));
-        return defaultValue;
+        throw new Error(`Credentials file not found: ${filename}. Please create the file with the required credentials.`);
     }
 }
