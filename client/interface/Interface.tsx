@@ -688,7 +688,7 @@ const GamepadInterface = () => {
               {useIsometricVisualizer ? (
                 <IsometricGardenVisualizer
                   width={800}
-                  height={600}
+                  height={640}
                 />
               ) : (
               <GardenVisualizer

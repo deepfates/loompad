@@ -102,8 +102,8 @@ const generateTrees = (gridSize: number, treeDensity: number = 0.02): Tree[] => 
 };
 
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
-  width = 1200, // Increased from 800 to 1200 for larger view
-  height = 800   // Increased from 600 to 800 for larger view
+  width = 800,
+  height = 640
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application>();
@@ -150,13 +150,48 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     if (!containerRef.current) return;
 
     let destroyed = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let isInitialized = false;
+
+    // Handle resize with debouncing
+    let resizeTimeout: NodeJS.Timeout | null = null;
+    let lastWidth = 0;
+    let lastHeight = 0;
+    const handleResize = () => {
+      if (!containerRef.current || !appRef.current) return;
+      
+      // Clear existing timeout
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      
+      // Debounce resize to prevent infinite loops
+      resizeTimeout = setTimeout(() => {
+        const container = containerRef.current;
+        if (!container || !appRef.current || !isInitialized) return;
+        
+        const newWidth = container.clientWidth;
+        const newHeight = container.clientHeight;
+        
+        // Only resize if dimensions actually changed significantly and are valid
+        const widthChanged = Math.abs(newWidth - lastWidth) > 5;
+        const heightChanged = Math.abs(newHeight - lastHeight) > 5;
+        
+        if (newWidth > 0 && newHeight > 0 && !isNaN(newWidth) && !isNaN(newHeight) && (widthChanged || heightChanged)) {
+          appRef.current.renderer.resize(newWidth, newHeight);
+          lastWidth = newWidth;
+          lastHeight = newHeight;
+          console.log('IsometricGardenVisualizer resized:', { width: newWidth, height: newHeight });
+        }
+      }, 100); // 100ms debounce
+    };
 
     const initPixiJS = async () => {
       try {
         const app = new Application();
         await app.init({
-          width,
-          height,
+          width: width,
+          height: height,
           backgroundColor: 0x00000000, // Transparent background
           antialias: true,
           resolution: 1,
@@ -315,6 +350,22 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           tileContainer.x = cameraRef.current.x;
           tileContainer.y = cameraRef.current.y;
         };
+        
+        // Initialize last dimensions
+        lastWidth = width;
+        lastHeight = height;
+        
+        // Mark as initialized before setting up resize handlers
+        isInitialized = true;
+        
+        // Listen to window resize only (ResizeObserver seems to cause issues)
+        window.addEventListener('resize', handleResize);
+        
+        // Don't use ResizeObserver for now as it seems to cause infinite loops
+        // resizeObserver = new ResizeObserver(handleResize);
+        // if (containerRef.current) {
+        //   resizeObserver.observe(containerRef.current);
+        // }
 
         // Animation ticker for wave effect and camera updates
         let time = 0;
@@ -388,6 +439,17 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('resize', handleResize);
+      
+      // Clear resize timeout
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      
+      // Disconnect resize observer
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       
       if (appRef.current) {
         appRef.current.destroy(true);
@@ -413,7 +475,8 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         border: 'none',
         backgroundColor: 'transparent',
         position: 'relative',
-        cursor: 'grab'
+        cursor: 'grab',
+        overflow: 'hidden'
       }}
       onMouseDown={() => {
         if (containerRef.current) {

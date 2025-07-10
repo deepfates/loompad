@@ -170,7 +170,7 @@ body {
 .depth-indicator {
   font-size: 0.625rem;
   opacity: 0.5;
-  font-weight: 600;
+  font-weight: 640;
   margin-right: 0.25rem;
   color: var(--font-color);
 }
@@ -206,7 +206,7 @@ body {
 
 /* Game Boy layout container */
 .terminal-controls {
-  max-width: 600px;
+  max-width: 640px;
   width: 100%;
   margin: 0 auto;
   min-height: var(--controls-height);
@@ -249,7 +249,7 @@ body {
 }
 
 .terminal.fullscreen .terminal-controls {
-  max-width: 600px;
+  max-width: 640px;
   width: 100%;
   margin: 0 auto;
   min-height: var(--controls-height);
@@ -1128,7 +1128,7 @@ body {
 
 .controls-modal {
   width: 800px;
-  max-height: 600px;
+  max-height: 640px;
 }
 
 .modal-header {
