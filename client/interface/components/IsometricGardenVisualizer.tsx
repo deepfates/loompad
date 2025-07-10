@@ -1058,13 +1058,14 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     // Convert grid position to screen position
     const [screenX, screenY] = isoToScreen(gridX, gridY);
     
-    // Calculate camera position to center the selected tree
+    // Calculate camera position to center the selected tree with custom vertical offset
     const centerX = width / 2;
     const centerY = height / 2;
+    const verticalOffset = 300; // Custom offset to position tree lower vertically
     
     cameraRef.current = {
       x: centerX - screenX,
-      y: centerY - screenY
+      y: centerY - screenY + verticalOffset
     };
     
     console.log('📷 IsometricGardenVisualizer: Camera snapped to tree:', {
