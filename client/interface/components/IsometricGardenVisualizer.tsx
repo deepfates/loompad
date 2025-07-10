@@ -35,7 +35,23 @@ const CAMERA_SPEED = 5; // Speed for arrow key movement
 const MOUSE_DRAG_SPEED = 1.5; // Speed for mouse drag
 const TRUNK_SCALE = 1.0; // Trunk thickness multiplier
 const BRANCH_SCALE = 1.25; // Branch thickness multiplier
-const BRANCH_TEXTURE_KEY = 'stone';
+// Map old tile names to new tile indices in the 7x7 tileset
+const TILESET_MAP = {
+  grass: 'tile_0_0',
+  dirt: 'tile_0_1',
+  sand: 'tile_0_2',
+  mud: 'tile_0_3',
+  stone: 'tile_0_4',
+  bush: 'tile_0_5',
+  flowers_red: 'tile_0_6',
+  flowers_blue: 'tile_1_0',
+};
+
+const TILE_FRAMES = Object.values(TILESET_MAP);
+const BRANCH_TEXTURE_KEY = 'tile_1_3';
+const PREVIEW_TEXTURE_KEY = 'tile_1_5';
+const LEAF_TILE_KEY = 'tile_3_6';
+const HIGHLIGHT_TEXTURE_KEY = 'tile_6_6';
 
 function isoToScreen(x: number, y: number) {
   return [
@@ -53,8 +69,6 @@ const IMAGE_URL = '/client/assets/sprites/tileset.png';
 //   'flowers_red', 'flowers_yellow', 'flowers_blue', 'flowers_purple',
 //   'stone', 'mud'
 // ];
-
-const TILE_FRAMES = ['stone']
 
 // Generate trees from garden store data
 const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[] => {
@@ -388,6 +402,69 @@ const createConnectionSprites = (path: ConnectionPath, spritesheet: Spritesheet,
   return connectionSprites;
 };
 
+// Define biomes and their tile groups (user-specified tile assignments)
+const BIOMES = {
+  grassland: ['tile_0_0', 'tile_0_1', 'tile_0_2', 'tile_0_3', 'tile_0_4'],
+  desert:    ['tile_2_5', 'tile_2_6', 'tile_3_5', 'tile_4_1', 'tile_4_2'],
+  forest:    ['tile_3_0', 'tile_3_1', 'tile_3_6'],
+  tundra:    ['tile_0_6', 'tile_5_0', 'tile_5_1'],
+  swamp:     ['tile_2_2', 'tile_3_2', 'tile_4_2', 'tile_4_3'],
+  rock:      ['tile_2_4', 'tile_2_5', 'tile_3_4', 'tile_3_5'],
+  light_grass: [
+    'tile_6_1', 'tile_6_1', 'tile_6_1', 'tile_6_1', 'tile_6_1', 'tile_6_1', 'tile_6_1', // 5x more likely
+    'tile_6_4',
+  ],
+};
+const BIOME_LIST = ['light_grass'];
+const wave_amplitude = 0;
+
+// Generate a stochastic biome map (random-walk smoothing)
+function generateBiomeMap(size: number) {
+  const map: (string | null)[][] = Array.from({ length: size }, () => Array(size).fill(null));
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) {
+      if (x === 0 && y === 0) {
+        map[x][y] = BIOME_LIST[Math.floor(Math.random() * BIOME_LIST.length)];
+      } else if (x === 0) {
+        map[x][y] = Math.random() < 0.85 ? map[x][y-1] : BIOME_LIST[Math.floor(Math.random() * BIOME_LIST.length)];
+      } else if (y === 0) {
+        map[x][y] = Math.random() < 0.85 ? map[x-1][y] : BIOME_LIST[Math.floor(Math.random() * BIOME_LIST.length)];
+      } else {
+        const neighbors = [map[x-1][y], map[x][y-1]];
+        map[x][y] = Math.random() < 0.7 ? neighbors[Math.floor(Math.random() * neighbors.length)] : BIOME_LIST[Math.floor(Math.random() * BIOME_LIST.length)];
+      }
+    }
+  }
+  return map;
+}
+
+// Generate a stochastic tile map for each biome region
+function generateStochasticTileMap(biomeMap, biomes) {
+  const size = biomeMap.length;
+  const tileMap = Array.from({ length: size }, () => Array(size).fill(null));
+  for (const biome of Object.keys(biomes)) {
+    const tileGroup = biomes[biome];
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
+        if (biomeMap[x][y] !== biome) continue;
+        if (x === 0 && y === 0) {
+          tileMap[x][y] = tileGroup[Math.floor(Math.random() * tileGroup.length)];
+        } else if (x === 0) {
+          tileMap[x][y] = Math.random() < 0.85 ? tileMap[x][y-1] : tileGroup[Math.floor(Math.random() * tileGroup.length)];
+        } else if (y === 0) {
+          tileMap[x][y] = Math.random() < 0.85 ? tileMap[x-1][y] : tileGroup[Math.floor(Math.random() * tileGroup.length)];
+        } else {
+          const neighbors = [tileMap[x-1][y], tileMap[x][y-1]].filter(t => t && tileGroup.includes(t));
+          tileMap[x][y] = (neighbors.length && Math.random() < 0.7)
+            ? neighbors[Math.floor(Math.random() * neighbors.length)]
+            : tileGroup[Math.floor(Math.random() * tileGroup.length)];
+        }
+      }
+    }
+  }
+  return tileMap;
+}
+
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   width = 800,
   height = 640,
@@ -573,9 +650,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         }
 
         // Set up highlight texture for node selection - use a more visible texture
-        highlightTextureRef.current = spritesheet.textures['flowers_red'];
-        // Set up preview texture for child preview selection - use a different color
-        previewTextureRef.current = spritesheet.textures['flowers_blue'];
+        highlightTextureRef.current = spritesheet.textures[HIGHLIGHT_TEXTURE_KEY];
+        // Set up preview texture for child preview selection - use PREVIEW_TEXTURE_KEY
+        previewTextureRef.current = spritesheet.textures[PREVIEW_TEXTURE_KEY];
 
         // Create a container for all tiles
         const tileContainer = new Container();
@@ -641,30 +718,15 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         
         // Create 100x100 grid of tiles
         const tiles: Sprite[][] = [];
+        // Generate biome map for the grid
+        const biomeMap = generateBiomeMap(GRID_SIZE);
+        // Generate stochastic tile map for the grid
+        const tileMap = generateStochasticTileMap(biomeMap, BIOMES);
         for (let x = 0; x < GRID_SIZE; x++) {
           tiles[x] = [];
           for (let y = 0; y < GRID_SIZE; y++) {
-            // Use mainly ground tiles with occasional other elements
-            let frame;
-            const rand = Math.random();
-            if (rand < 0.7) {
-              // 70% chance for grass (ground)
-              frame = 'grass';
-            } else if (rand < 0.8) {
-              // 10% chance for dirt
-              frame = 'dirt';
-            } else if (rand < 0.85) {
-              // 5% chance for sand
-              frame = 'sand';
-            } else if (rand < 0.9) {
-              // 5% chance for mud
-              frame = 'mud';
-            } else {
-              // 10% chance for other elements (trees, flowers, etc.)
-              const otherFrames = ['tree_small', 'tree_large', 'pine_tree', 'bush', 'shrub', 'flowers_red', 'flowers_yellow', 'flowers_blue', 'flowers_purple', 'stone'];
-              frame = otherFrames[Math.floor(Math.random() * otherFrames.length)];
-            }
-            
+            // Use tileMap for tile selection within the biome
+            const frame = tileMap[x][y];
             const tileTexture = spritesheet.textures[frame];
             const [screenX, screenY] = isoToScreen(x, y);
             const sprite = new Sprite(tileTexture);
@@ -705,7 +767,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             for (let height = 0; height < tree.trunkHeight; height++) {
               // Check if this trunk segment position is available
               if (checkAndMarkPosition(trunkX, trunkY, trunkBaseZ + height)) {
-                const trunkTexture = spritesheet.textures['stone'];
+                const trunkTexture = spritesheet.textures[BRANCH_TEXTURE_KEY];
                 const [screenX, screenY] = isoToScreen(trunkX, trunkY);
                 const trunkSprite = new Sprite(trunkTexture);
                 trunkSprite.anchor.set(0.5, 1);
@@ -801,7 +863,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               
               // Check if this leaf position is available
               if (checkAndMarkPosition(node.x, node.y, leafZ)) {
-                const leafTexture = spritesheet.textures['bush'];
+                const leafTexture = spritesheet.textures[LEAF_TILE_KEY];
                 const [screenX, screenY] = isoToScreen(node.x, node.y);
                 const leafSprite = new Sprite(leafTexture);
                 leafSprite.anchor.set(0.5, 1);
@@ -974,7 +1036,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             for (let y = 0; y < GRID_SIZE; y++) {
               const sprite = tilesRef.current[x][y];
               const baseY = isoToScreen(x, y)[1];
-              sprite.y = baseY + Math.cos(time + x + y) * 4; // Reduced amplitude from 8 to 2
+              sprite.y = baseY + Math.cos(time + x + y) * wave_amplitude; // Reduced amplitude from 8 to 2
             }
           }
           
