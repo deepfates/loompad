@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import Delaunator from 'delaunator';
+import { AsciiEffect } from 'three/addons/effects/AsciiEffect.js';
 import { useGardenStore } from '../stores/gardenStore';
 import type { TreeVisualNode, TreePosition } from '../types/garden';
 import type { StoryNode } from '../types';
@@ -20,8 +21,26 @@ interface ThreeNode {
   position: TreePosition;
 }
 
+interface TreeGeometry {
+  trunk: THREE.Mesh;
+  branches: THREE.Mesh[];
+  leaves: THREE.Mesh[];
+  connections: THREE.Mesh[];
+}
+
+/**
+ * GardenVisualizer - 3D Tree Visualization with ASCII Effect
+ * 
+ * Renders story trees as 3D geometry using ASCII art style rendering.
+ * Features:
+ * - 3D tree trunks, branches, and leaves
+ * - ASCII art rendering for retro aesthetic
+ * - Interactive selection and navigation
+ * - Dynamic color changes during story generation
+ * - Camera controls (orbit, pan, zoom)
+ */
 const GardenVisualizer: React.FC<GardenVisualizerProps> = ({ 
-  showMeshGrid = true, 
+  showMeshGrid = false, // Disabled by default
   showAxis = false,
   currentDepth = 0,
   selectedOptions = []
@@ -47,19 +66,72 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
   const [axisHelper, setAxisHelper] = useState<THREE.AxesHelper>();
   const [selectionIndicator, setSelectionIndicator] = useState<THREE.Mesh | null>(null);
   const [showCustomCursor, setShowCustomCursor] = useState(false);
+  const [treeGeometries, setTreeGeometries] = useState<Map<string, TreeGeometry>>(new Map());
+  const [effect, setEffect] = useState<AsciiEffect | null>(null);
 
-  // ASCII mappings for tree parts
-  const asciiMap = {
-    trunk: ['@', '#', '|', '+'],
-    branch: ['&', '*', '/', '\\'],
-    leaf: ['*', 'o', '~', '^'],
-    root: ['~', 'v', '>', '<'],
-    connection: ['|', '/', '\\', '-', '_']
+  // Create trunk geometry
+  const createTrunkGeometry = (height: number, radius: number): THREE.Mesh => {
+    const geometry = new THREE.CylinderGeometry(radius * 0.8, radius, height, 8);
+    const material = new THREE.MeshLambertMaterial({ 
+      color: 0x8B4513 // Saddle brown
+    });
+    return new THREE.Mesh(geometry, material);
   };
 
-  // Generate visual tree nodes
-  const generateVisualTree = (tree: any, treeIndex: number): TreeVisualNode[] => {
-    const visualNodes: TreeVisualNode[] = [];
+  // Create branch geometry
+  const createBranchGeometry = (length: number, radius: number): THREE.Mesh => {
+    const geometry = new THREE.CylinderGeometry(radius * 0.6, radius, length, 6);
+    const material = new THREE.MeshLambertMaterial({ 
+      color: 0x654321 // Dark brown
+    });
+    return new THREE.Mesh(geometry, material);
+  };
+
+  // Create single leaf sphere
+  const createLeafSphere = (radius: number): THREE.Mesh => {
+    const geometry = new THREE.SphereGeometry(radius * 0.4, 8, 6);
+    const material = new THREE.MeshLambertMaterial({ 
+      color: 0x32CD32 // Lime green for better ASCII contrast
+    });
+    return new THREE.Mesh(geometry, material);
+  };
+
+  // Create connection line between nodes
+  const createConnectionLine = (startPos: TreePosition, endPos: TreePosition): THREE.Mesh => {
+    const direction = new THREE.Vector3(
+      endPos.x - startPos.x,
+      endPos.y - startPos.y,
+      endPos.z - startPos.z
+    );
+    const length = direction.length();
+    const geometry = new THREE.CylinderGeometry(2.5, 2.5, length, 8); // Much thicker branches
+    const material = new THREE.MeshLambertMaterial({ 
+      color: 0x90EE90, // Light green for better ASCII contrast
+      transparent: true,
+      opacity: 0.9
+    });
+    
+    const line = new THREE.Mesh(geometry, material);
+    line.position.copy(new THREE.Vector3(
+      (startPos.x + endPos.x) / 2,
+      (startPos.y + endPos.y) / 2,
+      (startPos.z + endPos.z) / 2
+    ));
+    
+    // Orient the line to point from start to end
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+    line.setRotationFromQuaternion(quaternion);
+    
+    return line;
+  };
+
+  // Generate 3D tree structure
+  const generateTreeGeometry = (tree: any, treeIndex: number): TreeGeometry => {
+    const trunk: THREE.Mesh[] = [];
+    const branches: THREE.Mesh[] = [];
+    const leaves: THREE.Mesh[] = [];
+    const connections: THREE.Mesh[] = [];
     const nodePositions = new Map<string, TreePosition>();
     const processedNodes = new Set<string>();
     
@@ -72,30 +144,20 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       const isSeedling = !rootNode.continuations || rootNode.continuations.length === 0;
       
       if (isSeedling) {
-        visualNodes.push({
-          id: `seedling_${rootNode.id}`,
-          position: rootPos,
-          type: 'root',
-          unicode: '•',
-          nodeId: rootNode.id
-        });
+        // Create a small seedling trunk
+        const seedlingTrunk = createTrunkGeometry(15, 3);
+        seedlingTrunk.position.set(rootPos.x, rootPos.y, rootPos.z);
+        trunk.push(seedlingTrunk);
+        
+        // Add a single small leaf
+        const seedlingLeaf = createLeafSphere(8);
+        seedlingLeaf.position.set(rootPos.x, rootPos.y + 8, rootPos.z);
+        leaves.push(seedlingLeaf);
       } else {
-        const rootChar = asciiMap.trunk[0];
-        const rootLength = 5;
-        const rootSpacing = 10;
-        for (let y = 0; y < rootLength; y++) {
-          visualNodes.push({
-            id: `root_${rootNode.id}_${y}`,
-            position: {
-              x: rootPos.x,
-              y: rootPos.y - y * rootSpacing,
-              z: rootPos.z
-            },
-            type: 'trunk',
-            unicode: rootChar,
-            nodeId: rootNode.id
-          });
-        }
+        // Create main trunk
+        const mainTrunk = createTrunkGeometry(25, 5);
+        mainTrunk.position.set(rootPos.x, rootPos.y + 12.5, rootPos.z);
+        trunk.push(mainTrunk);
       }
     }
 
@@ -137,37 +199,39 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
         
         const hasChildren = childNode.continuations && childNode.continuations.length > 0;
         
-        const pathNodes = createNodeCharacterPath(parentPos, childPos, depth, index, hasChildren, childNode.id);
-        visualNodes.push(...pathNodes);
+        // Create connection line
+        const connection = createConnectionLine(parentPos, childPos);
+        connections.push(connection);
         
         if (hasChildren) {
-          visualNodes.push({
-            id: `visual_${childNode.id}`,
-            position: childPos,
-            type: 'branch',
-            unicode: asciiMap.branch[index % asciiMap.branch.length],
-            nodeId: childNode.id
-          });
+          // Create branch
+          const branchLength = 20;
+          const branchRadius = 2;
+          const branch = createBranchGeometry(branchLength, branchRadius);
+          
+          // Position and orient branch
+          const direction = new THREE.Vector3(
+            childPos.x - parentPos.x,
+            childPos.y - parentPos.y,
+            childPos.z - parentPos.z
+          ).normalize();
+          
+          branch.position.set(
+            parentPos.x + direction.x * 10,
+            parentPos.y + direction.y * 10,
+            parentPos.z + direction.z * 10
+          );
+          
+          const quaternion = new THREE.Quaternion();
+          quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+          branch.setRotationFromQuaternion(quaternion);
+          
+          branches.push(branch);
         } else {
-          const leafChar = asciiMap.leaf[index % asciiMap.leaf.length];
-          const gridOffset = 8;
-          for (let x = 0; x <= 1; x++) {
-            for (let y = 0; y <= 1; y++) {
-              for (let z = 0; z <= 1; z++) {
-                visualNodes.push({
-                  id: `leaf_${childNode.id}_${x}_${y}_${z}`,
-                  position: {
-                    x: childPos.x + x * gridOffset,
-                    y: childPos.y + y * gridOffset,
-                    z: childPos.z + z * gridOffset
-                  },
-                  type: 'leaf',
-                  unicode: leafChar,
-                  nodeId: childNode.id
-                });
-              }
-            }
-          }
+          // Create single leaf sphere
+          const leaf = createLeafSphere(12);
+          leaf.position.set(childPos.x, childPos.y, childPos.z);
+          leaves.push(leaf);
         }
 
         if (hasChildren) {
@@ -180,51 +244,16 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       positionChildren(tree.root, tree.position);
     }
 
-    return visualNodes;
+    return {
+      trunk: trunk[0] || new THREE.Mesh(),
+      branches,
+      leaves,
+      connections
+    };
   };
 
-  // Create character path between nodes
-  const createNodeCharacterPath = (
-    startPos: TreePosition,
-    endPos: TreePosition,
-    depth: number,
-    index: number,
-    hasChildren: boolean,
-    nodeId: string
-  ): TreeVisualNode[] => {
-    const pathNodes: TreeVisualNode[] = [];
-    const distance = Math.sqrt(
-      Math.pow(endPos.x - startPos.x, 2) + 
-      Math.pow(endPos.y - startPos.y, 2) + 
-      Math.pow(endPos.z - startPos.z, 2)
-    );
-    
-    const steps = Math.max(3, Math.floor(distance / 15));
-    const connectionChars = asciiMap.connection;
-    
-    for (let i = 1; i < steps; i++) {
-      const t = i / steps;
-      const position: TreePosition = {
-        x: startPos.x + (endPos.x - startPos.x) * t,
-        y: startPos.y + (endPos.y - startPos.y) * t,
-        z: startPos.z + (endPos.z - startPos.z) * t
-      };
-      
-      const charIndex = (depth + index + i) % connectionChars.length;
-      pathNodes.push({
-        id: `path_${nodeId}_${i}`,
-        position,
-        type: 'connection',
-        unicode: connectionChars[charIndex],
-        nodeId
-      });
-    }
-    
-    return pathNodes;
-  };
-
-  // Create Three.js text mesh
-  const createTextMesh = (text: string, position: TreePosition, nodeId: string, nodeType: string): THREE.Mesh => {
+  // Create Three.js mesh for node selection
+  const createNodeMesh = (position: TreePosition, nodeId: string, nodeType: string): THREE.Mesh => {
     // Validate position to prevent NaN values
     const safePosition = {
       x: Number.isFinite(position.x) ? position.x : 0,
@@ -233,45 +262,19 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     };
 
     if (safePosition.x !== position.x || safePosition.y !== position.y || safePosition.z !== position.z) {
-      console.error('Invalid position detected in createTextMesh:', position, 'using fallback:', safePosition);
+      console.error('Invalid position detected in createNodeMesh:', position, 'using fallback:', safePosition);
     }
 
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d')!;
-    const fontSize = 48;
-    canvas.width = fontSize * 2;
-    canvas.height = fontSize * 2;
-    
-    context.font = `${fontSize}px "Courier New", monospace`;
-    context.fillStyle = '#ffffff';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(text, fontSize, fontSize);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    
-    // Create a plane geometry for the text
-    const geometry = new THREE.PlaneGeometry(10, 10);
+    // Create a small sphere to represent the node for selection
+    const geometry = new THREE.SphereGeometry(3, 8, 6);
     const material = new THREE.MeshBasicMaterial({ 
-      map: texture,
+      color: 0xffffff,
       transparent: true,
-      alphaTest: 0.1,
-      side: THREE.DoubleSide
+      opacity: 0.0 // Invisible but clickable
     });
     
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(safePosition.x, safePosition.y, safePosition.z);
-    
-    // CRITICAL: Compute bounding volumes for raycasting to work
-    try {
-      geometry.computeBoundingSphere();
-      geometry.computeBoundingBox();
-    } catch (error) {
-      console.error('Error computing bounding volumes:', error);
-      // Fallback: manually set bounding sphere
-      geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 5);
-    }
     
     // Store metadata
     mesh.userData = { nodeId, nodeType, originalColor: '#ffffff' };
@@ -279,19 +282,59 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     return mesh;
   };
 
-  // Memoized visual nodes
-  const visualNodes = useMemo(() => {
-    const allNodes: TreeVisualNode[] = [];
+  // Memoized tree geometries
+  const treeGeometriesData = useMemo(() => {
+    const geometries = new Map<string, TreeGeometry>();
     trees.forEach((tree, treeIndex) => {
       try {
-        const treeNodes = generateVisualTree(tree, treeIndex);
-        allNodes.push(...treeNodes);
+        const treeGeometry = generateTreeGeometry(tree, treeIndex);
+        geometries.set(tree.id || `tree_${treeIndex}`, treeGeometry);
       } catch (error) {
-        console.error('Error generating visual tree:', error);
+        console.error('Error generating tree geometry:', error);
       }
     });
-    return allNodes;
+    return geometries;
   }, [trees]);
+
+  // Memoized node positions for selection
+  const nodePositions = useMemo(() => {
+    const positions: TreeVisualNode[] = [];
+    trees.forEach((tree, treeIndex) => {
+      try {
+        const treeGeometry = treeGeometriesData.get(tree.id || `tree_${treeIndex}`);
+        if (treeGeometry) {
+          // Add trunk position
+          if (tree.root) {
+            positions.push({
+              id: `trunk_${tree.root.id}`,
+              position: tree.position,
+              type: 'trunk',
+              unicode: '',
+              nodeId: tree.root.id
+            });
+          }
+          
+          // Add branch positions
+          treeGeometry.branches.forEach((branch, index) => {
+            positions.push({
+              id: `branch_${treeIndex}_${index}`,
+              position: {
+                x: branch.position.x,
+                y: branch.position.y,
+                z: branch.position.z
+              },
+              type: 'branch',
+              unicode: '',
+              nodeId: `branch_${treeIndex}_${index}`
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error generating node positions:', error);
+      }
+    });
+    return positions;
+  }, [trees, treeGeometriesData]);
 
   // Memoized path data
   const pathData = useMemo(() => {
@@ -311,8 +354,21 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0a);
+    scene.background = null; // transparent background
     sceneRef.current = scene;
+
+    // Add lighting optimized for ASCII effect
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    directionalLight.position.set(100, 100, 50);
+    scene.add(directionalLight);
+    
+    // Add a second light for better contrast
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    fillLight.position.set(-50, 50, -50);
+    scene.add(fillLight);
 
     // Camera
     const camera = new THREE.PerspectiveCamera(
@@ -325,11 +381,32 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     cameraRef.current = camera;
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 0); // transparent
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
-    containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // Create ASCII effect with leading spaces and transparent background
+    const asciiEffect = new AsciiEffect(renderer, '     .:-+*=%@#', { 
+      invert: false, // Map background to spaces
+      resolution: 0.15, // Standard resolution for better space handling
+      scale: 1,
+      color: false
+    });
+    asciiEffect.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    asciiEffect.domElement.style.color = 'white';
+    asciiEffect.domElement.style.backgroundColor = 'transparent';
+    asciiEffect.domElement.style.fontFamily = 'Courier New, monospace';
+    asciiEffect.domElement.style.fontSize = '6px';
+    asciiEffect.domElement.style.lineHeight = '6px';
+    asciiEffect.domElement.style.letterSpacing = '0px';
+    asciiEffect.domElement.style.cursor = 'default';
+    asciiEffect.domElement.style.overflow = 'hidden';
+    asciiEffect.domElement.style.userSelect = 'none';
+    (asciiEffect.domElement.style as any).webkitUserSelect = 'none';
+    containerRef.current.appendChild(asciiEffect.domElement);
+    setEffect(asciiEffect);
 
     // Raycaster for mouse picking
     raycasterRef.current = new THREE.Raycaster();
@@ -351,7 +428,7 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
 
     // Handle resize (both window and container)
     const handleResize = () => {
-      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current || !effect) return;
       
       const container = containerRef.current;
       const width = container.clientWidth;
@@ -361,8 +438,9 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       cameraRef.current.aspect = width / height;
       cameraRef.current.updateProjectionMatrix();
       
-      // Update renderer size
+      // Update renderer and effect size
       rendererRef.current.setSize(width, height, false);
+      effect.setSize(width, height);
       
       console.log('GardenVisualizer resized:', { width, height, aspect: width / height });
     };
@@ -379,8 +457,8 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     return () => {
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
+      if (containerRef.current && effect) {
+        containerRef.current.removeChild(effect.domElement);
       }
       renderer.dispose();
       
@@ -396,6 +474,27 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
             (line.material as THREE.Material).dispose();
           }
         }
+      });
+      
+      // Clean up tree geometries
+      treeGeometries.forEach((treeGeometry, treeId) => {
+        if (treeGeometry.trunk.geometry) treeGeometry.trunk.geometry.dispose();
+        if (treeGeometry.trunk.material) (treeGeometry.trunk.material as THREE.Material).dispose();
+        
+        treeGeometry.branches.forEach(branch => {
+          if (branch.geometry) branch.geometry.dispose();
+          if (branch.material) (branch.material as THREE.Material).dispose();
+        });
+        
+        treeGeometry.leaves.forEach(leaf => {
+          if (leaf.geometry) leaf.geometry.dispose();
+          if (leaf.material) (leaf.material as THREE.Material).dispose();
+        });
+        
+        treeGeometry.connections.forEach(connection => {
+          if (connection.geometry) connection.geometry.dispose();
+          if (connection.material) (connection.material as THREE.Material).dispose();
+        });
       });
     };
   }, []);
@@ -418,20 +517,51 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     }
   }, [showAxis]);
 
-  // Update Three.js objects when visual nodes change
+  // Update Three.js objects when tree geometries change
   useEffect(() => {
     if (!sceneRef.current) return;
 
-    // Clear existing nodes
+    // Clear existing tree geometries
+    treeGeometries.forEach((treeGeometry, treeId) => {
+      sceneRef.current!.remove(treeGeometry.trunk);
+      treeGeometry.branches.forEach(branch => sceneRef.current!.remove(branch));
+      treeGeometry.leaves.forEach(leaf => sceneRef.current!.remove(leaf));
+      treeGeometry.connections.forEach(connection => sceneRef.current!.remove(connection));
+    });
+
+    // Clear existing selection nodes
     threeNodes.forEach(node => {
       sceneRef.current!.remove(node.mesh);
     });
 
-    // Create new nodes
+    // Add new tree geometries
+    const newTreeGeometries = new Map<string, TreeGeometry>();
+    treeGeometriesData.forEach((treeGeometry, treeId) => {
+      // Add trunk
+      sceneRef.current!.add(treeGeometry.trunk);
+      
+      // Add branches
+      treeGeometry.branches.forEach(branch => {
+        sceneRef.current!.add(branch);
+      });
+      
+      // Add leaves
+      treeGeometry.leaves.forEach(leaf => {
+        sceneRef.current!.add(leaf);
+      });
+      
+      // Add connections
+      treeGeometry.connections.forEach(connection => {
+        sceneRef.current!.add(connection);
+      });
+      
+      newTreeGeometries.set(treeId, treeGeometry);
+    });
+
+    // Create new selection nodes
     const newNodes: ThreeNode[] = [];
-    
-    visualNodes.forEach(node => {
-      const mesh = createTextMesh(node.unicode, node.position, node.nodeId, node.type);
+    nodePositions.forEach(node => {
+      const mesh = createNodeMesh(node.position, node.nodeId, node.type);
       sceneRef.current!.add(mesh);
       newNodes.push({
         id: node.id,
@@ -442,8 +572,9 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       });
     });
 
+    setTreeGeometries(newTreeGeometries);
     setThreeNodes(newNodes);
-  }, [visualNodes]);
+  }, [treeGeometriesData, nodePositions]);
 
   // Update Delaunay mesh
   useEffect(() => {
@@ -567,9 +698,9 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     cam.rotation.set(camera.rotation.x, camera.rotation.y, 0);
   }, [camera]);
 
-  // Update node colors - moved to render loop for better performance
-  const updateNodeColors = (currentAnimationTime?: number) => {
-    if (!threeNodes.length) return;
+  // Update tree colors based on selection and generation state
+  const updateTreeColors = (currentAnimationTime?: number) => {
+    if (!treeGeometries.size) return;
 
     const timeToUse = currentAnimationTime !== undefined ? currentAnimationTime : animationTime;
 
@@ -583,45 +714,34 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
           const selectedOptionIndex = selectedOptions[currentDepth];
           if (selectedOptionIndex >= 0 && selectedOptionIndex < currentNodeAtDepth.continuations.length) {
             previewNodeId = currentNodeAtDepth.continuations[selectedOptionIndex].id;
-            console.log('🎯 Preview highlighting:', {
-              currentDepth,
-              selectedOptionIndex,
-              previewNodeId,
-              currentNodeAtDepth: currentNodeAtDepth.id,
-              continuationsCount: currentNodeAtDepth.continuations.length
-            });
           }
         }
       }
     }
 
-    threeNodes.forEach(node => {
-      const material = (node.mesh as THREE.Mesh).material as THREE.MeshBasicMaterial;
-      
-      // Set color based on selection, path, and preview
-      if (selectedNode && selectedNode.id === node.nodeId) {
-        if (isGenerating && pathData.pathNodeIds.has(node.nodeId)) {
-          // Smooth animated blue for selected node during generation
+    treeGeometries.forEach((treeGeometry, treeId) => {
+      // Update trunk color
+      const trunkMaterial = treeGeometry.trunk.material as THREE.MeshLambertMaterial;
+      if (selectedNode && selectedNode.id === treeId) {
+        if (isGenerating && pathData.pathNodeIds.has(treeId)) {
+          // Animated blue for selected tree during generation
           const frequency = 2.0;
           const intensity = Math.sin(timeToUse * frequency * Math.PI) * 0.5 + 0.5;
           const baseBlue = 100 + intensity * 155;
           const red = Math.round(intensity * 50);
           const green = Math.round(intensity * 100);
           const blue = Math.round(baseBlue);
-          material.color.setRGB(red / 255, green / 255, blue / 255);
+          trunkMaterial.color.setRGB(red / 255, green / 255, blue / 255);
         } else {
-          material.color.setRGB(0, 1, 0); // Green for selected
+          trunkMaterial.color.setRGB(0, 1, 0); // Green for selected
         }
-      } else if (previewNodeId && previewNodeId === node.nodeId) {
-        // Yellow for preview selected node (D-pad left/right target)
-        material.color.setRGB(1, 1, 0); // Yellow
-      } else if (pathData.pathNodeIds.has(node.nodeId)) {
-        const pathIndex = pathData.pathFromRoot.findIndex(n => n.id === node.nodeId);
+      } else if (pathData.pathNodeIds.has(treeId)) {
+        const pathIndex = pathData.pathFromRoot.findIndex(n => n.id === treeId);
         const totalPathLength = pathData.pathFromRoot.length;
         
         if (pathIndex >= 0) {
           if (isGenerating) {
-            // Smooth animated blue for path nodes during generation with phase offset
+            // Animated blue for path trees during generation
             const frequency = 2.0;
             const phaseOffset = pathIndex * 0.3;
             const intensity = Math.sin((timeToUse + phaseOffset) * frequency * Math.PI) * 0.5 + 0.5;
@@ -629,7 +749,7 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
             const red = Math.round(intensity * 50);
             const green = Math.round(intensity * 100);
             const blue = Math.round(baseBlue);
-            material.color.setRGB(red / 255, green / 255, blue / 255);
+            trunkMaterial.color.setRGB(red / 255, green / 255, blue / 255);
           } else {
             // Brown to green gradient for path
             const ratio = (totalPathLength - 1 - pathIndex) / (totalPathLength - 1);
@@ -637,21 +757,34 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
             const red = Math.round(139 * (1 - ratio * 0.6));
             const green = Math.round(baseGreen);
             const blue = Math.round(69 * (1 - ratio * 0.7));
-            material.color.setRGB(red / 255, green / 255, blue / 255);
+            trunkMaterial.color.setRGB(red / 255, green / 255, blue / 255);
           }
         }
       } else {
-        material.color.setRGB(1, 1, 1); // White for normal nodes
+        trunkMaterial.color.setRGB(0.545, 0.271, 0.075); // Default brown
       }
+
+      // Update connection colors
+      treeGeometry.connections.forEach(connection => {
+        const connectionMaterial = connection.material as THREE.MeshLambertMaterial;
+        if (isGenerating) {
+          // Animated connection during generation
+          const frequency = 1.5;
+          const intensity = Math.sin(timeToUse * frequency * Math.PI) * 0.5 + 0.5;
+          connectionMaterial.opacity = 0.3 + intensity * 0.4;
+        } else {
+          connectionMaterial.opacity = 0.6;
+        }
+      });
     });
   };
 
   // Update static colors when selection changes (non-animated)
   useEffect(() => {
     if (!isGenerating) {
-      updateNodeColors();
+      updateTreeColors();
     }
-  }, [threeNodes, selectedNode, pathData, isGenerating, currentDepth, selectedOptions]);
+  }, [treeGeometries, selectedNode, pathData, isGenerating, currentDepth, selectedOptions]);
 
   // Log selected node changes in visualizer
   useEffect(() => {
@@ -670,11 +803,9 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     const animate = (currentTime: number) => {
       frameRef.current = requestAnimationFrame(animate);
       
-      // Make sure all text meshes face the camera
-      if (cameraRef.current && threeNodes.length > 0) {
-        threeNodes.forEach((node) => {
-          node.mesh.lookAt(cameraRef.current!.position);
-        });
+      // Update tree colors during generation
+      if (isGenerating) {
+        updateTreeColors(currentTime / 1000);
       }
       
       // Update selection indicator color with green-brown cycling animation (always active)
@@ -692,7 +823,10 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
         material.color.setRGB(red / 255, green / 255, blue / 255);
       }
       
-      rendererRef.current!.render(sceneRef.current!, cameraRef.current!);
+      // Use ASCII effect for rendering
+      if (effect && sceneRef.current && cameraRef.current) {
+        effect.render(sceneRef.current, cameraRef.current);
+      }
     };
 
     animate(performance.now());
@@ -702,7 +836,7 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
         cancelAnimationFrame(frameRef.current);
       }
     };
-  }, [threeNodes, selectionIndicator]);
+  }, [treeGeometries, selectionIndicator, isGenerating, effect]);
 
   // Mouse event handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -721,39 +855,45 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     e.preventDefault();
     
-    // Update selection indicator position
-    if (containerRef.current && selectionIndicator && cameraRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const mouse = new THREE.Vector2();
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      
-      // Use raycaster to find the correct world position at the same Z plane as the text meshes
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(mouse, cameraRef.current);
-      
-      // Find the average Z position of text meshes to position indicator correctly
-      let averageZ = 0;
-      if (threeNodes.length > 0) {
-        averageZ = threeNodes.reduce((sum, node) => sum + node.mesh.position.z, 0) / threeNodes.length;
-      }
-      
-      // Calculate where the ray intersects the plane at the text mesh Z level
-      const t = (averageZ - raycaster.ray.origin.z) / raycaster.ray.direction.z;
-      const worldPos = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(t));
-      
-      selectionIndicator.position.copy(worldPos);
-      selectionIndicator.lookAt(cameraRef.current.position);
-      
-      // Scale based on click threshold and distance to camera
-      const clickThreshold = 0.2; // Match the threshold from handleClick
-      const distance = cameraRef.current.position.distanceTo(worldPos);
-      const scale = clickThreshold * distance * 0.02; // Adjust scaling factor
-      selectionIndicator.scale.set(scale, scale, scale);
-      
-      selectionIndicator.visible = true;
-      setShowCustomCursor(true);
+      // Update selection indicator position
+  if (containerRef.current && selectionIndicator && cameraRef.current) {
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouse = new THREE.Vector2();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    // Use raycaster to find the correct world position at the same Z plane as the tree meshes
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, cameraRef.current);
+    
+    // Find the average Z position of tree meshes to position indicator correctly
+    let averageZ = 0;
+    if (treeGeometries.size > 0) {
+      let totalZ = 0;
+      let count = 0;
+      treeGeometries.forEach((treeGeometry) => {
+        totalZ += treeGeometry.trunk.position.z;
+        count++;
+      });
+      averageZ = count > 0 ? totalZ / count : 0;
     }
+    
+    // Calculate where the ray intersects the plane at the tree mesh Z level
+    const t = (averageZ - raycaster.ray.origin.z) / raycaster.ray.direction.z;
+    const worldPos = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(t));
+    
+    selectionIndicator.position.copy(worldPos);
+    selectionIndicator.lookAt(cameraRef.current.position);
+    
+    // Scale based on click threshold and distance to camera
+    const clickThreshold = 0.2; // Match the threshold from handleClick
+    const distance = cameraRef.current.position.distanceTo(worldPos);
+    const scale = clickThreshold * distance * 0.02; // Adjust scaling factor
+    selectionIndicator.scale.set(scale, scale, scale);
+    
+    selectionIndicator.visible = true;
+    setShowCustomCursor(true);
+  }
     
     if (isMouseDown) {
       setIsDragging(true);
@@ -810,10 +950,15 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
 
     raycasterRef.current.setFromCamera(mouse, cameraRef.current);
     
-    // Get all mesh objects for intersection testing
-    const meshObjects = threeNodes.map(node => node.mesh).filter(mesh => mesh && mesh.visible);
+    // Get all tree trunk objects for intersection testing
+    const trunkObjects: THREE.Mesh[] = [];
+    treeGeometries.forEach((treeGeometry) => {
+      if (treeGeometry.trunk && treeGeometry.trunk.visible) {
+        trunkObjects.push(treeGeometry.trunk);
+      }
+    });
     
-    if (meshObjects.length === 0) {
+    if (trunkObjects.length === 0) {
       return;
     }
 
@@ -822,7 +967,7 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     let closestDistance = Infinity;
     const clickThreshold = 0.2;
     
-    meshObjects.forEach((mesh) => {
+    trunkObjects.forEach((mesh) => {
       // Project 3D position to screen coordinates
       const meshScreenPos = mesh.position.clone();
       meshScreenPos.project(cameraRef.current!);
@@ -841,10 +986,16 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     });
     
     if (closestMesh) {
-      const nodeId = (closestMesh as any).userData.nodeId;
+      // Find the tree ID based on the trunk mesh
+      let selectedTreeId: string | null = null;
+      treeGeometries.forEach((treeGeometry, treeId) => {
+        if (treeGeometry.trunk === closestMesh) {
+          selectedTreeId = treeId;
+        }
+      });
       
-      if (nodeId) {
-        useGardenStore.getState().selectNode(nodeId);
+      if (selectedTreeId) {
+        useGardenStore.getState().selectNode(selectedTreeId);
       }
     }
   };
