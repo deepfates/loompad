@@ -7,6 +7,8 @@ interface IsometricGardenVisualizerProps {
   width?: number;
   height?: number;
   selectedNodeId?: string; // Add selected node prop
+  currentDepth?: number; // Add current depth prop for preview selection
+  selectedOptions?: number[]; // Add selected options prop for preview selection
 }
 
 interface IsometricTree {
@@ -74,23 +76,74 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (!node) return [];
     if (depth > maxDepth) return [];
     const branches = [];
+    
     if (!node.continuations || node.continuations.length === 0) {
       // Leaf node: single block (will be rendered as a leaf)
+      // Check if parent position is available, otherwise find a free adjacent position
+      let leafPosition = parentTop;
+      if (occupiedPositions.has(`${parentTop.x},${parentTop.y}`)) {
+        // Find a free adjacent tile for the leaf
+        let foundPosition = false;
+        for (let d = 0; d < directions.length; d++) {
+          const dir = directions[d];
+          const lx = parentTop.x + dir.x;
+          const ly = parentTop.y + dir.y;
+          if (lx >= 0 && lx < gridSize && ly >= 0 && ly < gridSize && !occupiedPositions.has(`${lx},${ly}`)) {
+            leafPosition = { x: lx, y: ly };
+            foundPosition = true;
+            break;
+          }
+        }
+        // If no adjacent position is free, try to find any free position within 2 tiles radius
+        if (!foundPosition) {
+          for (let radius = 2; radius <= 4; radius++) {
+            // Search in a spiral pattern starting from closest positions
+            const searchOrder = [];
+            for (let dx = -radius; dx <= radius; dx++) {
+              for (let dy = -radius; dy <= radius; dy++) {
+                if (Math.abs(dx) + Math.abs(dy) <= radius) { // Manhattan distance
+                  searchOrder.push({ dx, dy });
+                }
+              }
+            }
+            // Sort by distance to prioritize closer positions
+            searchOrder.sort((a, b) => (Math.abs(a.dx) + Math.abs(a.dy)) - (Math.abs(b.dx) + Math.abs(b.dy)));
+            
+            for (const { dx, dy } of searchOrder) {
+              const lx = parentTop.x + dx;
+              const ly = parentTop.y + dy;
+              if (lx >= 0 && lx < gridSize && ly >= 0 && ly < gridSize && !occupiedPositions.has(`${lx},${ly}`)) {
+                leafPosition = { x: lx, y: ly };
+                foundPosition = true;
+                break;
+              }
+            }
+            if (foundPosition) break;
+          }
+        }
+        // If still no position found, skip this leaf (don't create overlap)
+        if (!foundPosition) {
+          console.warn(`[BRANCH DEBUG] Could not find position for leaf node ${node.id}, skipping`);
+          return [];
+        }
+      }
+      
       branches.push({
-        x: parentTop.x,
-        y: parentTop.y,
+        x: leafPosition.x,
+        y: leafPosition.y,
         height: 1,
         depth,
         parentId: node.id,
         isLeaf: true
       });
-      occupiedPositions.add(`${parentTop.x},${parentTop.y}`);
+      occupiedPositions.add(`${leafPosition.x},${leafPosition.y}`);
       return branches;
     }
+    
     // For non-leaf nodes, create a vertical branch (trunk/branch)
     const branchHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
-    // The base of this branch is adjacent to the parent's top
-    // Find a free adjacent tile
+    
+    // Find a free adjacent tile for the branch base
     let branchBase = null;
     for (let d = 0; d < directions.length; d++) {
       const dir = directions[d];
@@ -101,15 +154,45 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
         break;
       }
     }
-    // If all adjacent are taken, just pick the first (overlap as last resort)
+    
+    // If no adjacent position is free, try to find any free position within 3 tiles radius
     if (!branchBase) {
-      const dir = directions[0];
-      branchBase = { x: parentTop.x + dir.x, y: parentTop.y + dir.y };
+      for (let radius = 2; radius <= 5; radius++) {
+        // Search in a spiral pattern starting from closest positions
+        const searchOrder = [];
+        for (let dx = -radius; dx <= radius; dx++) {
+          for (let dy = -radius; dy <= radius; dy++) {
+            if (Math.abs(dx) + Math.abs(dy) <= radius) { // Manhattan distance
+              searchOrder.push({ dx, dy });
+            }
+          }
+        }
+        // Sort by distance to prioritize closer positions
+        searchOrder.sort((a, b) => (Math.abs(a.dx) + Math.abs(a.dy)) - (Math.abs(b.dx) + Math.abs(b.dy)));
+        
+        for (const { dx, dy } of searchOrder) {
+          const bx = parentTop.x + dx;
+          const by = parentTop.y + dy;
+          if (bx >= 0 && bx < gridSize && by >= 0 && by < gridSize && !occupiedPositions.has(`${bx},${by}`)) {
+            branchBase = { x: bx, y: by };
+            break;
+          }
+        }
+        if (branchBase) break;
+      }
     }
+    
+    // If still no position found, skip this branch (don't create overlap)
+    if (!branchBase) {
+      console.warn(`[BRANCH DEBUG] Could not find position for branch node ${node.id}, skipping`);
+      return [];
+    }
+    
     // Mark all blocks of this branch as occupied
     for (let h = 0; h < branchHeight; h++) {
       occupiedPositions.add(`${branchBase.x},${branchBase.y}`);
     }
+    
     branches.push({
       x: branchBase.x,
       y: branchBase.y,
@@ -118,14 +201,17 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
       parentId: node.id,
       isLeaf: false
     });
+    
     // The top of this branch
     const branchTop = { x: branchBase.x, y: branchBase.y };
+    
     // Recursively build child branches from the top of this branch
     for (let i = 0; i < node.continuations.length; i++) {
       const child = node.continuations[i];
       const childBranches = buildBranches(child, branchTop, branchHeight, depth + 1, maxDepth);
       branches.push(...childBranches);
     }
+    
     return branches;
   }
 
@@ -133,14 +219,51 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (!tree.position || !tree.root) return;
     const gridPos = map3DToGrid(tree.position);
     if (gridPos.x < 0 || gridPos.x >= gridSize || gridPos.y < 0 || gridPos.y >= gridSize) return;
-    if (occupiedPositions.has(`${gridPos.x},${gridPos.y}`)) return;
+    
+    // Check if trunk position is available, if not try to find a nearby free position
+    let trunkPosition = gridPos;
+    if (occupiedPositions.has(`${gridPos.x},${gridPos.y}`)) {
+      // Try to find a free position within 3 tiles radius
+      let foundPosition = false;
+      for (let radius = 1; radius <= 3; radius++) {
+        // Search in a spiral pattern starting from closest positions
+        const searchOrder = [];
+        for (let dx = -radius; dx <= radius; dx++) {
+          for (let dy = -radius; dy <= radius; dy++) {
+            if (Math.abs(dx) + Math.abs(dy) <= radius) { // Manhattan distance
+              searchOrder.push({ dx, dy });
+            }
+          }
+        }
+        // Sort by distance to prioritize closer positions
+        searchOrder.sort((a, b) => (Math.abs(a.dx) + Math.abs(a.dy)) - (Math.abs(b.dx) + Math.abs(b.dy)));
+        
+        for (const { dx, dy } of searchOrder) {
+          const tx = gridPos.x + dx;
+          const ty = gridPos.y + dy;
+          if (tx >= 0 && tx < gridSize && ty >= 0 && ty < gridSize && !occupiedPositions.has(`${tx},${ty}`)) {
+            trunkPosition = { x: tx, y: ty };
+            foundPosition = true;
+            break;
+          }
+        }
+        if (foundPosition) break;
+      }
+      // If no position found, skip this tree
+      if (!foundPosition) {
+        console.warn(`[TREE DEBUG] Could not find position for tree ${tree.root.id}, skipping`);
+        return;
+      }
+    }
+    
     // Mark trunk positions as occupied
     const trunkHeight = Math.floor(Math.random() * 3) + 10; // 10-12 blocks tall
     for (let h = 0; h < trunkHeight; h++) {
-      occupiedPositions.add(`${gridPos.x},${gridPos.y}`);
+      occupiedPositions.add(`${trunkPosition.x},${trunkPosition.y}`);
     }
+    
     // Build all branches recursively from the top of the trunk
-    const parentTop = { x: gridPos.x, y: gridPos.y };
+    const parentTop = { x: trunkPosition.x, y: trunkPosition.y };
     const branches = [];
     if (tree.root.continuations && tree.root.continuations.length > 0) {
       for (let i = 0; i < tree.root.continuations.length; i++) {
@@ -149,9 +272,10 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
         branches.push(...childBranches);
       }
     }
+    
     isometricTrees.push({
-      x: gridPos.x,
-      y: gridPos.y,
+      x: trunkPosition.x,
+      y: trunkPosition.y,
       trunkHeight,
       rootId: tree.root.id, // Assign rootId
       branches
@@ -163,7 +287,9 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   width = 800,
   height = 640,
-  selectedNodeId // Add prop
+  selectedNodeId, // Add prop
+  currentDepth = 0, // Add current depth prop
+  selectedOptions = [] // Add selected options prop
 }) => {
   console.log(`[COMPONENT DEBUG] IsometricGardenVisualizer received selectedNodeId:`, selectedNodeId);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -179,7 +305,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const [treesGenerated, setTreesGenerated] = useState(false);
 
   // Get trees from garden store
-  const { trees, selectedTree } = useGardenStore();
+  const { trees, selectedTree, getPathFromRoot } = useGardenStore();
 
   // Handle keyboard events
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -220,6 +346,8 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const spriteOriginalTextures = useRef<WeakMap<Sprite, Texture>>(new WeakMap());
   // Store highlight texture reference
   const highlightTextureRef = useRef<Texture | null>(null);
+  // Store preview texture reference for child preview selection
+  const previewTextureRef = useRef<Texture | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -310,6 +438,8 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
 
         // Set up highlight texture for node selection - use a more visible texture
         highlightTextureRef.current = spritesheet.textures['flowers_red'];
+        // Set up preview texture for child preview selection - use a different color
+        previewTextureRef.current = spritesheet.textures['flowers_blue'];
 
         // Create a container for all tiles
         const tileContainer = new Container();
@@ -318,10 +448,47 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const centerX = width / 2;
         const centerY = height / 2;
 
-        // Generate trees from garden store data
-        const isometricTrees = generateTreesFromStore(trees, GRID_SIZE);
-        console.log(`Generated ${isometricTrees.length} trees from garden store`);
-        setTreesGenerated(true);
+          // Generate trees from garden store data
+  const isometricTrees = generateTreesFromStore(trees, GRID_SIZE);
+  console.log(`Generated ${isometricTrees.length} trees from garden store`);
+  
+  // Debug: Log tree positions to verify no overlaps
+  const allPositions = new Set<string>();
+  isometricTrees.forEach((tree, treeIndex) => {
+    const trunkPos = `${tree.x},${tree.y}`;
+    if (allPositions.has(trunkPos)) {
+      console.warn(`[OVERLAP DEBUG] Tree ${treeIndex} trunk overlaps at ${trunkPos}`);
+    } else {
+      allPositions.add(trunkPos);
+    }
+    
+    tree.branches.forEach((branch, branchIndex) => {
+      const branchPos = `${branch.x},${branch.y}`;
+      if (allPositions.has(branchPos)) {
+        console.warn(`[OVERLAP DEBUG] Tree ${treeIndex} branch ${branchIndex} overlaps at ${branchPos}`);
+      } else {
+        allPositions.add(branchPos);
+      }
+    });
+  });
+  
+  console.log(`[POSITION DEBUG] Total unique positions: ${allPositions.size}`);
+  
+  // Summary of what was generated
+  let totalBranches = 0;
+  let totalLeaves = 0;
+  isometricTrees.forEach(tree => {
+    tree.branches.forEach(branch => {
+      if (branch.isLeaf) {
+        totalLeaves++;
+      } else {
+        totalBranches++;
+      }
+    });
+  });
+  console.log(`[SUMMARY] Generated ${isometricTrees.length} trees with ${totalBranches} branches and ${totalLeaves} leaves`);
+  
+  setTreesGenerated(true);
         
         // Create 100x100 grid of tiles
         const tiles: Sprite[][] = [];
@@ -642,9 +809,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     });
   }, [selectedTree, width, height, isSceneInitialized]);
 
-  // Highlighting effect for selected node (swap texture)
+  // Highlighting effect for selected node and preview selection
   useEffect(() => {
-    console.log(`[HIGHLIGHT DEBUG] selectedNodeId=${selectedNodeId}, selectedNodeId type=${typeof selectedNodeId}, highlightTextureRef.current=${!!highlightTextureRef.current}`);
+    console.log(`[HIGHLIGHT DEBUG] selectedNodeId=${selectedNodeId}, currentDepth=${currentDepth}, selectedOptions=${selectedOptions}`);
     console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap keys:`, Object.keys(nodeSpriteMap.current));
     console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap values:`, Object.values(nodeSpriteMap.current).map(sprites => sprites.length));
     
@@ -660,6 +827,23 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       });
     });
     
+    // Calculate which node should be preview highlighted (yellow)
+    let previewNodeId: string | null = null;
+    if (selectedTree && currentDepth >= 0 && selectedOptions.length > currentDepth) {
+      const currentPath = getPathFromRoot(selectedNodeId || '');
+      if (currentPath.length > currentDepth) {
+        const currentNodeAtDepth = currentPath[currentDepth];
+        if (currentNodeAtDepth && currentNodeAtDepth.continuations) {
+          const selectedOptionIndex = selectedOptions[currentDepth];
+          if (selectedOptionIndex >= 0 && selectedOptionIndex < currentNodeAtDepth.continuations.length) {
+            previewNodeId = currentNodeAtDepth.continuations[selectedOptionIndex].id;
+          }
+        }
+      }
+    }
+    
+    console.log(`[PREVIEW DEBUG] previewNodeId=${previewNodeId}`);
+    
     // Determine which node to highlight
     let nodeToHighlight = selectedNodeId;
     
@@ -673,7 +857,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       }
     }
     
-    // Highlight selected or default root
+    // Highlight selected node (red flowers)
     if (nodeToHighlight && nodeSpriteMap.current[nodeToHighlight]) {
       console.log(`[HIGHLIGHT DEBUG] Found sprites for nodeId=${nodeToHighlight}, count=${nodeSpriteMap.current[nodeToHighlight].length}`);
       nodeSpriteMap.current[nodeToHighlight].forEach(sprite => {
@@ -696,7 +880,31 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     } else {
       console.log(`[HIGHLIGHT DEBUG] No sprites found for nodeId=${nodeToHighlight}`);
     }
-  }, [selectedNodeId, isSceneInitialized, treesGenerated]);
+    
+    // Preview highlight child node (yellow flowers)
+    if (previewNodeId && nodeSpriteMap.current[previewNodeId]) {
+      console.log(`[PREVIEW DEBUG] Found sprites for previewNodeId=${previewNodeId}, count=${nodeSpriteMap.current[previewNodeId].length}`);
+      nodeSpriteMap.current[previewNodeId].forEach(sprite => {
+        if (sprite && spriteOriginalTextures.current.has(sprite)) {
+          // Swap to preview texture (flowers_yellow) and add visual enhancement
+          if (previewTextureRef.current) {
+            sprite.texture = previewTextureRef.current;
+            // Make the preview sprite slightly larger and with a different tint
+            sprite.scale.set(1.05, 1.05);
+            sprite.tint = 0x87CEEB; // Sky blue tint for preview
+            // Log preview highlighting
+            console.log(`[PREVIEW] Preview highlighted nodeId=${previewNodeId} at sprite position x=${sprite.x} y=${sprite.y}`);
+          } else {
+            console.log(`[PREVIEW DEBUG] previewTextureRef.current is null`);
+          }
+        } else {
+          console.log(`[PREVIEW DEBUG] Sprite or original texture not found for previewNodeId=${previewNodeId}`);
+        }
+      });
+    } else {
+      console.log(`[PREVIEW DEBUG] No sprites found for previewNodeId=${previewNodeId}`);
+    }
+  }, [selectedNodeId, currentDepth, selectedOptions, isSceneInitialized, treesGenerated, selectedTree, getPathFromRoot]);
 
   return (
     <div
