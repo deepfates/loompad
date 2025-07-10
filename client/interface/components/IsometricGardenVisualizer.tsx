@@ -48,7 +48,7 @@ const TILESET_MAP = {
 };
 
 const TILE_FRAMES = Object.values(TILESET_MAP);
-const BRANCH_TEXTURE_KEY = 'tile_1_3';
+const BRANCH_TEXTURE_KEY = 'tile_2_0';
 const PREVIEW_TEXTURE_KEY = 'tile_1_5';
 const LEAF_TILE_KEY = 'tile_3_6';
 const HIGHLIGHT_TEXTURE_KEY = 'tile_6_6';
