@@ -6,12 +6,14 @@ import type { TreePosition } from '../types/garden';
 interface IsometricGardenVisualizerProps {
   width?: number;
   height?: number;
+  selectedNodeId?: string; // Add selected node prop
 }
 
 interface IsometricTree {
   x: number;
   y: number;
   trunkHeight: number;
+  rootId: string; // Add rootId for node mapping
   branches: Array<{
     x: number;
     y: number;
@@ -86,7 +88,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
       return branches;
     }
     // For non-leaf nodes, create a vertical branch (trunk/branch)
-    const branchHeight = Math.floor(Math.random() * 3) + 3; // 3-5 blocks tall
+    const branchHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
     // The base of this branch is adjacent to the parent's top
     // Find a free adjacent tile
     let branchBase = null;
@@ -133,7 +135,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (gridPos.x < 0 || gridPos.x >= gridSize || gridPos.y < 0 || gridPos.y >= gridSize) return;
     if (occupiedPositions.has(`${gridPos.x},${gridPos.y}`)) return;
     // Mark trunk positions as occupied
-    const trunkHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
+    const trunkHeight = Math.floor(Math.random() * 3) + 10; // 10-12 blocks tall
     for (let h = 0; h < trunkHeight; h++) {
       occupiedPositions.add(`${gridPos.x},${gridPos.y}`);
     }
@@ -151,6 +153,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
       x: gridPos.x,
       y: gridPos.y,
       trunkHeight,
+      rootId: tree.root.id, // Assign rootId
       branches
     });
   });
@@ -159,8 +162,10 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
 
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   width = 800,
-  height = 640
+  height = 640,
+  selectedNodeId // Add prop
 }) => {
+  console.log(`[COMPONENT DEBUG] IsometricGardenVisualizer received selectedNodeId:`, selectedNodeId);
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application>();
   const tilesRef = useRef<Sprite[][]>([]);
@@ -171,6 +176,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const keysPressedRef = useRef<Set<string>>(new Set());
   const [isSceneInitialized, setIsSceneInitialized] = useState(false);
+  const [treesGenerated, setTreesGenerated] = useState(false);
 
   // Get trees from garden store
   const { trees, selectedTree } = useGardenStore();
@@ -205,6 +211,15 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const handleMouseUp = useCallback(() => {
     isDraggingRef.current = false;
   }, []);
+
+  // Map nodeId to sprite(s) for highlighting
+  const nodeSpriteMap = useRef<Record<string, Sprite[]>>({});
+  // Store original tints using WeakMap
+  const spriteOriginalTints = useRef<WeakMap<Sprite, number>>(new WeakMap());
+  // Store original textures using WeakMap
+  const spriteOriginalTextures = useRef<WeakMap<Sprite, Texture>>(new WeakMap());
+  // Store highlight texture reference
+  const highlightTextureRef = useRef<Texture | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -293,6 +308,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           }
         }
 
+        // Set up highlight texture for node selection - use a more visible texture
+        highlightTextureRef.current = spritesheet.textures['flowers_red'];
+
         // Create a container for all tiles
         const tileContainer = new Container();
         app.stage.addChild(tileContainer);
@@ -303,6 +321,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         // Generate trees from garden store data
         const isometricTrees = generateTreesFromStore(trees, GRID_SIZE);
         console.log(`Generated ${isometricTrees.length} trees from garden store`);
+        setTreesGenerated(true);
         
         // Create 100x100 grid of tiles
         const tiles: Sprite[][] = [];
@@ -343,35 +362,41 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
 
         // Add tree structures based on garden store data
         const treeSprites: Sprite[] = [];
+        nodeSpriteMap.current = {};
         isometricTrees.forEach(tree => {
-          // Create trunk (1x1 vertically stacked blocks)
+          // Trunk
           const trunkX = tree.x;
           const trunkY = tree.y;
-          const trunkBaseZ = 6; // Minimum height above ground
-          
+          const trunkBaseZ = 6;
+          let trunkSprites: Sprite[] = [];
           if (trunkX < GRID_SIZE && trunkY < GRID_SIZE) {
-            // Create trunk blocks (brown)
             for (let height = 0; height < tree.trunkHeight; height++) {
-              const trunkTexture = spritesheet.textures['stone']; // Use stone for trunk
+              const trunkTexture = spritesheet.textures['stone'];
               const [screenX, screenY] = isoToScreen(trunkX, trunkY);
               const trunkSprite = new Sprite(trunkTexture);
               trunkSprite.anchor.set(0.5, 1);
               trunkSprite.x = screenX;
-              trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4); // Stack vertically, start at z=6
-              trunkSprite.tint = 0x8B4513; // Brown tint
+              trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4);
+              trunkSprite.tint = 0x8B4513;
               tileContainer.addChild(trunkSprite);
               treeSprites.push(trunkSprite);
+              trunkSprites.push(trunkSprite);
+              spriteOriginalTints.current.set(trunkSprite, trunkSprite.tint);
+              spriteOriginalTextures.current.set(trunkSprite, trunkSprite.texture);
               // Log trunk block position
               console.log(`[TRUNK] Tree at (${trunkX},${trunkY}) Block: x=${trunkX} y=${trunkY} z=${trunkBaseZ + height}`);
             }
+            // Map root node id to all trunk sprites
+            if (tree.rootId) {
+              nodeSpriteMap.current[tree.rootId] = trunkSprites;
+              console.log(`[NODE MAPPING] Mapped root node ${tree.rootId} to ${trunkSprites.length} trunk sprites`);
+            }
           }
-          
-          // Render branches
+          // Branches
           tree.branches.forEach(branch => {
             if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE) {
-              // Branches start at the top of the trunk (z = trunkBaseZ + tree.trunkHeight - 1)
               const branchBaseZ = trunkBaseZ + tree.trunkHeight - 1;
-              // Draw vertical stack for branch
+              let branchSprites: Sprite[] = [];
               for (let h = 0; h < branch.height; h++) {
                 const branchTexture = spritesheet.textures['stone'];
                 const [screenX, screenY] = isoToScreen(branch.x, branch.y);
@@ -379,7 +404,6 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                 branchSprite.anchor.set(0.5, 1);
                 branchSprite.x = screenX;
                 branchSprite.y = screenY - (branchBaseZ + h) * (TILE_HEIGHT / 4);
-                // Color variation based on depth - deeper branches are lighter
                 const depth = branch.depth || 0;
                 const colorVariation = Math.min(0.3, depth * 0.1);
                 const baseColor = 0x654321;
@@ -389,10 +413,19 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                 branchSprite.tint = (r << 16) | (g << 8) | b;
                 tileContainer.addChild(branchSprite);
                 treeSprites.push(branchSprite);
+                branchSprites.push(branchSprite);
+                spriteOriginalTints.current.set(branchSprite, branchSprite.tint);
+                spriteOriginalTextures.current.set(branchSprite, branchSprite.texture);
                 // Log branch block position
                 console.log(`[BRANCH] Branch at (${branch.x},${branch.y}) Block: x=${branch.x} y=${branch.y} z=${branchBaseZ + h} depth=${depth}`);
               }
-              // Only add a leaf block if this is a leaf branch
+              // Map node id to all branch sprites (or leaf sprite if isLeaf)
+              if (branch.parentId) {
+                if (!branch.isLeaf) {
+                  nodeSpriteMap.current[branch.parentId] = branchSprites;
+                  console.log(`[NODE MAPPING] Mapped branch node ${branch.parentId} to ${branchSprites.length} branch sprites`);
+                }
+              }
               if (branch.isLeaf) {
                 const leafTexture = spritesheet.textures['bush'];
                 const [screenX, screenY] = isoToScreen(branch.x, branch.y);
@@ -400,11 +433,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                 leafSprite.anchor.set(0.5, 1);
                 leafSprite.x = screenX;
                 leafSprite.y = screenY - (branchBaseZ + branch.height) * (TILE_HEIGHT / 4);
-                // Leaf color and scale variation based on depth
                 const depth = branch.depth || 0;
                 const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
                 leafSprite.scale.set(scaleVariation, scaleVariation);
-                // Color variation - deeper branches have lighter green
                 const greenVariation = Math.min(0.4, depth * 0.15);
                 const baseGreen = 0x32CD32;
                 const r = Math.min(255, Math.floor((baseGreen >> 16) * (1 + greenVariation)));
@@ -413,6 +444,13 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                 leafSprite.tint = (r << 16) | (g << 8) | b;
                 tileContainer.addChild(leafSprite);
                 treeSprites.push(leafSprite);
+                spriteOriginalTints.current.set(leafSprite, leafSprite.tint);
+                spriteOriginalTextures.current.set(leafSprite, leafSprite.texture);
+                // Map leaf node id to this leaf sprite
+                if (branch.parentId) {
+                  nodeSpriteMap.current[branch.parentId] = [leafSprite];
+                  console.log(`[NODE MAPPING] Mapped leaf node ${branch.parentId} to leaf sprite`);
+                }
                 // Log leaf block position
                 console.log(`[LEAF] Leaf at (${branch.x},${branch.y}) Block: x=${branch.x} y=${branch.y} z=${branchBaseZ + branch.height} depth=${depth}`);
               }
@@ -458,16 +496,16 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           time += 0.01; // Significantly slowed down from 0.05 to 0.01
           
           // Handle keyboard input
-          if (keysPressedRef.current.has('arrowleft') || keysPressedRef.current.has('a')) {
+          if (keysPressedRef.current.has('arrowleft')) {
             cameraRef.current.x += CAMERA_SPEED;
           }
-          if (keysPressedRef.current.has('arrowright') || keysPressedRef.current.has('d')) {
+          if (keysPressedRef.current.has('arrowright')) {
             cameraRef.current.x -= CAMERA_SPEED;
           }
-          if (keysPressedRef.current.has('arrowup') || keysPressedRef.current.has('w')) {
+          if (keysPressedRef.current.has('arrowup')) {
             cameraRef.current.y += CAMERA_SPEED;
           }
-          if (keysPressedRef.current.has('arrowdown') || keysPressedRef.current.has('s')) {
+          if (keysPressedRef.current.has('arrowdown')) {
             cameraRef.current.y -= CAMERA_SPEED;
           }
 
@@ -502,6 +540,16 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           containerRef.current.appendChild(app.canvas);
           appRef.current = app;
           setIsSceneInitialized(true);
+          
+          // Trigger initial highlighting after scene is ready
+          setTimeout(() => {
+            if (!destroyed) {
+              console.log('[INIT] Scene initialized, triggering initial highlighting');
+              // Force a re-render of the highlighting effect
+              const event = new Event('highlightUpdate');
+              window.dispatchEvent(event);
+            }
+          }, 100);
         } else {
           app.destroy(true);
           // Don't destroy ticker here as it's handled in the cleanup function
@@ -523,6 +571,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     return () => {
       destroyed = true;
       setIsSceneInitialized(false);
+      setTreesGenerated(false);
       
       // Remove event listeners
       window.removeEventListener('keydown', handleKeyDown);
@@ -592,6 +641,62 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       cameraPosition: cameraRef.current
     });
   }, [selectedTree, width, height, isSceneInitialized]);
+
+  // Highlighting effect for selected node (swap texture)
+  useEffect(() => {
+    console.log(`[HIGHLIGHT DEBUG] selectedNodeId=${selectedNodeId}, selectedNodeId type=${typeof selectedNodeId}, highlightTextureRef.current=${!!highlightTextureRef.current}`);
+    console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap keys:`, Object.keys(nodeSpriteMap.current));
+    console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap values:`, Object.values(nodeSpriteMap.current).map(sprites => sprites.length));
+    
+    // Remove highlight from all
+    Object.values(nodeSpriteMap.current).forEach(sprites => {
+      sprites.forEach(sprite => {
+        if (sprite && spriteOriginalTextures.current.has(sprite)) {
+          sprite.texture = spriteOriginalTextures.current.get(sprite)!;
+          // Restore original scale and tint
+          sprite.scale.set(1, 1);
+          sprite.tint = spriteOriginalTints.current.get(sprite) || 0xFFFFFF;
+        }
+      });
+    });
+    
+    // Determine which node to highlight
+    let nodeToHighlight = selectedNodeId;
+    
+    // If no specific node is selected, highlight the root node (first tree's root)
+    if (!nodeToHighlight && Object.keys(nodeSpriteMap.current).length > 0) {
+      // Find the root node (usually starts with 'root_')
+      const rootKeys = Object.keys(nodeSpriteMap.current).filter(key => key.startsWith('root_'));
+      if (rootKeys.length > 0) {
+        nodeToHighlight = rootKeys[0];
+        console.log(`[HIGHLIGHT DEBUG] No selectedNodeId provided, defaulting to root: ${nodeToHighlight}`);
+      }
+    }
+    
+    // Highlight selected or default root
+    if (nodeToHighlight && nodeSpriteMap.current[nodeToHighlight]) {
+      console.log(`[HIGHLIGHT DEBUG] Found sprites for nodeId=${nodeToHighlight}, count=${nodeSpriteMap.current[nodeToHighlight].length}`);
+      nodeSpriteMap.current[nodeToHighlight].forEach(sprite => {
+        if (sprite && spriteOriginalTextures.current.has(sprite)) {
+          // Swap to highlight texture (flowers_red) and add visual enhancement
+          if (highlightTextureRef.current) {
+            sprite.texture = highlightTextureRef.current;
+            // Make the highlighted sprite larger and brighter
+            sprite.scale.set(1.1, 1.1);
+            sprite.tint = 0xFFFF00; // Bright yellow tint
+            // Log highlighting
+            console.log(`[HIGHLIGHT] Highlighted nodeId=${nodeToHighlight} at sprite position x=${sprite.x} y=${sprite.y}`);
+          } else {
+            console.log(`[HIGHLIGHT DEBUG] highlightTextureRef.current is null`);
+          }
+        } else {
+          console.log(`[HIGHLIGHT DEBUG] Sprite or original texture not found for nodeId=${nodeToHighlight}`);
+        }
+      });
+    } else {
+      console.log(`[HIGHLIGHT DEBUG] No sprites found for nodeId=${nodeToHighlight}`);
+    }
+  }, [selectedNodeId, isSceneInitialized, treesGenerated]);
 
   return (
     <div

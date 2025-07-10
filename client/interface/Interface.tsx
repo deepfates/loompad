@@ -53,7 +53,7 @@ const GamepadInterface = () => {
   const [useIsometricVisualizer, setUseIsometricVisualizer] = useState(true);
   
   // Garden store integration
-  const { syncWithStoryTrees, setGenerating, selectedNode, getPathFromRoot } = useGardenStore();
+  const { syncWithStoryTrees, setGenerating, selectedNode, selectedTree, getPathFromRoot } = useGardenStore();
   
   const {
     activeMenu,
@@ -689,6 +689,9 @@ const GamepadInterface = () => {
                 <IsometricGardenVisualizer
                   width={800}
                   height={640}
+                  selectedNodeId={selectedNode?.id}
+                  // Only visualize the active tree (selectedTree)
+                  // The visualizer already uses the selectedTree from the store
                 />
               ) : (
               <GardenVisualizer
