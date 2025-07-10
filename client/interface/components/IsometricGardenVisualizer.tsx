@@ -33,8 +33,9 @@ const TILE_WIDTH = 32; // Reduced from 64 to 32
 const TILE_HEIGHT = 32; // Reduced from 64 to 32
 const CAMERA_SPEED = 5; // Speed for arrow key movement
 const MOUSE_DRAG_SPEED = 1.5; // Speed for mouse drag
-const TRUNK_SCALE = 1.5; // Trunk thickness multiplier
+const TRUNK_SCALE = 1.0; // Trunk thickness multiplier
 const BRANCH_SCALE = 1.25; // Branch thickness multiplier
+const BRANCH_TEXTURE_KEY = 'stone';
 
 function isoToScreen(x: number, y: number) {
   return [
@@ -363,8 +364,8 @@ const createConnectionPath = (start: NodePosition, end: NodePosition): Connectio
 const createConnectionSprites = (path: ConnectionPath, spritesheet: Spritesheet, container: Container): Sprite[] => {
   const connectionSprites: Sprite[] = [];
   
-  // Use a different texture for connections (e.g., 'stone' or 'dirt')
-  const connectionTexture = spritesheet.textures['dirt'] || spritesheet.textures['stone'];
+  // Use the same texture as branches ("stone")
+  const connectionTexture = spritesheet.textures[BRANCH_TEXTURE_KEY];
   
   path.pathPoints.forEach((point, index) => {
     if (index === 0 || index === path.pathPoints.length - 1) return; // Skip start and end points
@@ -375,9 +376,9 @@ const createConnectionSprites = (path: ConnectionPath, spritesheet: Spritesheet,
       sprite.anchor.set(0.5, 1);
       sprite.x = point.x;
       sprite.y = point.y;
-      sprite.scale.set(0.5, 0.5); // Very small scale for dense connections
+      sprite.scale.set(0.5, 0.5); // Consistent thin size for connections and branches
       sprite.tint = 0x8B7355; // Brown color for connections
-      sprite.alpha = 0.6; // Lower opacity for less prominence
+      sprite.alpha = 1.0; // Fully opaque for consistency
       
       container.addChild(sprite);
       connectionSprites.push(sprite);
@@ -717,13 +718,13 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               for (let h = 0; h < node.height; h++) {
                 // Check if this node segment position is available
                 if (checkAndMarkPosition(node.x, node.y, nodeBaseZ + h)) {
-                  const nodeTexture = spritesheet.textures['stone'];
+                  const nodeTexture = spritesheet.textures[BRANCH_TEXTURE_KEY];
                   const [screenX, screenY] = isoToScreen(node.x, node.y);
                   const nodeSprite = new Sprite(nodeTexture);
                   nodeSprite.anchor.set(0.5, 1);
                   nodeSprite.x = screenX;
                   nodeSprite.y = screenY - (nodeBaseZ + h) * (TILE_HEIGHT / 4);
-                  nodeSprite.scale.set(BRANCH_SCALE, BRANCH_SCALE);
+                  nodeSprite.scale.set(0.5, 0.5); // Consistent thin size for branches
                   const colorVariation = Math.min(0.3, depth * 0.1);
                   const baseColor = 0x654321;
                   const r = Math.min(255, Math.floor((baseColor >> 16) * (1 + colorVariation)));
