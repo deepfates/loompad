@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Application, Graphics, Ticker } from 'pixi.js';
+import { Application, Sprite, Assets, Spritesheet, Texture, Ticker } from 'pixi.js';
 
 interface IsometricGardenVisualizerProps {
   width?: number;
@@ -8,15 +8,18 @@ interface IsometricGardenVisualizerProps {
 
 const GRID_SIZE = 8;
 const TILE_WIDTH = 64;
-const TILE_HEIGHT = 32;
-const TILE_COLOR = 0x4A5D23;
+const TILE_HEIGHT = 64; // match your generated tile size
 
 function isoToScreen(x: number, y: number) {
   return [
     (x - y) * (TILE_WIDTH / 2),
-    (x + y) * (TILE_HEIGHT / 2)
+    (x + y) * (TILE_HEIGHT / 4) // 1/4 for isometric vertical squish
   ];
 }
+
+const ATLAS_URL = '/client/assets/sprites/tileset.json';
+const IMAGE_URL = '/client/assets/sprites/tileset.png';
+const TILE_FRAMES = ['grass', 'dirt', 'water'];
 
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   width = 600,
@@ -24,11 +27,13 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application>();
-  const tilesRef = useRef<Graphics[][]>([]);
+  const tilesRef = useRef<Sprite[][]>([]);
   const tickerRef = useRef<Ticker>();
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    let destroyed = false;
 
     const initPixiJS = async () => {
       try {
@@ -42,27 +47,61 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           autoDensity: true
         });
 
+        // Load the atlas and image
+        let atlas;
+        try {
+          // Load atlas as raw JSON data, not as a spritesheet
+          const response = await fetch(ATLAS_URL);
+          atlas = await response.json();
+          console.log('Atlas loaded:', atlas);
+        } catch (e) {
+          console.error('Failed to load atlas JSON:', e);
+          return;
+        }
+        
+        let spritesheet;
+        try {
+          // Load the texture first, then create spritesheet
+          const texture = await Assets.load(IMAGE_URL);
+          console.log('Texture loaded:', texture);
+          if (!texture) {
+            console.error('Texture is undefined');
+            return;
+          }
+          spritesheet = new Spritesheet(texture, atlas);
+          await spritesheet.parse();
+          console.log('Spritesheet parsed successfully');
+        } catch (e) {
+          console.error('Failed to parse spritesheet:', e);
+          return;
+        }
+
+        // Check all frames exist
+        for (const frame of TILE_FRAMES) {
+          if (!spritesheet.textures[frame]) {
+            console.error(`Frame '${frame}' not found in atlas`);
+            return;
+          }
+        }
+
         const offsetX = width / 2;
-        const offsetY = 60;
+        const offsetY = 80;
 
         // Store references to all tiles for animation
-        const tiles: Graphics[][] = [];
+        const tiles: Sprite[][] = [];
         for (let x = 0; x < GRID_SIZE; x++) {
           tiles[x] = [];
           for (let y = 0; y < GRID_SIZE; y++) {
+            // Randomize tile type for demo
+            const frame = TILE_FRAMES[Math.floor(Math.random() * TILE_FRAMES.length)];
+            const tileTexture = spritesheet.textures[frame];
             const [screenX, screenY] = isoToScreen(x, y);
-            const g = new Graphics();
-            g.moveTo(0, TILE_HEIGHT / 2)
-              .lineTo(TILE_WIDTH / 2, 0)
-              .lineTo(TILE_WIDTH, TILE_HEIGHT / 2)
-              .lineTo(TILE_WIDTH / 2, TILE_HEIGHT)
-              .lineTo(0, TILE_HEIGHT / 2)
-              .fill(TILE_COLOR);
-
-            g.x = offsetX + screenX;
-            g.y = offsetY + screenY;
-            app.stage.addChild(g);
-            tiles[x][y] = g;
+            const sprite = new Sprite(tileTexture);
+            sprite.anchor.set(0.5, 1); // Center bottom
+            sprite.x = offsetX + screenX;
+            sprite.y = offsetY + screenY;
+            app.stage.addChild(sprite);
+            tiles[x][y] = sprite;
           }
         }
         tilesRef.current = tiles;
@@ -74,17 +113,22 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           time += 0.05;
           for (let x = 0; x < GRID_SIZE; x++) {
             for (let y = 0; y < GRID_SIZE; y++) {
-              const g = tilesRef.current[x][y];
-              // Wave effect: animate y position
-              g.y = offsetY + isoToScreen(x, y)[1] + Math.cos(time + x + y) * 12;
+              const sprite = tilesRef.current[x][y];
+              sprite.y = offsetY + isoToScreen(x, y)[1] + Math.cos(time + x + y) * 8;
             }
           }
         });
         ticker.start();
         tickerRef.current = ticker;
 
-        containerRef.current.appendChild(app.canvas);
-        appRef.current = app;
+        if (!destroyed) {
+          containerRef.current.appendChild(app.canvas);
+          appRef.current = app;
+        } else {
+          app.destroy(true);
+          ticker.stop();
+          ticker.destroy();
+        }
       } catch (error) {
         console.error('Failed to initialize PixiJS:', error);
       }
@@ -93,12 +137,18 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     initPixiJS();
 
     return () => {
+      destroyed = true;
       if (appRef.current) {
         appRef.current.destroy(true);
+        appRef.current = undefined;
       }
       if (tickerRef.current) {
         tickerRef.current.stop();
         tickerRef.current.destroy();
+        tickerRef.current = undefined;
+      }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
       }
     };
   }, [width, height]);
