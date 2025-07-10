@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { Application, Sprite, Assets, Spritesheet, Texture, Ticker, Container } from 'pixi.js';
+import { useGardenStore } from '../stores/gardenStore';
+import type { TreePosition } from '../types/garden';
 
 interface IsometricGardenVisualizerProps {
   width?: number;
   height?: number;
 }
 
-interface Tree {
+interface IsometricTree {
   x: number;
   y: number;
   trunkHeight: number;
@@ -40,65 +42,89 @@ const TILE_FRAMES = [
   'stone', 'mud'
 ];
 
-// Generate random trees
-const generateTrees = (gridSize: number, treeDensity: number = 0.02): Tree[] => {
-  const trees: Tree[] = [];
+// Generate trees from garden store data
+const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[] => {
+  const isometricTrees: IsometricTree[] = [];
   const occupiedPositions = new Set<string>();
   
-  for (let x = 0; x < gridSize; x++) {
-    for (let y = 0; y < gridSize; y++) {
-      if (Math.random() < treeDensity) {
-        // Check if position is available (1x1 area)
-        const checkX = x;
-        const checkY = y;
-        if (checkX >= gridSize || checkY >= gridSize || occupiedPositions.has(`${checkX},${checkY}`)) {
-          continue;
-        }
+  // Map 3D positions to 2D grid positions
+  const map3DToGrid = (position: TreePosition): { x: number; y: number } => {
+    // Scale and offset the 3D position to fit in our grid
+    const scale = 0.1; // Scale down the 3D coordinates
+    const offsetX = gridSize / 2;
+    const offsetY = gridSize / 2;
+    
+    return {
+      x: Math.floor((position.x * scale) + offsetX),
+      y: Math.floor((position.z * scale) + offsetY) // Use Z as Y for isometric view
+    };
+  };
+
+  trees.forEach((tree, treeIndex) => {
+    if (!tree.position || !tree.root) return;
+    
+    const gridPos = map3DToGrid(tree.position);
+    
+    // Ensure position is within grid bounds
+    if (gridPos.x < 0 || gridPos.x >= gridSize || gridPos.y < 0 || gridPos.y >= gridSize) {
+      return;
+    }
+    
+    // Check if position is available
+    if (occupiedPositions.has(`${gridPos.x},${gridPos.y}`)) {
+      return;
+    }
+    
+    // Mark position as occupied
+    occupiedPositions.add(`${gridPos.x},${gridPos.y}`);
+    
+    // Generate tree structure based on story node
+    const trunkHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
+    const branches: Array<{x: number, y: number, height: number}> = [];
+    
+    // Generate branches based on story node continuations
+    if (tree.root.continuations && tree.root.continuations.length > 0) {
+      const numBranches = Math.min(tree.root.continuations.length, 4); // Max 4 branches for visual clarity
+      const branchPositions = [
+        {x: -1, y: 0}, {x: 1, y: 0}, {x: 0, y: -1}, {x: 0, y: 1}, // Adjacent positions
+        {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1} // Diagonal positions
+      ];
+      
+      // Use deterministic positioning based on node ID
+      const seed = tree.root.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+      const seededRandom = ((seed * 9301 + 49297) % 233280) / 233280;
+      
+      // Shuffle positions deterministically
+      const shuffledPositions = [...branchPositions].sort(() => seededRandom - 0.5);
+      
+      for (let i = 0; i < numBranches && i < shuffledPositions.length; i++) {
+        const pos = shuffledPositions[i];
+        const branchX = gridPos.x + pos.x;
+        const branchY = gridPos.y + pos.y;
         
-        // Mark 1x1 area as occupied
-        occupiedPositions.add(`${x},${y}`);
-        
-        // Generate tree
-        const trunkHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
-        const branches: Array<{x: number, y: number, height: number}> = [];
-        
-        // Generate 2-4 branches
-        const numBranches = Math.floor(Math.random() * 3) + 2;
-        const branchPositions = [
-          {x: -1, y: 0}, {x: 1, y: 0}, {x: 0, y: -1}, {x: 0, y: 1}, // Adjacent positions
-          {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1} // Diagonal positions
-        ];
-        
-        const shuffledPositions = [...branchPositions].sort(() => Math.random() - 0.5);
-        
-        for (let i = 0; i < numBranches && i < shuffledPositions.length; i++) {
-          const pos = shuffledPositions[i];
-          const branchX = x + pos.x;
-          const branchY = y + pos.y;
+        // Check if branch position is available
+        if (branchX >= 0 && branchX < gridSize && branchY >= 0 && branchY < gridSize && 
+            !occupiedPositions.has(`${branchX},${branchY}`)) {
+          occupiedPositions.add(`${branchX},${branchY}`);
           
-          // Check if branch position is available
-          if (branchX >= 0 && branchX < gridSize && branchY >= 0 && branchY < gridSize && 
-              !occupiedPositions.has(`${branchX},${branchY}`)) {
-            occupiedPositions.add(`${branchX},${branchY}`);
-            branches.push({
-              x: branchX,
-              y: branchY,
-              height: Math.floor(Math.random() * 4) + 1 // 1-4 blocks tall
-            });
-          }
+          branches.push({
+            x: branchX,
+            y: branchY,
+            height: Math.floor(Math.random() * 4) + 1 // 1-4 blocks tall
+          });
         }
-        
-        trees.push({
-          x,
-          y,
-          trunkHeight,
-          branches
-        });
       }
     }
-  }
+    
+    isometricTrees.push({
+      x: gridPos.x,
+      y: gridPos.y,
+      trunkHeight,
+      branches
+    });
+  });
   
-  return trees;
+  return isometricTrees;
 };
 
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
@@ -114,6 +140,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const keysPressedRef = useRef<Set<string>>(new Set());
+
+  // Get trees from garden store
+  const { trees } = useGardenStore();
 
   // Handle keyboard events
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -240,10 +269,10 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const centerX = width / 2;
         const centerY = height / 2;
 
-        // Generate trees
-        const trees = generateTrees(GRID_SIZE, 0.015); // 1.5% tree density
-        console.log(`Generated ${trees.length} trees`);
-
+        // Generate trees from garden store data
+        const isometricTrees = generateTreesFromStore(trees, GRID_SIZE);
+        console.log(`Generated ${isometricTrees.length} trees from garden store`);
+        
         // Create 100x100 grid of tiles
         const tiles: Sprite[][] = [];
         for (let x = 0; x < GRID_SIZE; x++) {
@@ -281,9 +310,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           }
         }
 
-        // Add tree structures
+        // Add tree structures based on garden store data
         const treeSprites: Sprite[] = [];
-        trees.forEach(tree => {
+        isometricTrees.forEach(tree => {
           // Create trunk (1x1 vertically stacked blocks)
           const trunkX = tree.x;
           const trunkY = tree.y;
@@ -303,7 +332,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             }
           }
           
-          // Create branches
+          // Create branches based on story node structure
           tree.branches.forEach(branch => {
             if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE) {
               // Branches start at the same level as the highest trunk block
@@ -405,16 +434,21 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             sprite.y = baseY + Math.cos(time + sprite.x + sprite.y) * 2; // Subtle wave for trees
           });
         });
-        ticker.start();
-        tickerRef.current = ticker;
+        
+        // Only start ticker if component is not destroyed
+        if (!destroyed) {
+          ticker.start();
+          tickerRef.current = ticker;
+        } else {
+          ticker.destroy();
+        }
 
         if (!destroyed) {
           containerRef.current.appendChild(app.canvas);
           appRef.current = app;
         } else {
           app.destroy(true);
-          ticker.stop();
-          ticker.destroy();
+          // Don't destroy ticker here as it's handled in the cleanup function
         }
       } catch (error) {
         console.error('Failed to initialize PixiJS:', error);
@@ -456,15 +490,19 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         appRef.current = undefined;
       }
       if (tickerRef.current) {
-        tickerRef.current.stop();
-        tickerRef.current.destroy();
+        try {
+          tickerRef.current.stop();
+          tickerRef.current.destroy();
+        } catch (error) {
+          console.warn('Error destroying ticker:', error);
+        }
         tickerRef.current = undefined;
       }
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
     };
-  }, [width, height, handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp]);
+  }, [width, height, handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, trees]);
 
   return (
     <div
