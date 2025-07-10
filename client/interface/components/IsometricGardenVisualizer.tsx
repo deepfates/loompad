@@ -6,6 +6,17 @@ interface IsometricGardenVisualizerProps {
   height?: number;
 }
 
+interface Tree {
+  x: number;
+  y: number;
+  trunkHeight: number;
+  branches: Array<{
+    x: number;
+    y: number;
+    height: number;
+  }>;
+}
+
 const GRID_SIZE = 100; // Increased from 50x50 to 100x100 for smaller tiles
 const TILE_WIDTH = 32; // Reduced from 64 to 32
 const TILE_HEIGHT = 32; // Reduced from 64 to 32
@@ -29,6 +40,67 @@ const TILE_FRAMES = [
   'stone', 'mud'
 ];
 
+// Generate random trees
+const generateTrees = (gridSize: number, treeDensity: number = 0.02): Tree[] => {
+  const trees: Tree[] = [];
+  const occupiedPositions = new Set<string>();
+  
+  for (let x = 0; x < gridSize; x++) {
+    for (let y = 0; y < gridSize; y++) {
+      if (Math.random() < treeDensity) {
+        // Check if position is available (1x1 area)
+        const checkX = x;
+        const checkY = y;
+        if (checkX >= gridSize || checkY >= gridSize || occupiedPositions.has(`${checkX},${checkY}`)) {
+          continue;
+        }
+        
+        // Mark 1x1 area as occupied
+        occupiedPositions.add(`${x},${y}`);
+        
+        // Generate tree
+        const trunkHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
+        const branches: Array<{x: number, y: number, height: number}> = [];
+        
+        // Generate 2-4 branches
+        const numBranches = Math.floor(Math.random() * 3) + 2;
+        const branchPositions = [
+          {x: -1, y: 0}, {x: 1, y: 0}, {x: 0, y: -1}, {x: 0, y: 1}, // Adjacent positions
+          {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1} // Diagonal positions
+        ];
+        
+        const shuffledPositions = [...branchPositions].sort(() => Math.random() - 0.5);
+        
+        for (let i = 0; i < numBranches && i < shuffledPositions.length; i++) {
+          const pos = shuffledPositions[i];
+          const branchX = x + pos.x;
+          const branchY = y + pos.y;
+          
+          // Check if branch position is available
+          if (branchX >= 0 && branchX < gridSize && branchY >= 0 && branchY < gridSize && 
+              !occupiedPositions.has(`${branchX},${branchY}`)) {
+            occupiedPositions.add(`${branchX},${branchY}`);
+            branches.push({
+              x: branchX,
+              y: branchY,
+              height: Math.floor(Math.random() * 4) + 1 // 1-4 blocks tall
+            });
+          }
+        }
+        
+        trees.push({
+          x,
+          y,
+          trunkHeight,
+          branches
+        });
+      }
+    }
+  }
+  
+  return trees;
+};
+
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   width = 1200, // Increased from 800 to 1200 for larger view
   height = 800   // Increased from 600 to 800 for larger view
@@ -36,6 +108,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application>();
   const tilesRef = useRef<Sprite[][]>([]);
+  const treeSpritesRef = useRef<Sprite[]>([]);
   const tickerRef = useRef<Ticker>();
   const cameraRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
@@ -84,7 +157,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         await app.init({
           width,
           height,
-          backgroundColor: 0x2A2A2A,
+          backgroundColor: 0x00000000, // Transparent background
           antialias: true,
           resolution: 1,
           autoDensity: true
@@ -132,7 +205,11 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const centerX = width / 2;
         const centerY = height / 2;
 
-        // Create 50x50 grid of tiles
+        // Generate trees
+        const trees = generateTrees(GRID_SIZE, 0.015); // 1.5% tree density
+        console.log(`Generated ${trees.length} trees`);
+
+        // Create 100x100 grid of tiles
         const tiles: Sprite[][] = [];
         for (let x = 0; x < GRID_SIZE; x++) {
           tiles[x] = [];
@@ -168,6 +245,63 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             tiles[x][y] = sprite;
           }
         }
+
+        // Add tree structures
+        const treeSprites: Sprite[] = [];
+        trees.forEach(tree => {
+          // Create trunk (1x1 vertically stacked blocks)
+          const trunkX = tree.x;
+          const trunkY = tree.y;
+          
+          if (trunkX < GRID_SIZE && trunkY < GRID_SIZE) {
+            // Create trunk blocks (brown)
+            for (let height = 0; height < tree.trunkHeight; height++) {
+              const trunkTexture = spritesheet.textures['stone']; // Use stone for trunk
+              const [screenX, screenY] = isoToScreen(trunkX, trunkY);
+              const trunkSprite = new Sprite(trunkTexture);
+              trunkSprite.anchor.set(0.5, 1);
+              trunkSprite.x = screenX;
+              trunkSprite.y = screenY - height * (TILE_HEIGHT / 4); // Stack vertically
+              trunkSprite.tint = 0x8B4513; // Brown tint
+              tileContainer.addChild(trunkSprite);
+              treeSprites.push(trunkSprite);
+            }
+          }
+          
+          // Create branches
+          tree.branches.forEach(branch => {
+            if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE) {
+              // Branches start at the same level as the highest trunk block
+              const branchStartHeight = tree.trunkHeight - 1; // Start at the top of the trunk
+              
+              // Create branch blocks (darker brown)
+              for (let height = 0; height < branch.height; height++) {
+                const branchTexture = spritesheet.textures['stone'];
+                const [screenX, screenY] = isoToScreen(branch.x, branch.y);
+                const branchSprite = new Sprite(branchTexture);
+                branchSprite.anchor.set(0.5, 1);
+                branchSprite.x = screenX;
+                branchSprite.y = screenY - (branchStartHeight + height) * (TILE_HEIGHT / 4);
+                branchSprite.tint = 0x654321; // Darker brown tint
+                tileContainer.addChild(branchSprite);
+                treeSprites.push(branchSprite);
+              }
+              
+              // Add leaf at the top of branch (green)
+              const leafTexture = spritesheet.textures['bush']; // Use bush for leaves
+              const [screenX, screenY] = isoToScreen(branch.x, branch.y);
+              const leafSprite = new Sprite(leafTexture);
+              leafSprite.anchor.set(0.5, 1);
+              leafSprite.x = screenX;
+              leafSprite.y = screenY - (branchStartHeight + branch.height) * (TILE_HEIGHT / 4);
+              leafSprite.tint = 0x32CD32; // Lime green tint
+              tileContainer.addChild(leafSprite);
+              treeSprites.push(leafSprite);
+            }
+          });
+        });
+        
+        treeSpritesRef.current = treeSprites;
         tilesRef.current = tiles;
 
         // Set initial camera position to center the grid
@@ -213,6 +347,12 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               sprite.y = baseY + Math.cos(time + x + y) * 4; // Reduced amplitude from 8 to 2
             }
           }
+          
+          // Wave animation for tree sprites
+          treeSpritesRef.current.forEach(sprite => {
+            const baseY = sprite.y;
+            sprite.y = baseY + Math.cos(time + sprite.x + sprite.y) * 2; // Subtle wave for trees
+          });
         });
         ticker.start();
         tickerRef.current = ticker;
@@ -270,8 +410,8 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       style={{
         width: `${width}px`,
         height: `${height}px`,
-        border: '2px solid #333',
-        backgroundColor: '#2A2A2A',
+        border: 'none',
+        backgroundColor: 'transparent',
         position: 'relative',
         cursor: 'grab'
       }}

@@ -50,7 +50,7 @@ const GamepadInterface = () => {
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
-  const [useIsometricVisualizer, setUseIsometricVisualizer] = useState(false);
+  const [useIsometricVisualizer, setUseIsometricVisualizer] = useState(true);
   
   // Garden store integration
   const { syncWithStoryTrees, setGenerating, selectedNode, getPathFromRoot } = useGardenStore();
