@@ -19,6 +19,7 @@ import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { MetadataPanel } from "./components/MetadataPanel";
 import GardenVisualizer from "./components/GardenVisualizer";
+import IsometricGardenVisualizer from "./components/IsometricGardenVisualizer";
 import { ControlsModal } from "./components/ControlsModal";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
@@ -49,6 +50,7 @@ const GamepadInterface = () => {
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
+  const [useIsometricVisualizer, setUseIsometricVisualizer] = useState(false);
   
   // Garden store integration
   const { syncWithStoryTrees, setGenerating, selectedNode, getPathFromRoot } = useGardenStore();
@@ -421,6 +423,9 @@ const GamepadInterface = () => {
           return;
         }
         setActiveMenu("edit");
+      } else if ((key === "v" || key === "V") && !activeMenu) {
+        // Toggle between 3D and 2D isometric visualizers
+        setUseIsometricVisualizer((prev) => !prev);
       }
     },
     [
@@ -680,27 +685,57 @@ const GamepadInterface = () => {
                   </output>
                 )}
               </div>
-              <GardenVisualizer
-                showMeshGrid={true}
-                showAxis={false}
-                currentDepth={currentDepth}
-                selectedOptions={selectedOptions}
-              />
+              {useIsometricVisualizer ? (
+                <IsometricGardenVisualizer
+                  width={800}
+                  height={600}
+                />
+              ) : (
+                <GardenVisualizer
+                  showMeshGrid={true}
+                  showAxis={false}
+                  currentDepth={currentDepth}
+                  selectedOptions={selectedOptions}
+                />
+              )}
             </>
           )}
 
           {/* Metadata panel - only show when not in a menu */}
           {!activeMenu && (
-            <MetadataPanel
-              currentNode={getCurrentNode()}
-              currentDepth={getCurrentNodeDepth()}
-              totalDepth={getCurrentPath().length}
-              selectedOptions={selectedOptions}
-              isExpanded={isMetadataExpanded}
-              onToggle={() => setIsMetadataExpanded(!isMetadataExpanded)}
-              isFullscreen={isFullscreen}
-              onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-            />
+            <>
+              <MetadataPanel
+                currentNode={getCurrentNode()}
+                currentDepth={getCurrentNodeDepth()}
+                totalDepth={getCurrentPath().length}
+                selectedOptions={selectedOptions}
+                isExpanded={isMetadataExpanded}
+                onToggle={() => setIsMetadataExpanded(!isMetadataExpanded)}
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+              />
+              {/* Visualizer toggle button */}
+              <button
+                onClick={() => setUseIsometricVisualizer(!useIsometricVisualizer)}
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  padding: '8px 12px',
+                  backgroundColor: useIsometricVisualizer ? '#4A5D23' : '#2A2A2A',
+                  color: '#fff',
+                  border: '1px solid #666',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  zIndex: 1000
+                }}
+                title="Toggle between 3D and 2D isometric visualizers"
+              >
+                {useIsometricVisualizer ? '🌳 2D' : '🌲 3D'}
+              </button>
+            </>
           )}
         </section>
 

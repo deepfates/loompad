@@ -1,4 +1,4 @@
-# LoomPad: Interactive Story Tree Explorer
+im# LoomPad: Interactive Story Tree Explorer
 
 A gamepad-style interface for exploring branching narratives with AI text generation.
 

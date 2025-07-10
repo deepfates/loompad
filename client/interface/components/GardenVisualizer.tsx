@@ -11,6 +11,7 @@ interface GardenVisualizerProps {
   showAxis?: boolean;
   currentDepth?: number;
   selectedOptions?: number[];
+  useAsciiEffect?: boolean;
 }
 
 interface ThreeNode {
@@ -43,7 +44,8 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
   showMeshGrid = false, // Disabled by default
   showAxis = false,
   currentDepth = 0,
-  selectedOptions = []
+  selectedOptions = [],
+  useAsciiEffect = true, // Disabled by default
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene>();
@@ -392,10 +394,9 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       invert: false, // Map background to spaces
       resolution: 0.15, // Standard resolution for better space handling
       scale: 1,
-      color: false
+      color: true
     });
     asciiEffect.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    asciiEffect.domElement.style.color = 'white';
     asciiEffect.domElement.style.backgroundColor = 'transparent';
     asciiEffect.domElement.style.fontFamily = 'Courier New, monospace';
     asciiEffect.domElement.style.fontSize = '6px';
@@ -405,8 +406,16 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
     asciiEffect.domElement.style.overflow = 'hidden';
     asciiEffect.domElement.style.userSelect = 'none';
     (asciiEffect.domElement.style as any).webkitUserSelect = 'none';
-    containerRef.current.appendChild(asciiEffect.domElement);
-    setEffect(asciiEffect);
+    
+    // Only append ASCII effect if enabled
+    if (useAsciiEffect) {
+      containerRef.current.appendChild(asciiEffect.domElement);
+      setEffect(asciiEffect);
+    } else {
+      // Append regular renderer for normal 3D rendering
+      containerRef.current.appendChild(renderer.domElement);
+      setEffect(null);
+    }
 
     // Raycaster for mouse picking
     raycasterRef.current = new THREE.Raycaster();
@@ -428,7 +437,7 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
 
     // Handle resize (both window and container)
     const handleResize = () => {
-      if (!containerRef.current || !cameraRef.current || !rendererRef.current || !effect) return;
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
       
       const container = containerRef.current;
       const width = container.clientWidth;
@@ -438,9 +447,13 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       cameraRef.current.aspect = width / height;
       cameraRef.current.updateProjectionMatrix();
       
-      // Update renderer and effect size
+      // Update renderer size
       rendererRef.current.setSize(width, height, false);
-      effect.setSize(width, height);
+      
+      // Update effect size if ASCII effect is enabled
+      if (effect) {
+        effect.setSize(width, height);
+      }
       
       console.log('GardenVisualizer resized:', { width, height, aspect: width / height });
     };
@@ -459,6 +472,8 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       resizeObserver.disconnect();
       if (containerRef.current && effect) {
         containerRef.current.removeChild(effect.domElement);
+      } else if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
+        containerRef.current.removeChild(renderer.domElement);
       }
       renderer.dispose();
       
@@ -823,9 +838,11 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
         material.color.setRGB(red / 255, green / 255, blue / 255);
       }
       
-      // Use ASCII effect for rendering
+      // Use ASCII effect or regular renderer for rendering
       if (effect && sceneRef.current && cameraRef.current) {
         effect.render(sceneRef.current, cameraRef.current);
+      } else if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
     };
 
