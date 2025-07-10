@@ -806,6 +806,10 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const connectionSprites: Sprite[] = [];
         const trunkBaseZ = 6;
         
+        // Create a separate container for connections that will be rendered before leaves
+        const connectionContainer = new Container();
+        tileContainer.addChild(connectionContainer);
+        
         isometricTrees.forEach(tree => {
           // Create connections from trunk to first level children
           const trunkPositions = calculateTrunkPositions(tree, trunkBaseZ);
@@ -816,7 +820,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           firstLevelChildren.forEach(child => {
             const childPositions = calculateNodePositions(tree, child, trunkBaseZ);
             const connectionPath = createConnectionPath(trunkPositions.top, childPositions.bottom);
-            const pathSprites = createConnectionSprites(connectionPath, spritesheet, tileContainer);
+            const pathSprites = createConnectionSprites(connectionPath, spritesheet, connectionContainer);
             connectionSprites.push(...pathSprites);
             connectionPath.sprites = pathSprites;
           });
@@ -836,7 +840,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               const parentPositions = calculateNodePositions(tree, parentNode, trunkBaseZ);
               const childPositions = calculateNodePositions(tree, childNode, trunkBaseZ);
               const connectionPath = createConnectionPath(parentPositions.top, childPositions.bottom);
-              const pathSprites = createConnectionSprites(connectionPath, spritesheet, tileContainer);
+              const pathSprites = createConnectionSprites(connectionPath, spritesheet, connectionContainer);
               connectionSprites.push(...pathSprites);
               connectionPath.sprites = pathSprites;
             });
@@ -847,6 +851,11 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         connectionSpritesRef.current = connectionSprites;
         
         console.log(`[CONNECTIONS] Created ${connectionSprites.length} connection sprites`);
+        
+        // Ensure all leaves are rendered on top
+        leafSprites.forEach(leafSprite => {
+          tileContainer.addChild(leafSprite); // This moves each leaf to the top of the display list
+        });
         
         // Log overlap prevention statistics
         console.log(`[OVERLAP PREVENTION] Total occupied positions: ${occupiedPositions.size}`);
