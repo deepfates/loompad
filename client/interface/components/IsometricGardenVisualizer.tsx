@@ -443,6 +443,19 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const leafSprites: Sprite[] = []; // Separate array for leaves to render last
         nodeSpriteMap.current = {};
         
+        // Track occupied positions to prevent overlaps
+        const occupiedPositions = new Set<string>();
+        
+        // Helper function to check and mark position as occupied
+        const checkAndMarkPosition = (x: number, y: number, z: number): boolean => {
+          const positionKey = `${x},${y},${z}`;
+          if (occupiedPositions.has(positionKey)) {
+            return false; // Position already occupied
+          }
+          occupiedPositions.add(positionKey);
+          return true; // Position is now occupied
+        };
+        
         // First pass: render trunks and non-leaf nodes
         isometricTrees.forEach(tree => {
           // Trunk
@@ -452,19 +465,24 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           let trunkSprites: Sprite[] = [];
           if (trunkX < GRID_SIZE && trunkY < GRID_SIZE) {
             for (let height = 0; height < tree.trunkHeight; height++) {
-              const trunkTexture = spritesheet.textures['stone'];
-              const [screenX, screenY] = isoToScreen(trunkX, trunkY);
-              const trunkSprite = new Sprite(trunkTexture);
-              trunkSprite.anchor.set(0.5, 1);
-              trunkSprite.x = screenX;
-              trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4);
-              trunkSprite.scale.set(TRUNK_SCALE, TRUNK_SCALE);
-              trunkSprite.tint = 0x8B4513;
-              tileContainer.addChild(trunkSprite);
-              treeSprites.push(trunkSprite);
-              trunkSprites.push(trunkSprite);
-              spriteOriginalTints.current.set(trunkSprite, trunkSprite.tint);
-              spriteOriginalTextures.current.set(trunkSprite, trunkSprite.texture);
+              // Check if this trunk segment position is available
+              if (checkAndMarkPosition(trunkX, trunkY, trunkBaseZ + height)) {
+                const trunkTexture = spritesheet.textures['stone'];
+                const [screenX, screenY] = isoToScreen(trunkX, trunkY);
+                const trunkSprite = new Sprite(trunkTexture);
+                trunkSprite.anchor.set(0.5, 1);
+                trunkSprite.x = screenX;
+                trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4);
+                trunkSprite.scale.set(TRUNK_SCALE, TRUNK_SCALE);
+                trunkSprite.tint = 0x8B4513;
+                tileContainer.addChild(trunkSprite);
+                treeSprites.push(trunkSprite);
+                trunkSprites.push(trunkSprite);
+                spriteOriginalTints.current.set(trunkSprite, trunkSprite.tint);
+                spriteOriginalTextures.current.set(trunkSprite, trunkSprite.texture);
+              } else {
+                console.warn(`[OVERLAP PREVENTION] Skipped trunk segment at (${trunkX}, ${trunkY}, ${trunkBaseZ + height}) - position occupied`);
+              }
             }
             // Map root node id to all trunk sprites
             if (tree.rootId) {
@@ -488,28 +506,37 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               
               const nodeBaseZ = trunkBaseZ + accumulatedHeight - 1;
               let nodeSprites: Sprite[] = [];
+              let nodeRendered = false;
+              
               for (let h = 0; h < node.height; h++) {
-                const nodeTexture = spritesheet.textures['stone'];
-                const [screenX, screenY] = isoToScreen(node.x, node.y);
-                const nodeSprite = new Sprite(nodeTexture);
-                nodeSprite.anchor.set(0.5, 1);
-                nodeSprite.x = screenX;
-                nodeSprite.y = screenY - (nodeBaseZ + h) * (TILE_HEIGHT / 4);
-                nodeSprite.scale.set(BRANCH_SCALE, BRANCH_SCALE);
-                const colorVariation = Math.min(0.3, depth * 0.1);
-                const baseColor = 0x654321;
-                const r = Math.min(255, Math.floor((baseColor >> 16) * (1 + colorVariation)));
-                const g = Math.min(255, Math.floor(((baseColor >> 8) & 0xFF) * (1 + colorVariation)));
-                const b = Math.min(255, Math.floor((baseColor & 0xFF) * (1 + colorVariation)));
-                nodeSprite.tint = (r << 16) | (g << 8) | b;
-                tileContainer.addChild(nodeSprite);
-                treeSprites.push(nodeSprite);
-                nodeSprites.push(nodeSprite);
-                spriteOriginalTints.current.set(nodeSprite, nodeSprite.tint);
-                spriteOriginalTextures.current.set(nodeSprite, nodeSprite.texture);
+                // Check if this node segment position is available
+                if (checkAndMarkPosition(node.x, node.y, nodeBaseZ + h)) {
+                  const nodeTexture = spritesheet.textures['stone'];
+                  const [screenX, screenY] = isoToScreen(node.x, node.y);
+                  const nodeSprite = new Sprite(nodeTexture);
+                  nodeSprite.anchor.set(0.5, 1);
+                  nodeSprite.x = screenX;
+                  nodeSprite.y = screenY - (nodeBaseZ + h) * (TILE_HEIGHT / 4);
+                  nodeSprite.scale.set(BRANCH_SCALE, BRANCH_SCALE);
+                  const colorVariation = Math.min(0.3, depth * 0.1);
+                  const baseColor = 0x654321;
+                  const r = Math.min(255, Math.floor((baseColor >> 16) * (1 + colorVariation)));
+                  const g = Math.min(255, Math.floor(((baseColor >> 8) & 0xFF) * (1 + colorVariation)));
+                  const b = Math.min(255, Math.floor((baseColor & 0xFF) * (1 + colorVariation)));
+                  nodeSprite.tint = (r << 16) | (g << 8) | b;
+                  tileContainer.addChild(nodeSprite);
+                  treeSprites.push(nodeSprite);
+                  nodeSprites.push(nodeSprite);
+                  spriteOriginalTints.current.set(nodeSprite, nodeSprite.tint);
+                  spriteOriginalTextures.current.set(nodeSprite, nodeSprite.texture);
+                  nodeRendered = true;
+                } else {
+                  console.warn(`[OVERLAP PREVENTION] Skipped node segment at (${node.x}, ${node.y}, ${nodeBaseZ + h}) - position occupied`);
+                }
               }
-              // Map node id to all node sprites
-              if (node.parentId) {
+              
+              // Map node id to all node sprites (only if at least one segment was rendered)
+              if (node.parentId && nodeRendered) {
                 nodeSpriteMap.current[node.parentId] = nodeSprites;
               }
             }
@@ -532,27 +559,34 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                 }
               });
               
-              const leafTexture = spritesheet.textures['bush'];
-              const [screenX, screenY] = isoToScreen(node.x, node.y);
-              const leafSprite = new Sprite(leafTexture);
-              leafSprite.anchor.set(0.5, 1);
-              leafSprite.x = screenX;
-              leafSprite.y = screenY - (trunkBaseZ + accumulatedHeight - 1 + node.height) * (TILE_HEIGHT / 4);
-              const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
-              leafSprite.scale.set(scaleVariation, scaleVariation);
-              const greenVariation = Math.min(0.4, depth * 0.15);
-              const baseGreen = 0x32CD32;
-              const r = Math.min(255, Math.floor((baseGreen >> 16) * (1 + greenVariation)));
-              const g = Math.min(255, Math.floor(((baseGreen >> 8) & 0xFF) * (1 + greenVariation)));
-              const b = Math.min(255, Math.floor((baseGreen & 0xFF) * (1 + greenVariation)));
-              leafSprite.tint = (r << 16) | (g << 8) | b;
-              tileContainer.addChild(leafSprite);
-              leafSprites.push(leafSprite);
-              spriteOriginalTints.current.set(leafSprite, leafSprite.tint);
-              spriteOriginalTextures.current.set(leafSprite, leafSprite.texture);
-              // Map leaf node id to this leaf sprite
-              if (node.parentId) {
-                nodeSpriteMap.current[node.parentId] = [leafSprite];
+              const leafZ = trunkBaseZ + accumulatedHeight - 1 + node.height;
+              
+              // Check if this leaf position is available
+              if (checkAndMarkPosition(node.x, node.y, leafZ)) {
+                const leafTexture = spritesheet.textures['bush'];
+                const [screenX, screenY] = isoToScreen(node.x, node.y);
+                const leafSprite = new Sprite(leafTexture);
+                leafSprite.anchor.set(0.5, 1);
+                leafSprite.x = screenX;
+                leafSprite.y = screenY - leafZ * (TILE_HEIGHT / 4);
+                const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
+                leafSprite.scale.set(scaleVariation, scaleVariation);
+                const greenVariation = Math.min(0.4, depth * 0.15);
+                const baseGreen = 0x32CD32;
+                const r = Math.min(255, Math.floor((baseGreen >> 16) * (1 + greenVariation)));
+                const g = Math.min(255, Math.floor(((baseGreen >> 8) & 0xFF) * (1 + greenVariation)));
+                const b = Math.min(255, Math.floor((baseGreen & 0xFF) * (1 + greenVariation)));
+                leafSprite.tint = (r << 16) | (g << 8) | b;
+                tileContainer.addChild(leafSprite);
+                leafSprites.push(leafSprite);
+                spriteOriginalTints.current.set(leafSprite, leafSprite.tint);
+                spriteOriginalTextures.current.set(leafSprite, leafSprite.texture);
+                // Map leaf node id to this leaf sprite
+                if (node.parentId) {
+                  nodeSpriteMap.current[node.parentId] = [leafSprite];
+                }
+              } else {
+                console.warn(`[OVERLAP PREVENTION] Skipped leaf at (${node.x}, ${node.y}, ${leafZ}) - position occupied`);
               }
             }
           });
@@ -561,6 +595,10 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         // Combine all sprites for animation (leaves will be rendered on top)
         treeSpritesRef.current = [...treeSprites, ...leafSprites];
         tilesRef.current = tiles;
+        
+        // Log overlap prevention statistics
+        console.log(`[OVERLAP PREVENTION] Total occupied positions: ${occupiedPositions.size}`);
+        console.log(`[OVERLAP PREVENTION] Rendered ${treeSprites.length} tree sprites and ${leafSprites.length} leaf sprites`);
 
         // Set initial camera position to center the grid
         cameraRef.current = {
