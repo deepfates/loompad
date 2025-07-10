@@ -52,144 +52,102 @@ const TILE_FRAMES = [
 // Generate trees from garden store data
 const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[] => {
   const isometricTrees: IsometricTree[] = [];
-  const occupiedPositions = new Set<string>();
-  const treeSpacing = 3; // Minimum distance between tree elements
+  
+  // Gaussian distribution configuration
+  const POSITION_SCALE = 0.15; // Scale for mapping 3D to 2D positions
+  const BASE_GAUSSIAN_RADIUS = 3; // Base radius for Gaussian distribution
+  const DEPTH_RADIUS_MULTIPLIER = 0.75; // How much radius increases with depth
+  const BRANCH_HEIGHT_MIN = 4; // Minimum branch height
+  const BRANCH_HEIGHT_MAX = 5; // Maximum branch height
+  const TRUNK_HEIGHT_MIN = 8; // Minimum trunk height
+  const TRUNK_HEIGHT_MAX = 9; // Maximum trunk height
+  const MAX_BRANCH_DEPTH = 6; // Maximum depth for branch recursion
+  const DEPTH_HEIGHT_REDUCTION = 0.7; // How much height reduces with each depth level
+  const DEPTH_VERTICAL_OFFSET = 2; // Vertical offset reduction per depth level
 
-  // Map 3D positions to 2D grid positions with better spacing
+  // Map 3D positions to 2D grid positions
   const map3DToGrid = (position: TreePosition): { x: number; y: number } => {
-    const scale = 0.15; // Increased scale for better spacing
     const offsetX = gridSize / 2;
     const offsetY = gridSize / 2;
     return {
-      x: Math.floor((position.x * scale) + offsetX),
-      y: Math.floor((position.z * scale) + offsetY)
+      x: Math.floor((position.x * POSITION_SCALE) + offsetX),
+      y: Math.floor((position.z * POSITION_SCALE) + offsetY)
     };
   };
 
-  // Check if a position and its surrounding area is available
-  const isPositionAvailable = (x: number, y: number, radius: number = 1): boolean => {
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dy = -radius; dy <= radius; dy++) {
-        const checkX = x + dx;
-        const checkY = y + dy;
-        if (checkX < 0 || checkX >= gridSize || checkY < 0 || checkY >= gridSize) {
-          return false;
-        }
-        if (occupiedPositions.has(`${checkX},${checkY}`)) {
-          return false;
-        }
-      }
-    }
-    return true;
+  // Generate Gaussian random position around a center point
+  const generateGaussianPosition = (centerX: number, centerY: number, radius: number): { x: number; y: number } => {
+    // Box-Muller transform for Gaussian distribution
+    const u1 = Math.random();
+    const u2 = Math.random();
+    const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+    const z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(2.0 * Math.PI * u2);
+    
+    // Scale by radius and add to center
+    const x = centerX + z0 * radius * 0.5;
+    const y = centerY + z1 * radius * 0.5;
+    
+    return { x: Math.floor(x), y: Math.floor(y) };
   };
 
-  // Mark a position and its surrounding area as occupied
-  const markPositionOccupied = (x: number, y: number, radius: number = 1): void => {
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dy = -radius; dy <= radius; dy++) {
-        const markX = x + dx;
-        const markY = y + dy;
-        if (markX >= 0 && markX < gridSize && markY >= 0 && markY < gridSize) {
-          occupiedPositions.add(`${markX},${markY}`);
-        }
-      }
-    }
+  // Ensure position is within grid bounds
+  const clampToGrid = (pos: { x: number; y: number }): { x: number; y: number } => {
+    return {
+      x: Math.max(0, Math.min(gridSize - 1, pos.x)),
+      y: Math.max(0, Math.min(gridSize - 1, pos.y))
+    };
   };
 
-  // Find the best available position near a given point
-  const findAvailablePosition = (centerX: number, centerY: number, maxRadius: number = 8): { x: number; y: number } | null => {
-    // Search in expanding circles
-    for (let radius = 1; radius <= maxRadius; radius++) {
-      const positions = [];
-      
-      // Generate all positions at this radius
-      for (let dx = -radius; dx <= radius; dx++) {
-        for (let dy = -radius; dy <= radius; dy++) {
-          if (Math.abs(dx) + Math.abs(dy) === radius) { // Only positions at exact radius
-            positions.push({ dx, dy });
-          }
-        }
-      }
-      
-      // Sort by distance to center for better placement
-      positions.sort((a, b) => {
-        const distA = Math.sqrt(a.dx * a.dx + a.dy * a.dy);
-        const distB = Math.sqrt(b.dx * b.dx + b.dy * b.dy);
-        return distA - distB;
-      });
-      
-      for (const { dx, dy } of positions) {
-        const testX = centerX + dx;
-        const testY = centerY + dy;
-        if (isPositionAvailable(testX, testY)) {
-          return { x: testX, y: testY };
-        }
-      }
-    }
-    return null;
-  };
-
-  // Recursive function to build branches with improved spacing
-  function buildBranches(node, parentTop, parentHeight, depth = 0, maxDepth = 6) {
+  // Recursive function to build branches using Gaussian distribution with depth-based sizing
+  function buildBranches(node, parentTop, parentHeight, depth = 0, maxDepth = MAX_BRANCH_DEPTH) {
     if (!node) return [];
     if (depth > maxDepth) return [];
     const branches = [];
     
+    // Calculate depth-based height reduction
+    const depthHeightMultiplier = Math.pow(DEPTH_HEIGHT_REDUCTION, depth);
+    const baseBranchHeight = Math.floor(Math.random() * (BRANCH_HEIGHT_MAX - BRANCH_HEIGHT_MIN + 1)) + BRANCH_HEIGHT_MIN;
+    const actualBranchHeight = Math.max(1, Math.floor(baseBranchHeight * depthHeightMultiplier));
+    
     if (!node.continuations || node.continuations.length === 0) {
-      // Leaf node: find a position that doesn't overlap
-      let leafPosition = findAvailablePosition(parentTop.x, parentTop.y, 6);
-      
-      if (!leafPosition) {
-        console.warn(`[LEAF DEBUG] Could not find position for leaf node ${node.id}, skipping`);
-        return [];
-      }
+      // Leaf node: generate position using Gaussian distribution
+      const radius = BASE_GAUSSIAN_RADIUS * Math.pow(DEPTH_RADIUS_MULTIPLIER, depth);
+      let leafPosition = generateGaussianPosition(parentTop.x, parentTop.y, radius);
+      leafPosition = clampToGrid(leafPosition);
       
       branches.push({
         x: leafPosition.x,
         y: leafPosition.y,
-        height: 1,
+        height: 1, // Leaves are always height 1
         depth,
         parentId: node.id,
         isLeaf: true
       });
       
-      // Mark leaf position as occupied (smaller radius for leaves)
-      markPositionOccupied(leafPosition.x, leafPosition.y, 1);
       return branches;
     }
     
-    // For non-leaf nodes, create a vertical branch
-    const branchHeight = Math.floor(Math.random() * 2) + 4; // 4-5 blocks tall (reduced)
-    
-    // Find a position for the branch that's not too close to parent
-    let branchBase = findAvailablePosition(parentTop.x, parentTop.y, 8);
-    
-    if (!branchBase) {
-      console.warn(`[BRANCH DEBUG] Could not find position for branch node ${node.id}, skipping`);
-      return [];
-    }
-    
-    // Mark all blocks of this branch as occupied
-    for (let h = 0; h < branchHeight; h++) {
-      markPositionOccupied(branchBase.x, branchBase.y, 1);
-    }
+    // For non-leaf nodes, create a vertical branch with depth-based height
+    const radius = BASE_GAUSSIAN_RADIUS * Math.pow(DEPTH_RADIUS_MULTIPLIER, depth);
+    let branchBase = generateGaussianPosition(parentTop.x, parentTop.y, radius);
+    branchBase = clampToGrid(branchBase);
     
     branches.push({
       x: branchBase.x,
       y: branchBase.y,
-      height: branchHeight,
+      height: actualBranchHeight,
       depth,
       parentId: node.id,
       isLeaf: false
     });
     
-    // The top of this branch
+    // The top of this branch (same x,y but with height offset)
     const branchTop = { x: branchBase.x, y: branchBase.y };
     
     // Recursively build child branches from the top of this branch
     for (let i = 0; i < node.continuations.length; i++) {
       const child = node.continuations[i];
-      const childBranches = buildBranches(child, branchTop, branchHeight, depth + 1, maxDepth);
+      const childBranches = buildBranches(child, branchTop, actualBranchHeight, depth + 1, maxDepth);
       branches.push(...childBranches);
     }
     
@@ -201,21 +159,12 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     const gridPos = map3DToGrid(tree.position);
     if (gridPos.x < 0 || gridPos.x >= gridSize || gridPos.y < 0 || gridPos.y >= gridSize) return;
     
-    // Find a good position for the trunk
+    // Use the mapped grid position as trunk position
     let trunkPosition = gridPos;
-    if (!isPositionAvailable(trunkPosition.x, trunkPosition.y, 2)) {
-      trunkPosition = findAvailablePosition(gridPos.x, gridPos.y, 10);
-      if (!trunkPosition) {
-        console.warn(`[TREE DEBUG] Could not find position for tree ${tree.root.id}, skipping`);
-        return;
-      }
-    }
+    trunkPosition = clampToGrid(trunkPosition);
     
-    // Mark trunk positions as occupied
-    const trunkHeight = Math.floor(Math.random() * 2) + 8; // 8-9 blocks tall (reduced)
-    for (let h = 0; h < trunkHeight; h++) {
-      markPositionOccupied(trunkPosition.x, trunkPosition.y, 2);
-    }
+    // Generate trunk height
+    const trunkHeight = Math.floor(Math.random() * (TRUNK_HEIGHT_MAX - TRUNK_HEIGHT_MIN + 1)) + TRUNK_HEIGHT_MIN;
     
     // Build all branches recursively from the top of the trunk
     const parentTop = { x: trunkPosition.x, y: trunkPosition.y };
@@ -223,7 +172,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (tree.root.continuations && tree.root.continuations.length > 0) {
       for (let i = 0; i < tree.root.continuations.length; i++) {
         const child = tree.root.continuations[i];
-        const childBranches = buildBranches(child, parentTop, trunkHeight, 0, 6);
+        const childBranches = buildBranches(child, parentTop, trunkHeight, 0, MAX_BRANCH_DEPTH);
         branches.push(...childBranches);
       }
     }
@@ -519,10 +468,21 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             }
           }
           
-          // Branches (non-leaf)
+          // Branches (non-leaf) - render with depth-based vertical positioning
           tree.branches.forEach(branch => {
             if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE && !branch.isLeaf) {
-              const branchBaseZ = trunkBaseZ + tree.trunkHeight - 1;
+              // Calculate accumulated height from trunk and parent branches
+              let accumulatedHeight = tree.trunkHeight;
+              const depth = branch.depth || 0;
+              
+              // Add height from parent branches at lower depths
+              tree.branches.forEach(parentBranch => {
+                if (parentBranch.depth !== undefined && parentBranch.depth < depth && !parentBranch.isLeaf) {
+                  accumulatedHeight += parentBranch.height;
+                }
+              });
+              
+              const branchBaseZ = trunkBaseZ + accumulatedHeight - 1;
               let branchSprites: Sprite[] = [];
               for (let h = 0; h < branch.height; h++) {
                 const branchTexture = spritesheet.textures['stone'];
@@ -531,7 +491,6 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                 branchSprite.anchor.set(0.5, 1);
                 branchSprite.x = screenX;
                 branchSprite.y = screenY - (branchBaseZ + h) * (TILE_HEIGHT / 4);
-                const depth = branch.depth || 0;
                 const colorVariation = Math.min(0.3, depth * 0.1);
                 const baseColor = 0x654321;
                 const r = Math.min(255, Math.floor((baseColor >> 16) * (1 + colorVariation)));
@@ -552,18 +511,28 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           });
         });
         
-        // Second pass: render leaves (always last to appear on top)
+        // Second pass: render leaves (always last to appear on top) with depth-based positioning
         isometricTrees.forEach(tree => {
           const trunkBaseZ = 6;
           tree.branches.forEach(branch => {
             if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE && branch.isLeaf) {
+              // Calculate accumulated height from trunk and parent branches
+              let accumulatedHeight = tree.trunkHeight;
+              const depth = branch.depth || 0;
+              
+              // Add height from parent branches at lower depths
+              tree.branches.forEach(parentBranch => {
+                if (parentBranch.depth !== undefined && parentBranch.depth < depth && !parentBranch.isLeaf) {
+                  accumulatedHeight += parentBranch.height;
+                }
+              });
+              
               const leafTexture = spritesheet.textures['bush'];
               const [screenX, screenY] = isoToScreen(branch.x, branch.y);
               const leafSprite = new Sprite(leafTexture);
               leafSprite.anchor.set(0.5, 1);
               leafSprite.x = screenX;
-              leafSprite.y = screenY - (trunkBaseZ + tree.trunkHeight - 1 + branch.height) * (TILE_HEIGHT / 4);
-              const depth = branch.depth || 0;
+              leafSprite.y = screenY - (trunkBaseZ + accumulatedHeight - 1 + branch.height) * (TILE_HEIGHT / 4);
               const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
               leafSprite.scale.set(scaleVariation, scaleVariation);
               const greenVariation = Math.min(0.4, depth * 0.15);
