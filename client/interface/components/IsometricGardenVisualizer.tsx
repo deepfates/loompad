@@ -24,6 +24,8 @@ interface IsometricTree {
     parentId?: string;
     isLeaf?: boolean;
   }>;
+  parentChildMap?: Map<string, string[]>; // Store parent-child relationships
+  nodePositionMap?: Map<string, { x: number; y: number; depth: number; isLeaf: boolean }>; // Store node positions
 }
 
 const GRID_SIZE = 120; // Increased to 120x120 for better spacing
@@ -68,6 +70,10 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
   const MAX_BRANCH_DEPTH = 6; // Maximum depth for branch recursion
   const DEPTH_HEIGHT_REDUCTION = 0.7; // How much height reduces with each depth level
   const DEPTH_VERTICAL_OFFSET = 2; // Vertical offset reduction per depth level
+  
+  // Track parent-child relationships for connection mapping
+  const parentChildMap = new Map<string, string[]>();
+  const nodePositionMap = new Map<string, { x: number; y: number; depth: number; isLeaf: boolean }>();
 
   // Map 3D positions to 2D grid positions
   const map3DToGrid = (position: TreePosition): { x: number; y: number } => {
@@ -103,7 +109,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
   };
 
   // Recursive function to build nodes using Gaussian distribution with depth-based sizing
-  function buildBranches(node, parentPosition, parentHeight, depth = 0, maxDepth = MAX_BRANCH_DEPTH) {
+  function buildBranches(node, parentPosition, parentHeight, depth = 0, maxDepth = MAX_BRANCH_DEPTH, parentNodeId?: string) {
     if (!node) return [];
     if (depth > maxDepth) return [];
     const nodes = [];
@@ -126,12 +132,29 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     
     // Create node with unified structure
     const isLeaf = !node.continuations || node.continuations.length === 0;
-    nodes.push({
+    const nodeData = {
       x: nodePosition.x,
       y: nodePosition.y,
       height: isLeaf ? 1 : actualNodeHeight, // Leaves are always height 1, branches use calculated height
       depth,
       parentId: node.id,
+      isLeaf
+    };
+    nodes.push(nodeData);
+    
+    // Track parent-child relationship
+    if (parentNodeId) {
+      if (!parentChildMap.has(parentNodeId)) {
+        parentChildMap.set(parentNodeId, []);
+      }
+      parentChildMap.get(parentNodeId)!.push(node.id);
+    }
+    
+    // Store node position for connection mapping
+    nodePositionMap.set(node.id, {
+      x: nodePosition.x,
+      y: nodePosition.y,
+      depth,
       isLeaf
     });
     
@@ -139,7 +162,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (!isLeaf) {
       for (let i = 0; i < node.continuations.length; i++) {
         const child = node.continuations[i];
-        const childNodes = buildBranches(child, nodePosition, actualNodeHeight, depth + 1, maxDepth);
+        const childNodes = buildBranches(child, nodePosition, actualNodeHeight, depth + 1, maxDepth, node.id);
         nodes.push(...childNodes);
       }
     }
@@ -151,6 +174,10 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (!tree.position || !tree.root) return;
     const gridPos = map3DToGrid(tree.position);
     if (gridPos.x < 0 || gridPos.x >= gridSize || gridPos.y < 0 || gridPos.y >= gridSize) return;
+    
+    // Clear maps for this tree to avoid mixing relationships
+    parentChildMap.clear();
+    nodePositionMap.clear();
     
     // Use the mapped grid position as trunk position
     let trunkPosition = gridPos;
@@ -165,7 +192,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (tree.root.continuations && tree.root.continuations.length > 0) {
       for (let i = 0; i < tree.root.continuations.length; i++) {
         const child = tree.root.continuations[i];
-        const childNodes = buildBranches(child, trunkPosition2D, trunkHeight, 0, MAX_BRANCH_DEPTH);
+        const childNodes = buildBranches(child, trunkPosition2D, trunkHeight, 0, MAX_BRANCH_DEPTH, tree.root.id);
         nodes.push(...childNodes);
       }
     }
@@ -175,11 +202,174 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
       y: trunkPosition.y,
       trunkHeight,
       rootId: tree.root.id,
-      branches: nodes // Keep the property name as 'branches' for compatibility
+      branches: nodes, // Keep the property name as 'branches' for compatibility
+      parentChildMap: new Map(parentChildMap), // Store the parent-child relationships
+      nodePositionMap: new Map(nodePositionMap) // Store node positions
     });
   });
   
   return isometricTrees;
+};
+
+// Pathfinding and connection system
+interface ConnectionPath {
+  startX: number;
+  startY: number;
+  startZ: number;
+  endX: number;
+  endY: number;
+  endZ: number;
+  pathPoints: Array<{ x: number; y: number; z: number }>;
+  sprites: Sprite[];
+}
+
+interface NodePosition {
+  x: number;
+  y: number;
+  z: number;
+  nodeId: string;
+  isTop: boolean; // true for top of node, false for bottom
+}
+
+// Calculate the top and bottom positions of a node
+const calculateNodePositions = (tree: IsometricTree, node: any, trunkBaseZ: number): { top: NodePosition; bottom: NodePosition } => {
+  // Calculate accumulated height from trunk and parent nodes
+  let accumulatedHeight = tree.trunkHeight;
+  const depth = node.depth || 0;
+  
+  // Add height from parent nodes at lower depths
+  tree.branches.forEach(parentNode => {
+    if (parentNode.depth !== undefined && parentNode.depth < depth && !parentNode.isLeaf) {
+      accumulatedHeight += parentNode.height;
+    }
+  });
+  
+  const nodeBaseZ = trunkBaseZ + accumulatedHeight - 1;
+  const nodeTopZ = nodeBaseZ + node.height;
+  
+  const [screenX, screenY] = isoToScreen(node.x, node.y);
+  
+  return {
+    top: {
+      x: screenX,
+      y: screenY - nodeTopZ * (TILE_HEIGHT / 4),
+      z: nodeTopZ,
+      nodeId: node.parentId,
+      isTop: true
+    },
+    bottom: {
+      x: screenX,
+      y: screenY - nodeBaseZ * (TILE_HEIGHT / 4),
+      z: nodeBaseZ,
+      nodeId: node.parentId,
+      isTop: false
+    }
+  };
+};
+
+// Calculate trunk positions
+const calculateTrunkPositions = (tree: IsometricTree, trunkBaseZ: number): { top: NodePosition; bottom: NodePosition } => {
+  const [screenX, screenY] = isoToScreen(tree.x, tree.y);
+  const trunkTopZ = trunkBaseZ + tree.trunkHeight;
+  
+  return {
+    top: {
+      x: screenX,
+      y: screenY - trunkTopZ * (TILE_HEIGHT / 4),
+      z: trunkTopZ,
+      nodeId: tree.rootId,
+      isTop: true
+    },
+    bottom: {
+      x: screenX,
+      y: screenY - trunkBaseZ * (TILE_HEIGHT / 4),
+      z: trunkBaseZ,
+      nodeId: tree.rootId,
+      isTop: false
+    }
+  };
+};
+
+// Simple pathfinding algorithm to connect two points with sprite blocks
+const createConnectionPath = (start: NodePosition, end: NodePosition): ConnectionPath => {
+  const pathPoints: Array<{ x: number; y: number; z: number }> = [];
+  
+  // Start from the top of parent node
+  let currentX = start.x;
+  let currentY = start.y;
+  let currentZ = start.z;
+  
+  // Add start point
+  pathPoints.push({ x: currentX, y: currentY, z: currentZ });
+  
+  // Step 1: Move up slightly from parent top
+  const upOffset = 2;
+  currentZ += upOffset;
+  pathPoints.push({ x: currentX, y: currentY, z: currentZ });
+  
+  // Step 2: Move horizontally towards child (X direction)
+  const xDiff = end.x - currentX;
+  const xSteps = Math.abs(xDiff) / 16; // 16 pixels per step
+  const xStepSize = xDiff / Math.max(1, xSteps);
+  
+  for (let i = 0; i < xSteps; i++) {
+    currentX += xStepSize;
+    pathPoints.push({ x: currentX, y: currentY, z: currentZ });
+  }
+  
+  // Step 3: Move horizontally towards child (Y direction)
+  const yDiff = end.y - currentY;
+  const ySteps = Math.abs(yDiff) / 16; // 16 pixels per step
+  const yStepSize = yDiff / Math.max(1, ySteps);
+  
+  for (let i = 0; i < ySteps; i++) {
+    currentY += yStepSize;
+    pathPoints.push({ x: currentX, y: currentY, z: currentZ });
+  }
+  
+  // Step 4: Move down to child bottom
+  const downOffset = 2;
+  currentZ = end.z - downOffset;
+  pathPoints.push({ x: currentX, y: currentY, z: currentZ });
+  
+  // Add end point
+  pathPoints.push({ x: end.x, y: end.y, z: end.z });
+  
+  return {
+    startX: start.x,
+    startY: start.y,
+    startZ: start.z,
+    endX: end.x,
+    endY: end.y,
+    endZ: end.z,
+    pathPoints,
+    sprites: []
+  };
+};
+
+// Create sprites for connection path
+const createConnectionSprites = (path: ConnectionPath, spritesheet: Spritesheet, container: Container): Sprite[] => {
+  const connectionSprites: Sprite[] = [];
+  
+  // Use a different texture for connections (e.g., 'stone' or 'dirt')
+  const connectionTexture = spritesheet.textures['dirt'] || spritesheet.textures['stone'];
+  
+  path.pathPoints.forEach((point, index) => {
+    if (index === 0 || index === path.pathPoints.length - 1) return; // Skip start and end points
+    
+    const sprite = new Sprite(connectionTexture);
+    sprite.anchor.set(0.5, 1);
+    sprite.x = point.x;
+    sprite.y = point.y;
+    sprite.scale.set(0.8, 0.8); // Smaller scale for connections
+    sprite.tint = 0x8B7355; // Brown color for connections
+    sprite.alpha = 0.7; // Semi-transparent
+    
+    container.addChild(sprite);
+    connectionSprites.push(sprite);
+  });
+  
+  return connectionSprites;
 };
 
 const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
@@ -194,6 +384,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const appRef = useRef<Application>();
   const tilesRef = useRef<Sprite[][]>([]);
   const treeSpritesRef = useRef<Sprite[]>([]);
+  const connectionSpritesRef = useRef<Sprite[]>([]); // Store connection sprites
   const tickerRef = useRef<Ticker>();
   const cameraRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
@@ -438,7 +629,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           }
         }
 
-        // Add tree structures based on garden store data
+        // Add tree structures based on garden store data with proper render hierarchy
         const treeSprites: Sprite[] = [];
         const leafSprites: Sprite[] = []; // Separate array for leaves to render last
         nodeSpriteMap.current = {};
@@ -456,42 +647,68 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           return true; // Position is now occupied
         };
         
-        // First pass: render trunks and non-leaf nodes
+        // Sort nodes by depth (highest depth first) for proper render hierarchy
+        const sortNodesByDepth = (nodes: any[]) => {
+          return nodes.sort((a, b) => {
+            const depthA = a.depth || 0;
+            const depthB = b.depth || 0;
+            return depthB - depthA; // Highest depth first
+          });
+        };
+        
+        // First pass: render deepest nodes first (leaves and deep branches)
         isometricTrees.forEach(tree => {
-          // Trunk
-          const trunkX = tree.x;
-          const trunkY = tree.y;
           const trunkBaseZ = 6;
-          let trunkSprites: Sprite[] = [];
-          if (trunkX < GRID_SIZE && trunkY < GRID_SIZE) {
-            for (let height = 0; height < tree.trunkHeight; height++) {
-              // Check if this trunk segment position is available
-              if (checkAndMarkPosition(trunkX, trunkY, trunkBaseZ + height)) {
-                const trunkTexture = spritesheet.textures['stone'];
-                const [screenX, screenY] = isoToScreen(trunkX, trunkY);
-                const trunkSprite = new Sprite(trunkTexture);
-                trunkSprite.anchor.set(0.5, 1);
-                trunkSprite.x = screenX;
-                trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4);
-                trunkSprite.scale.set(TRUNK_SCALE, TRUNK_SCALE);
-                trunkSprite.tint = 0x8B4513;
-                tileContainer.addChild(trunkSprite);
-                treeSprites.push(trunkSprite);
-                trunkSprites.push(trunkSprite);
-                spriteOriginalTints.current.set(trunkSprite, trunkSprite.tint);
-                spriteOriginalTextures.current.set(trunkSprite, trunkSprite.texture);
+          const sortedBranches = sortNodesByDepth([...tree.branches]);
+          
+          // Render leaf nodes first (deepest)
+          sortedBranches.forEach(node => {
+            if (node.x >= 0 && node.x < GRID_SIZE && node.y >= 0 && node.y < GRID_SIZE && node.isLeaf) {
+              // Calculate accumulated height from trunk and parent nodes
+              let accumulatedHeight = tree.trunkHeight;
+              const depth = node.depth || 0;
+              
+              // Add height from parent nodes at lower depths
+              tree.branches.forEach(parentNode => {
+                if (parentNode.depth !== undefined && parentNode.depth < depth && !parentNode.isLeaf) {
+                  accumulatedHeight += parentNode.height;
+                }
+              });
+              
+              const leafZ = trunkBaseZ + accumulatedHeight - 1 + node.height;
+              
+              // Check if this leaf position is available
+              if (checkAndMarkPosition(node.x, node.y, leafZ)) {
+                const leafTexture = spritesheet.textures['bush'];
+                const [screenX, screenY] = isoToScreen(node.x, node.y);
+                const leafSprite = new Sprite(leafTexture);
+                leafSprite.anchor.set(0.5, 1);
+                leafSprite.x = screenX;
+                leafSprite.y = screenY - leafZ * (TILE_HEIGHT / 4);
+                const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
+                leafSprite.scale.set(scaleVariation, scaleVariation);
+                const greenVariation = Math.min(0.4, depth * 0.15);
+                const baseGreen = 0x32CD32;
+                const r = Math.min(255, Math.floor((baseGreen >> 16) * (1 + greenVariation)));
+                const g = Math.min(255, Math.floor(((baseGreen >> 8) & 0xFF) * (1 + greenVariation)));
+                const b = Math.min(255, Math.floor((baseGreen & 0xFF) * (1 + greenVariation)));
+                leafSprite.tint = (r << 16) | (g << 8) | b;
+                tileContainer.addChild(leafSprite);
+                leafSprites.push(leafSprite);
+                spriteOriginalTints.current.set(leafSprite, leafSprite.tint);
+                spriteOriginalTextures.current.set(leafSprite, leafSprite.texture);
+                // Map leaf node id to this leaf sprite
+                if (node.parentId) {
+                  nodeSpriteMap.current[node.parentId] = [leafSprite];
+                }
               } else {
-                console.warn(`[OVERLAP PREVENTION] Skipped trunk segment at (${trunkX}, ${trunkY}, ${trunkBaseZ + height}) - position occupied`);
+                console.warn(`[OVERLAP PREVENTION] Skipped leaf at (${node.x}, ${node.y}, ${leafZ}) - position occupied`);
               }
             }
-            // Map root node id to all trunk sprites
-            if (tree.rootId) {
-              nodeSpriteMap.current[tree.rootId] = trunkSprites;
-            }
-          }
+          });
           
-          // Non-leaf nodes - render with depth-based vertical positioning
-          tree.branches.forEach(node => {
+          // Render non-leaf nodes (branches) in depth order
+          sortedBranches.forEach(node => {
             if (node.x >= 0 && node.x < GRID_SIZE && node.y >= 0 && node.y < GRID_SIZE && !node.isLeaf) {
               // Calculate accumulated height from trunk and parent nodes
               let accumulatedHeight = tree.trunkHeight;
@@ -543,58 +760,107 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           });
         });
         
-        // Second pass: render leaf nodes (always last to appear on top) with depth-based positioning
+        // Second pass: render trunks last (shallowest)
         isometricTrees.forEach(tree => {
+          const trunkX = tree.x;
+          const trunkY = tree.y;
           const trunkBaseZ = 6;
-          tree.branches.forEach(node => {
-            if (node.x >= 0 && node.x < GRID_SIZE && node.y >= 0 && node.y < GRID_SIZE && node.isLeaf) {
-              // Calculate accumulated height from trunk and parent nodes
-              let accumulatedHeight = tree.trunkHeight;
-              const depth = node.depth || 0;
-              
-              // Add height from parent nodes at lower depths
-              tree.branches.forEach(parentNode => {
-                if (parentNode.depth !== undefined && parentNode.depth < depth && !parentNode.isLeaf) {
-                  accumulatedHeight += parentNode.height;
-                }
-              });
-              
-              const leafZ = trunkBaseZ + accumulatedHeight - 1 + node.height;
-              
-              // Check if this leaf position is available
-              if (checkAndMarkPosition(node.x, node.y, leafZ)) {
-                const leafTexture = spritesheet.textures['bush'];
-                const [screenX, screenY] = isoToScreen(node.x, node.y);
-                const leafSprite = new Sprite(leafTexture);
-                leafSprite.anchor.set(0.5, 1);
-                leafSprite.x = screenX;
-                leafSprite.y = screenY - leafZ * (TILE_HEIGHT / 4);
-                const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
-                leafSprite.scale.set(scaleVariation, scaleVariation);
-                const greenVariation = Math.min(0.4, depth * 0.15);
-                const baseGreen = 0x32CD32;
-                const r = Math.min(255, Math.floor((baseGreen >> 16) * (1 + greenVariation)));
-                const g = Math.min(255, Math.floor(((baseGreen >> 8) & 0xFF) * (1 + greenVariation)));
-                const b = Math.min(255, Math.floor((baseGreen & 0xFF) * (1 + greenVariation)));
-                leafSprite.tint = (r << 16) | (g << 8) | b;
-                tileContainer.addChild(leafSprite);
-                leafSprites.push(leafSprite);
-                spriteOriginalTints.current.set(leafSprite, leafSprite.tint);
-                spriteOriginalTextures.current.set(leafSprite, leafSprite.texture);
-                // Map leaf node id to this leaf sprite
-                if (node.parentId) {
-                  nodeSpriteMap.current[node.parentId] = [leafSprite];
-                }
+          let trunkSprites: Sprite[] = [];
+          if (trunkX < GRID_SIZE && trunkY < GRID_SIZE) {
+            for (let height = 0; height < tree.trunkHeight; height++) {
+              // Check if this trunk segment position is available
+              if (checkAndMarkPosition(trunkX, trunkY, trunkBaseZ + height)) {
+                const trunkTexture = spritesheet.textures['stone'];
+                const [screenX, screenY] = isoToScreen(trunkX, trunkY);
+                const trunkSprite = new Sprite(trunkTexture);
+                trunkSprite.anchor.set(0.5, 1);
+                trunkSprite.x = screenX;
+                trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4);
+                trunkSprite.scale.set(TRUNK_SCALE, TRUNK_SCALE);
+                trunkSprite.tint = 0x8B4513;
+                tileContainer.addChild(trunkSprite);
+                treeSprites.push(trunkSprite);
+                trunkSprites.push(trunkSprite);
+                spriteOriginalTints.current.set(trunkSprite, trunkSprite.tint);
+                spriteOriginalTextures.current.set(trunkSprite, trunkSprite.texture);
               } else {
-                console.warn(`[OVERLAP PREVENTION] Skipped leaf at (${node.x}, ${node.y}, ${leafZ}) - position occupied`);
+                console.warn(`[OVERLAP PREVENTION] Skipped trunk segment at (${trunkX}, ${trunkY}, ${trunkBaseZ + height}) - position occupied`);
               }
             }
-          });
+            // Map root node id to all trunk sprites
+            if (tree.rootId) {
+              nodeSpriteMap.current[tree.rootId] = trunkSprites;
+            }
+          }
         });
         
         // Combine all sprites for animation (leaves will be rendered on top)
         treeSpritesRef.current = [...treeSprites, ...leafSprites];
         tilesRef.current = tiles;
+        
+        // Create connection paths between parent nodes and their children with proper depth hierarchy
+        const connectionSprites: Sprite[] = [];
+        const trunkBaseZ = 6;
+        
+        isometricTrees.forEach(tree => {
+          // Sort connections by depth (deepest first) for proper render hierarchy
+          const allConnections: Array<{ parent: any; child: any; depth: number }> = [];
+          
+          // Create connections from trunk to first level children (depth 0)
+          const trunkPositions = calculateTrunkPositions(tree, trunkBaseZ);
+          const firstLevelChildren = tree.branches.filter(node => node.depth === 0);
+          
+          firstLevelChildren.forEach(child => {
+            allConnections.push({
+              parent: { type: 'trunk', positions: trunkPositions },
+              child: child,
+              depth: 0
+            });
+          });
+          
+          // Create connections between parent nodes and their children using tracked relationships
+          tree.branches.forEach(parentNode => {
+            if (parentNode.isLeaf) return; // Skip leaf nodes
+            
+            // Get children using the tracked parent-child relationships
+            const children = tree.parentChildMap?.get(parentNode.parentId) || [];
+            
+            children.forEach(childId => {
+              // Find the child node in the tree branches
+              const childNode = tree.branches.find(node => node.parentId === childId);
+              if (!childNode) return;
+              
+              allConnections.push({
+                parent: parentNode,
+                child: childNode,
+                depth: childNode.depth || 0
+              });
+            });
+          });
+          
+          // Sort connections by depth (highest depth first) and render
+          allConnections.sort((a, b) => b.depth - a.depth);
+          
+          allConnections.forEach(connection => {
+            let parentPositions;
+            if (connection.parent.type === 'trunk') {
+              parentPositions = connection.parent.positions;
+            } else {
+              parentPositions = calculateNodePositions(tree, connection.parent, trunkBaseZ);
+            }
+            
+            const childPositions = calculateNodePositions(tree, connection.child, trunkBaseZ);
+            const connectionPath = createConnectionPath(parentPositions.top, childPositions.bottom);
+            const pathSprites = createConnectionSprites(connectionPath, spritesheet, tileContainer);
+            connectionSprites.push(...pathSprites);
+            connectionPath.sprites = pathSprites;
+          });
+        });
+        
+        // Store connection sprites for animation
+        connectionSpritesRef.current = connectionSprites;
+        
+        console.log(`[CONNECTIONS] Created ${connectionSprites.length} connection sprites`);
         
         // Log overlap prevention statistics
         console.log(`[OVERLAP PREVENTION] Total occupied positions: ${occupiedPositions.size}`);
@@ -660,7 +926,13 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             }
           }
           
-          // Wave animation for tree sprites
+          // Wave animation for connection sprites (render first - behind everything)
+          connectionSpritesRef.current.forEach(sprite => {
+            const baseY = sprite.y;
+            sprite.y = baseY + Math.cos(time + sprite.x + sprite.y) * 1; // Very subtle wave for connections
+          });
+          
+          // Wave animation for tree sprites (render after connections)
           treeSpritesRef.current.forEach(sprite => {
             const baseY = sprite.y;
             sprite.y = baseY + Math.cos(time + sprite.x + sprite.y) * 2; // Subtle wave for trees
