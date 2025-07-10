@@ -28,7 +28,7 @@ interface IsometricTree {
   nodePositionMap?: Map<string, { x: number; y: number; depth: number; isLeaf: boolean }>; // Store node positions
 }
 
-const GRID_SIZE = 120; // Increased to 120x120 for better spacing
+const GRID_SIZE = 200; // Increased to 200x200 for more space
 const TILE_WIDTH = 32; // Reduced from 64 to 32
 const TILE_HEIGHT = 32; // Reduced from 64 to 32
 const CAMERA_SPEED = 5; // Speed for arrow key movement
@@ -403,6 +403,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const connectionSpritesRef = useRef<Sprite[]>([]); // Store connection sprites
   const tickerRef = useRef<Ticker>();
   const cameraRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const zoomRef = useRef<number>(1.0); // Add zoom level reference
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const keysPressedRef = useRef<Set<string>>(new Set());
@@ -441,6 +442,34 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
 
   const handleMouseUp = useCallback(() => {
     isDraggingRef.current = false;
+  }, []);
+
+  // Handle mouse wheel for zoom
+  const handleWheel = useCallback((event: WheelEvent) => {
+    event.preventDefault();
+    
+    const zoomSpeed = 0.1;
+    const zoomDelta = event.deltaY > 0 ? -zoomSpeed : zoomSpeed;
+    const newZoom = Math.max(0.1, Math.min(3.0, zoomRef.current + zoomDelta));
+    
+    // Calculate mouse position relative to the container
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    
+    // Calculate zoom center point
+    const zoomCenterX = mouseX - cameraRef.current.x;
+    const zoomCenterY = mouseY - cameraRef.current.y;
+    
+    // Update camera position to zoom towards mouse cursor
+    cameraRef.current.x = mouseX - zoomCenterX * (newZoom / zoomRef.current);
+    cameraRef.current.y = mouseY - zoomCenterY * (newZoom / zoomRef.current);
+    
+    zoomRef.current = newZoom;
+    
+    console.log(`[ZOOM] Zoom level: ${zoomRef.current.toFixed(2)}`);
   }, []);
 
   // Map nodeId to sprite(s) for highlighting
@@ -898,6 +927,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const updateCamera = () => {
           tileContainer.x = cameraRef.current.x;
           tileContainer.y = cameraRef.current.y;
+          tileContainer.scale.set(zoomRef.current, zoomRef.current);
         };
         
         // Initialize last dimensions
@@ -1000,6 +1030,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       destroyed = true;
@@ -1012,6 +1043,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('resize', handleResize);
       
       // Clear resize timeout
@@ -1041,7 +1073,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         containerRef.current.innerHTML = '';
       }
     };
-  }, [width, height, handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, trees]);
+  }, [width, height, handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, trees]);
 
   // Snap camera to selected tree
   useEffect(() => {
