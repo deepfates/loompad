@@ -16,6 +16,9 @@ interface IsometricTree {
     x: number;
     y: number;
     height: number;
+    depth?: number;
+    parentId?: string;
+    isLeaf?: boolean;
   }>;
 }
 
@@ -46,76 +49,104 @@ const TILE_FRAMES = [
 const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[] => {
   const isometricTrees: IsometricTree[] = [];
   const occupiedPositions = new Set<string>();
-  
+
   // Map 3D positions to 2D grid positions
   const map3DToGrid = (position: TreePosition): { x: number; y: number } => {
-    // Scale and offset the 3D position to fit in our grid
-    const scale = 0.1; // Scale down the 3D coordinates
+    const scale = 0.1;
     const offsetX = gridSize / 2;
     const offsetY = gridSize / 2;
-    
     return {
       x: Math.floor((position.x * scale) + offsetX),
-      y: Math.floor((position.z * scale) + offsetY) // Use Z as Y for isometric view
+      y: Math.floor((position.z * scale) + offsetY)
     };
   };
 
-  trees.forEach((tree, treeIndex) => {
-    if (!tree.position || !tree.root) return;
-    
-    const gridPos = map3DToGrid(tree.position);
-    
-    // Ensure position is within grid bounds
-    if (gridPos.x < 0 || gridPos.x >= gridSize || gridPos.y < 0 || gridPos.y >= gridSize) {
-      return;
+  // Directions for adjacent tiles (8 directions)
+  const directions = [
+    { x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 },
+    { x: -1, y: -1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: 1, y: 1 }
+  ];
+
+  // Recursive function to build branches
+  function buildBranches(node, parentTop, parentHeight, depth = 0, maxDepth = 8) {
+    if (!node) return [];
+    if (depth > maxDepth) return [];
+    const branches = [];
+    if (!node.continuations || node.continuations.length === 0) {
+      // Leaf node: single block (will be rendered as a leaf)
+      branches.push({
+        x: parentTop.x,
+        y: parentTop.y,
+        height: 1,
+        depth,
+        parentId: node.id,
+        isLeaf: true
+      });
+      occupiedPositions.add(`${parentTop.x},${parentTop.y}`);
+      return branches;
     }
-    
-    // Check if position is available
-    if (occupiedPositions.has(`${gridPos.x},${gridPos.y}`)) {
-      return;
-    }
-    
-    // Mark position as occupied
-    occupiedPositions.add(`${gridPos.x},${gridPos.y}`);
-    
-    // Generate tree structure based on story node
-    const trunkHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
-    const branches: Array<{x: number, y: number, height: number}> = [];
-    
-    // Generate branches based on story node continuations
-    if (tree.root.continuations && tree.root.continuations.length > 0) {
-      const numBranches = Math.min(tree.root.continuations.length, 4); // Max 4 branches for visual clarity
-      const branchPositions = [
-        {x: -1, y: 0}, {x: 1, y: 0}, {x: 0, y: -1}, {x: 0, y: 1}, // Adjacent positions
-        {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1} // Diagonal positions
-      ];
-      
-      // Use deterministic positioning based on node ID
-      const seed = tree.root.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-      const seededRandom = ((seed * 9301 + 49297) % 233280) / 233280;
-      
-      // Shuffle positions deterministically
-      const shuffledPositions = [...branchPositions].sort(() => seededRandom - 0.5);
-      
-      for (let i = 0; i < numBranches && i < shuffledPositions.length; i++) {
-        const pos = shuffledPositions[i];
-        const branchX = gridPos.x + pos.x;
-        const branchY = gridPos.y + pos.y;
-        
-        // Check if branch position is available
-        if (branchX >= 0 && branchX < gridSize && branchY >= 0 && branchY < gridSize && 
-            !occupiedPositions.has(`${branchX},${branchY}`)) {
-          occupiedPositions.add(`${branchX},${branchY}`);
-          
-          branches.push({
-            x: branchX,
-            y: branchY,
-            height: Math.floor(Math.random() * 4) + 1 // 1-4 blocks tall
-          });
-        }
+    // For non-leaf nodes, create a vertical branch (trunk/branch)
+    const branchHeight = Math.floor(Math.random() * 3) + 3; // 3-5 blocks tall
+    // The base of this branch is adjacent to the parent's top
+    // Find a free adjacent tile
+    let branchBase = null;
+    for (let d = 0; d < directions.length; d++) {
+      const dir = directions[d];
+      const bx = parentTop.x + dir.x;
+      const by = parentTop.y + dir.y;
+      if (bx >= 0 && bx < gridSize && by >= 0 && by < gridSize && !occupiedPositions.has(`${bx},${by}`)) {
+        branchBase = { x: bx, y: by };
+        break;
       }
     }
-    
+    // If all adjacent are taken, just pick the first (overlap as last resort)
+    if (!branchBase) {
+      const dir = directions[0];
+      branchBase = { x: parentTop.x + dir.x, y: parentTop.y + dir.y };
+    }
+    // Mark all blocks of this branch as occupied
+    for (let h = 0; h < branchHeight; h++) {
+      occupiedPositions.add(`${branchBase.x},${branchBase.y}`);
+    }
+    branches.push({
+      x: branchBase.x,
+      y: branchBase.y,
+      height: branchHeight,
+      depth,
+      parentId: node.id,
+      isLeaf: false
+    });
+    // The top of this branch
+    const branchTop = { x: branchBase.x, y: branchBase.y };
+    // Recursively build child branches from the top of this branch
+    for (let i = 0; i < node.continuations.length; i++) {
+      const child = node.continuations[i];
+      const childBranches = buildBranches(child, branchTop, branchHeight, depth + 1, maxDepth);
+      branches.push(...childBranches);
+    }
+    return branches;
+  }
+
+  trees.forEach((tree) => {
+    if (!tree.position || !tree.root) return;
+    const gridPos = map3DToGrid(tree.position);
+    if (gridPos.x < 0 || gridPos.x >= gridSize || gridPos.y < 0 || gridPos.y >= gridSize) return;
+    if (occupiedPositions.has(`${gridPos.x},${gridPos.y}`)) return;
+    // Mark trunk positions as occupied
+    const trunkHeight = Math.floor(Math.random() * 3) + 6; // 6-8 blocks tall
+    for (let h = 0; h < trunkHeight; h++) {
+      occupiedPositions.add(`${gridPos.x},${gridPos.y}`);
+    }
+    // Build all branches recursively from the top of the trunk
+    const parentTop = { x: gridPos.x, y: gridPos.y };
+    const branches = [];
+    if (tree.root.continuations && tree.root.continuations.length > 0) {
+      for (let i = 0; i < tree.root.continuations.length; i++) {
+        const child = tree.root.continuations[i];
+        const childBranches = buildBranches(child, parentTop, trunkHeight, 0, 8);
+        branches.push(...childBranches);
+      }
+    }
     isometricTrees.push({
       x: gridPos.x,
       y: gridPos.y,
@@ -123,7 +154,6 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
       branches
     });
   });
-  
   return isometricTrees;
 };
 
@@ -317,6 +347,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           // Create trunk (1x1 vertically stacked blocks)
           const trunkX = tree.x;
           const trunkY = tree.y;
+          const trunkBaseZ = 6; // Minimum height above ground
           
           if (trunkX < GRID_SIZE && trunkY < GRID_SIZE) {
             // Create trunk blocks (brown)
@@ -326,42 +357,65 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               const trunkSprite = new Sprite(trunkTexture);
               trunkSprite.anchor.set(0.5, 1);
               trunkSprite.x = screenX;
-              trunkSprite.y = screenY - height * (TILE_HEIGHT / 4); // Stack vertically
+              trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4); // Stack vertically, start at z=6
               trunkSprite.tint = 0x8B4513; // Brown tint
               tileContainer.addChild(trunkSprite);
               treeSprites.push(trunkSprite);
+              // Log trunk block position
+              console.log(`[TRUNK] Tree at (${trunkX},${trunkY}) Block: x=${trunkX} y=${trunkY} z=${trunkBaseZ + height}`);
             }
           }
           
-          // Create branches based on story node structure
+          // Render branches
           tree.branches.forEach(branch => {
             if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE) {
-              // Branches start at the same level as the highest trunk block
-              const branchStartHeight = tree.trunkHeight - 1; // Start at the top of the trunk
-              
-              // Create branch blocks (darker brown)
-              for (let height = 0; height < branch.height; height++) {
+              // Branches start at the top of the trunk (z = trunkBaseZ + tree.trunkHeight - 1)
+              const branchBaseZ = trunkBaseZ + tree.trunkHeight - 1;
+              // Draw vertical stack for branch
+              for (let h = 0; h < branch.height; h++) {
                 const branchTexture = spritesheet.textures['stone'];
                 const [screenX, screenY] = isoToScreen(branch.x, branch.y);
                 const branchSprite = new Sprite(branchTexture);
                 branchSprite.anchor.set(0.5, 1);
                 branchSprite.x = screenX;
-                branchSprite.y = screenY - (branchStartHeight + height) * (TILE_HEIGHT / 4);
-                branchSprite.tint = 0x654321; // Darker brown tint
+                branchSprite.y = screenY - (branchBaseZ + h) * (TILE_HEIGHT / 4);
+                // Color variation based on depth - deeper branches are lighter
+                const depth = branch.depth || 0;
+                const colorVariation = Math.min(0.3, depth * 0.1);
+                const baseColor = 0x654321;
+                const r = Math.min(255, Math.floor((baseColor >> 16) * (1 + colorVariation)));
+                const g = Math.min(255, Math.floor(((baseColor >> 8) & 0xFF) * (1 + colorVariation)));
+                const b = Math.min(255, Math.floor((baseColor & 0xFF) * (1 + colorVariation)));
+                branchSprite.tint = (r << 16) | (g << 8) | b;
                 tileContainer.addChild(branchSprite);
                 treeSprites.push(branchSprite);
+                // Log branch block position
+                console.log(`[BRANCH] Branch at (${branch.x},${branch.y}) Block: x=${branch.x} y=${branch.y} z=${branchBaseZ + h} depth=${depth}`);
               }
-              
-              // Add leaf at the top of branch (green)
-              const leafTexture = spritesheet.textures['bush']; // Use bush for leaves
-              const [screenX, screenY] = isoToScreen(branch.x, branch.y);
-              const leafSprite = new Sprite(leafTexture);
-              leafSprite.anchor.set(0.5, 1);
-              leafSprite.x = screenX;
-              leafSprite.y = screenY - (branchStartHeight + branch.height) * (TILE_HEIGHT / 4);
-              leafSprite.tint = 0x32CD32; // Lime green tint
-              tileContainer.addChild(leafSprite);
-              treeSprites.push(leafSprite);
+              // Only add a leaf block if this is a leaf branch
+              if (branch.isLeaf) {
+                const leafTexture = spritesheet.textures['bush'];
+                const [screenX, screenY] = isoToScreen(branch.x, branch.y);
+                const leafSprite = new Sprite(leafTexture);
+                leafSprite.anchor.set(0.5, 1);
+                leafSprite.x = screenX;
+                leafSprite.y = screenY - (branchBaseZ + branch.height) * (TILE_HEIGHT / 4);
+                // Leaf color and scale variation based on depth
+                const depth = branch.depth || 0;
+                const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
+                leafSprite.scale.set(scaleVariation, scaleVariation);
+                // Color variation - deeper branches have lighter green
+                const greenVariation = Math.min(0.4, depth * 0.15);
+                const baseGreen = 0x32CD32;
+                const r = Math.min(255, Math.floor((baseGreen >> 16) * (1 + greenVariation)));
+                const g = Math.min(255, Math.floor(((baseGreen >> 8) & 0xFF) * (1 + greenVariation)));
+                const b = Math.min(255, Math.floor((baseGreen & 0xFF) * (1 + greenVariation)));
+                leafSprite.tint = (r << 16) | (g << 8) | b;
+                tileContainer.addChild(leafSprite);
+                treeSprites.push(leafSprite);
+                // Log leaf block position
+                console.log(`[LEAF] Leaf at (${branch.x},${branch.y}) Block: x=${branch.x} y=${branch.y} z=${branchBaseZ + branch.height} depth=${depth}`);
+              }
             }
           });
         });
