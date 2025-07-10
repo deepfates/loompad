@@ -445,6 +445,8 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
 
   // Map nodeId to sprite(s) for highlighting
   const nodeSpriteMap = useRef<Record<string, Sprite[]>>({});
+  // Map connection sprites to node relationships (parentId -> childId -> sprites[])
+  const connectionSpriteMap = useRef<Record<string, Record<string, Sprite[]>>>({});
   // Store original tints using WeakMap
   const spriteOriginalTints = useRef<WeakMap<Sprite, number>>(new WeakMap());
   // Store original textures using WeakMap
@@ -824,6 +826,18 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             const pathSprites = createConnectionSprites(connectionPath, spritesheet, connectionContainer);
             connectionSprites.push(...pathSprites);
             connectionPath.sprites = pathSprites;
+            
+            // Store original textures and tints for connection sprites
+            pathSprites.forEach(sprite => {
+              spriteOriginalTints.current.set(sprite, sprite.tint);
+              spriteOriginalTextures.current.set(sprite, sprite.texture);
+            });
+            
+            // Store connection sprites mapping for highlighting
+            if (!connectionSpriteMap.current[tree.rootId]) {
+              connectionSpriteMap.current[tree.rootId] = {};
+            }
+            connectionSpriteMap.current[tree.rootId][child.parentId] = pathSprites;
           });
           
           // Create connections between parent nodes and their children using tracked relationships
@@ -844,6 +858,18 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               const pathSprites = createConnectionSprites(connectionPath, spritesheet, connectionContainer);
               connectionSprites.push(...pathSprites);
               connectionPath.sprites = pathSprites;
+              
+              // Store original textures and tints for connection sprites
+              pathSprites.forEach(sprite => {
+                spriteOriginalTints.current.set(sprite, sprite.tint);
+                spriteOriginalTextures.current.set(sprite, sprite.texture);
+              });
+              
+              // Store connection sprites mapping for highlighting
+              if (!connectionSpriteMap.current[parentNode.parentId]) {
+                connectionSpriteMap.current[parentNode.parentId] = {};
+              }
+              connectionSpriteMap.current[parentNode.parentId][childId] = pathSprites;
             });
           });
         });
@@ -1055,7 +1081,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap keys:`, Object.keys(nodeSpriteMap.current));
     console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap values:`, Object.values(nodeSpriteMap.current).map(sprites => sprites.length));
     
-    // Remove highlight from all
+    // Remove highlight from all nodes
     Object.values(nodeSpriteMap.current).forEach(sprites => {
       sprites.forEach(sprite => {
         if (sprite && spriteOriginalTextures.current.has(sprite)) {
@@ -1064,6 +1090,19 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           sprite.scale.set(1, 1);
           sprite.tint = spriteOriginalTints.current.get(sprite) || 0xFFFFFF;
         }
+      });
+    });
+    
+    // Remove highlight from all connection sprites
+    Object.values(connectionSpriteMap.current).forEach(childMap => {
+      Object.values(childMap).forEach(sprites => {
+        sprites.forEach(sprite => {
+          if (sprite && spriteOriginalTextures.current.has(sprite)) {
+            sprite.texture = spriteOriginalTextures.current.get(sprite)!;
+            sprite.scale.set(0.5, 0.5); // Restore original scale
+            sprite.tint = 0x8B7355; // Restore original brown color
+          }
+        });
       });
     });
     
@@ -1097,36 +1136,84 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       }
     }
     
-    // Highlight selected node (red flowers)
-    if (nodeToHighlight && nodeSpriteMap.current[nodeToHighlight]) {
-      console.log(`[HIGHLIGHT DEBUG] Found sprites for nodeId=${nodeToHighlight}, count=${nodeSpriteMap.current[nodeToHighlight].length}`);
-      nodeSpriteMap.current[nodeToHighlight].forEach(sprite => {
-        if (sprite && spriteOriginalTextures.current.has(sprite)) {
-          // Swap to highlight texture (flowers_red) and add visual enhancement
-          if (highlightTextureRef.current) {
-            sprite.texture = highlightTextureRef.current;
-            // Make the highlighted sprite larger and brighter
-            sprite.scale.set(1.1, 1.1);
-            sprite.tint = 0xFFFF00; // Bright yellow tint
-            // Log highlighting
-            console.log(`[HIGHLIGHT] Highlighted nodeId=${nodeToHighlight} at sprite position x=${sprite.x} y=${sprite.y}`);
-          } else {
-            console.log(`[HIGHLIGHT DEBUG] highlightTextureRef.current is null`);
-          }
-        } else {
-          console.log(`[HIGHLIGHT DEBUG] Sprite or original texture not found for nodeId=${nodeToHighlight}`);
-        }
-      });
-    } else {
-      console.log(`[HIGHLIGHT DEBUG] No sprites found for nodeId=${nodeToHighlight}`);
+    // Get the path from root to the selected node
+    let pathFromRoot: any[] = [];
+    if (nodeToHighlight && selectedTree) {
+      pathFromRoot = getPathFromRoot(nodeToHighlight);
+      console.log(`[PATH DEBUG] Path from root to ${nodeToHighlight}:`, pathFromRoot.map(node => node.id));
     }
     
-    // Preview highlight child node (yellow flowers)
+    // Highlight all nodes in the path from root to selected node
+    const nodesToHighlight = new Set<string>();
+    if (pathFromRoot.length > 0) {
+      pathFromRoot.forEach(node => {
+        nodesToHighlight.add(node.id);
+      });
+    } else if (nodeToHighlight) {
+      // If no path found, just highlight the selected node
+      nodesToHighlight.add(nodeToHighlight);
+    }
+    
+    console.log(`[PATH HIGHLIGHT] Nodes to highlight:`, Array.from(nodesToHighlight));
+    
+    // Highlight all nodes in the path
+    nodesToHighlight.forEach(nodeId => {
+      if (nodeSpriteMap.current[nodeId]) {
+        console.log(`[PATH HIGHLIGHT] Highlighting nodeId=${nodeId}, count=${nodeSpriteMap.current[nodeId].length}`);
+        nodeSpriteMap.current[nodeId].forEach(sprite => {
+          if (sprite && spriteOriginalTextures.current.has(sprite)) {
+            // Swap to highlight texture (flowers_red) and add visual enhancement
+            if (highlightTextureRef.current) {
+              sprite.texture = highlightTextureRef.current;
+              // Make the highlighted sprite larger and brighter
+              sprite.scale.set(1.1, 1.1);
+              sprite.tint = 0xFFFF00; // Bright yellow tint
+              // Log highlighting
+              console.log(`[PATH HIGHLIGHT] Highlighted nodeId=${nodeId} at sprite position x=${sprite.x} y=${sprite.y}`);
+            } else {
+              console.log(`[PATH HIGHLIGHT DEBUG] highlightTextureRef.current is null`);
+            }
+          } else {
+            console.log(`[PATH HIGHLIGHT DEBUG] Sprite or original texture not found for nodeId=${nodeId}`);
+          }
+        });
+      } else {
+        console.log(`[PATH HIGHLIGHT DEBUG] No sprites found for nodeId=${nodeId}`);
+      }
+    });
+    
+    // Highlight all connections in the path
+    for (let i = 0; i < pathFromRoot.length - 1; i++) {
+      const parentNode = pathFromRoot[i];
+      const childNode = pathFromRoot[i + 1];
+      
+      if (connectionSpriteMap.current[parentNode.id] && connectionSpriteMap.current[parentNode.id][childNode.id]) {
+        const connectionSprites = connectionSpriteMap.current[parentNode.id][childNode.id];
+        console.log(`[PATH HIGHLIGHT] Highlighting connection from ${parentNode.id} to ${childNode.id}, count=${connectionSprites.length}`);
+        
+        connectionSprites.forEach(sprite => {
+          if (sprite && spriteOriginalTextures.current.has(sprite)) {
+            // Use highlight texture for connections too
+            if (highlightTextureRef.current) {
+              sprite.texture = highlightTextureRef.current;
+              // Make the highlighted connection sprite larger and brighter
+              sprite.scale.set(0.6, 0.6); // Slightly larger than original 0.5
+              sprite.tint = 0xFFFF00; // Bright yellow tint
+              console.log(`[PATH HIGHLIGHT] Highlighted connection sprite at position x=${sprite.x} y=${sprite.y}`);
+            }
+          }
+        });
+      } else {
+        console.log(`[PATH HIGHLIGHT DEBUG] No connection sprites found from ${parentNode.id} to ${childNode.id}`);
+      }
+    }
+    
+    // Preview highlight child node (blue flowers)
     if (previewNodeId && nodeSpriteMap.current[previewNodeId]) {
       console.log(`[PREVIEW DEBUG] Found sprites for previewNodeId=${previewNodeId}, count=${nodeSpriteMap.current[previewNodeId].length}`);
       nodeSpriteMap.current[previewNodeId].forEach(sprite => {
         if (sprite && spriteOriginalTextures.current.has(sprite)) {
-          // Swap to preview texture (flowers_yellow) and add visual enhancement
+          // Swap to preview texture (flowers_blue) and add visual enhancement
           if (previewTextureRef.current) {
             sprite.texture = previewTextureRef.current;
             // Make the preview sprite slightly larger and with a different tint
