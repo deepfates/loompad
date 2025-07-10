@@ -31,6 +31,8 @@ const TILE_WIDTH = 32; // Reduced from 64 to 32
 const TILE_HEIGHT = 32; // Reduced from 64 to 32
 const CAMERA_SPEED = 5; // Speed for arrow key movement
 const MOUSE_DRAG_SPEED = 1.5; // Speed for mouse drag
+const TRUNK_SCALE = 1.5; // Trunk thickness multiplier
+const BRANCH_SCALE = 1.25; // Branch thickness multiplier
 
 function isoToScreen(x: number, y: number) {
   return [
@@ -41,13 +43,15 @@ function isoToScreen(x: number, y: number) {
 
 const ATLAS_URL = '/client/assets/sprites/tileset.json';
 const IMAGE_URL = '/client/assets/sprites/tileset.png';
-const TILE_FRAMES = [
-  'grass', 'dirt', 'water', 'sand',
-  'tree_small', 'tree_large', 'pine_tree',
-  'bush', 'shrub',
-  'flowers_red', 'flowers_yellow', 'flowers_blue', 'flowers_purple',
-  'stone', 'mud'
-];
+// const TILE_FRAMES = [
+//   'grass', 'dirt', 'water', 'sand',
+//   'tree_small', 'tree_large', 'pine_tree',
+//   'bush', 'shrub',
+//   'flowers_red', 'flowers_yellow', 'flowers_blue', 'flowers_purple',
+//   'stone', 'mud'
+// ];
+
+const TILE_FRAMES = ['stone']
 
 // Generate trees from garden store data
 const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[] => {
@@ -57,10 +61,10 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
   const POSITION_SCALE = 0.15; // Scale for mapping 3D to 2D positions
   const BASE_GAUSSIAN_RADIUS = 3; // Base radius for Gaussian distribution
   const DEPTH_RADIUS_MULTIPLIER = 0.75; // How much radius increases with depth
-  const BRANCH_HEIGHT_MIN = 4; // Minimum branch height
-  const BRANCH_HEIGHT_MAX = 5; // Maximum branch height
-  const TRUNK_HEIGHT_MIN = 8; // Minimum trunk height
-  const TRUNK_HEIGHT_MAX = 9; // Maximum trunk height
+  const BRANCH_HEIGHT_MIN = 8; // Minimum branch height (doubled from 4)
+  const BRANCH_HEIGHT_MAX = 10; // Maximum branch height (doubled from 5)
+  const TRUNK_HEIGHT_MIN = 16; // Minimum trunk height (doubled from 8)
+  const TRUNK_HEIGHT_MAX = 18; // Maximum trunk height (doubled from 9)
   const MAX_BRANCH_DEPTH = 6; // Maximum depth for branch recursion
   const DEPTH_HEIGHT_REDUCTION = 0.7; // How much height reduces with each depth level
   const DEPTH_VERTICAL_OFFSET = 2; // Vertical offset reduction per depth level
@@ -98,60 +102,49 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     };
   };
 
-  // Recursive function to build branches using Gaussian distribution with depth-based sizing
-  function buildBranches(node, parentTop, parentHeight, depth = 0, maxDepth = MAX_BRANCH_DEPTH) {
+  // Recursive function to build nodes using Gaussian distribution with depth-based sizing
+  function buildBranches(node, parentPosition, parentHeight, depth = 0, maxDepth = MAX_BRANCH_DEPTH) {
     if (!node) return [];
     if (depth > maxDepth) return [];
-    const branches = [];
+    const nodes = [];
     
     // Calculate depth-based height reduction
     const depthHeightMultiplier = Math.pow(DEPTH_HEIGHT_REDUCTION, depth);
-    const baseBranchHeight = Math.floor(Math.random() * (BRANCH_HEIGHT_MAX - BRANCH_HEIGHT_MIN + 1)) + BRANCH_HEIGHT_MIN;
-    const actualBranchHeight = Math.max(1, Math.floor(baseBranchHeight * depthHeightMultiplier));
+    const baseNodeHeight = Math.floor(Math.random() * (BRANCH_HEIGHT_MAX - BRANCH_HEIGHT_MIN + 1)) + BRANCH_HEIGHT_MIN;
+    const actualNodeHeight = Math.max(1, Math.floor(baseNodeHeight * depthHeightMultiplier));
     
-    if (!node.continuations || node.continuations.length === 0) {
-      // Leaf node: generate position using Gaussian distribution
-      const radius = BASE_GAUSSIAN_RADIUS * Math.pow(DEPTH_RADIUS_MULTIPLIER, depth);
-      let leafPosition = generateGaussianPosition(parentTop.x, parentTop.y, radius);
-      leafPosition = clampToGrid(leafPosition);
-      
-      branches.push({
-        x: leafPosition.x,
-        y: leafPosition.y,
-        height: 1, // Leaves are always height 1
-        depth,
-        parentId: node.id,
-        isLeaf: true
-      });
-      
-      return branches;
+    // Generate position using Gaussian distribution centered at parent
+    const radius = BASE_GAUSSIAN_RADIUS * Math.pow(DEPTH_RADIUS_MULTIPLIER, depth);
+    let nodePosition = generateGaussianPosition(parentPosition.x, parentPosition.y, radius);
+    nodePosition = clampToGrid(nodePosition);
+    
+    // Debug: Log parent-child relationship for Gaussian distribution
+    if (depth <= 2) { // Only log first few levels to avoid spam
+      const nodeType = (!node.continuations || node.continuations.length === 0) ? 'LEAF' : 'BRANCH';
+      console.log(`[GAUSSIAN DEBUG] Depth ${depth} (${nodeType}): Parent at (${parentPosition.x}, ${parentPosition.y}) -> Node at (${nodePosition.x}, ${nodePosition.y}), radius: ${radius}`);
     }
     
-    // For non-leaf nodes, create a vertical branch with depth-based height
-    const radius = BASE_GAUSSIAN_RADIUS * Math.pow(DEPTH_RADIUS_MULTIPLIER, depth);
-    let branchBase = generateGaussianPosition(parentTop.x, parentTop.y, radius);
-    branchBase = clampToGrid(branchBase);
-    
-    branches.push({
-      x: branchBase.x,
-      y: branchBase.y,
-      height: actualBranchHeight,
+    // Create node with unified structure
+    const isLeaf = !node.continuations || node.continuations.length === 0;
+    nodes.push({
+      x: nodePosition.x,
+      y: nodePosition.y,
+      height: isLeaf ? 1 : actualNodeHeight, // Leaves are always height 1, branches use calculated height
       depth,
       parentId: node.id,
-      isLeaf: false
+      isLeaf
     });
     
-    // The top of this branch (same x,y but with height offset)
-    const branchTop = { x: branchBase.x, y: branchBase.y };
-    
-    // Recursively build child branches from the top of this branch
-    for (let i = 0; i < node.continuations.length; i++) {
-      const child = node.continuations[i];
-      const childBranches = buildBranches(child, branchTop, actualBranchHeight, depth + 1, maxDepth);
-      branches.push(...childBranches);
+    // Recursively build child nodes from this node's position
+    if (!isLeaf) {
+      for (let i = 0; i < node.continuations.length; i++) {
+        const child = node.continuations[i];
+        const childNodes = buildBranches(child, nodePosition, actualNodeHeight, depth + 1, maxDepth);
+        nodes.push(...childNodes);
+      }
     }
     
-    return branches;
+    return nodes;
   }
 
   trees.forEach((tree) => {
@@ -166,14 +159,14 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     // Generate trunk height
     const trunkHeight = Math.floor(Math.random() * (TRUNK_HEIGHT_MAX - TRUNK_HEIGHT_MIN + 1)) + TRUNK_HEIGHT_MIN;
     
-    // Build all branches recursively from the top of the trunk
-    const parentTop = { x: trunkPosition.x, y: trunkPosition.y };
-    const branches = [];
+    // Build all nodes recursively from the trunk position
+    const trunkPosition2D = { x: trunkPosition.x, y: trunkPosition.y };
+    const nodes = [];
     if (tree.root.continuations && tree.root.continuations.length > 0) {
       for (let i = 0; i < tree.root.continuations.length; i++) {
         const child = tree.root.continuations[i];
-        const childBranches = buildBranches(child, parentTop, trunkHeight, 0, MAX_BRANCH_DEPTH);
-        branches.push(...childBranches);
+        const childNodes = buildBranches(child, trunkPosition2D, trunkHeight, 0, MAX_BRANCH_DEPTH);
+        nodes.push(...childNodes);
       }
     }
     
@@ -182,7 +175,7 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
       y: trunkPosition.y,
       trunkHeight,
       rootId: tree.root.id,
-      branches
+      branches: nodes // Keep the property name as 'branches' for compatibility
     });
   });
   
@@ -369,13 +362,13 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       allPositions.add(trunkPos);
     }
     
-    tree.branches.forEach((branch, branchIndex) => {
-      const branchPos = `${branch.x},${branch.y}`;
-      if (allPositions.has(branchPos)) {
-        console.warn(`[OVERLAP DEBUG] Tree ${treeIndex} branch ${branchIndex} overlaps at ${branchPos}`);
+    tree.branches.forEach((node, nodeIndex) => {
+      const nodePos = `${node.x},${node.y}`;
+      if (allPositions.has(nodePos)) {
+        console.warn(`[OVERLAP DEBUG] Tree ${treeIndex} node ${nodeIndex} overlaps at ${nodePos}`);
         hasOverlaps = true;
       } else {
-        allPositions.add(branchPos);
+        allPositions.add(nodePos);
       }
     });
   });
@@ -383,18 +376,28 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   console.log(`[POSITION DEBUG] Total unique positions: ${allPositions.size}, Has overlaps: ${hasOverlaps}`);
   
   // Summary of what was generated
-  let totalBranches = 0;
-  let totalLeaves = 0;
+  let totalNonLeafNodes = 0;
+  let totalLeafNodes = 0;
   isometricTrees.forEach(tree => {
-    tree.branches.forEach(branch => {
-      if (branch.isLeaf) {
-        totalLeaves++;
+    tree.branches.forEach(node => {
+      if (node.isLeaf) {
+        totalLeafNodes++;
       } else {
-        totalBranches++;
+        totalNonLeafNodes++;
       }
     });
   });
-  console.log(`[SUMMARY] Generated ${isometricTrees.length} trees with ${totalBranches} branches and ${totalLeaves} leaves`);
+  console.log(`[SUMMARY] Generated ${isometricTrees.length} trees with ${totalNonLeafNodes} non-leaf nodes and ${totalLeafNodes} leaf nodes`);
+  
+  // Debug: Log tree structure to verify parent-child relationships
+  isometricTrees.forEach((tree, treeIndex) => {
+    console.log(`[TREE ${treeIndex}] Root at (${tree.x}, ${tree.y}) with ${tree.branches.length} nodes`);
+    tree.branches.forEach((node, nodeIndex) => {
+      if (nodeIndex < 5) { // Only log first 5 nodes per tree to avoid spam
+        console.log(`  [NODE ${nodeIndex}] at (${node.x}, ${node.y}), depth: ${node.depth}, isLeaf: ${node.isLeaf}`);
+      }
+    });
+  });
   
   setTreesGenerated(true);
         
@@ -440,7 +443,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const leafSprites: Sprite[] = []; // Separate array for leaves to render last
         nodeSpriteMap.current = {};
         
-        // First pass: render trunks and branches
+        // First pass: render trunks and non-leaf nodes
         isometricTrees.forEach(tree => {
           // Trunk
           const trunkX = tree.x;
@@ -455,6 +458,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               trunkSprite.anchor.set(0.5, 1);
               trunkSprite.x = screenX;
               trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4);
+              trunkSprite.scale.set(TRUNK_SCALE, TRUNK_SCALE);
               trunkSprite.tint = 0x8B4513;
               tileContainer.addChild(trunkSprite);
               treeSprites.push(trunkSprite);
@@ -468,71 +472,72 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             }
           }
           
-          // Branches (non-leaf) - render with depth-based vertical positioning
-          tree.branches.forEach(branch => {
-            if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE && !branch.isLeaf) {
-              // Calculate accumulated height from trunk and parent branches
+          // Non-leaf nodes - render with depth-based vertical positioning
+          tree.branches.forEach(node => {
+            if (node.x >= 0 && node.x < GRID_SIZE && node.y >= 0 && node.y < GRID_SIZE && !node.isLeaf) {
+              // Calculate accumulated height from trunk and parent nodes
               let accumulatedHeight = tree.trunkHeight;
-              const depth = branch.depth || 0;
+              const depth = node.depth || 0;
               
-              // Add height from parent branches at lower depths
-              tree.branches.forEach(parentBranch => {
-                if (parentBranch.depth !== undefined && parentBranch.depth < depth && !parentBranch.isLeaf) {
-                  accumulatedHeight += parentBranch.height;
+              // Add height from parent nodes at lower depths
+              tree.branches.forEach(parentNode => {
+                if (parentNode.depth !== undefined && parentNode.depth < depth && !parentNode.isLeaf) {
+                  accumulatedHeight += parentNode.height;
                 }
               });
               
-              const branchBaseZ = trunkBaseZ + accumulatedHeight - 1;
-              let branchSprites: Sprite[] = [];
-              for (let h = 0; h < branch.height; h++) {
-                const branchTexture = spritesheet.textures['stone'];
-                const [screenX, screenY] = isoToScreen(branch.x, branch.y);
-                const branchSprite = new Sprite(branchTexture);
-                branchSprite.anchor.set(0.5, 1);
-                branchSprite.x = screenX;
-                branchSprite.y = screenY - (branchBaseZ + h) * (TILE_HEIGHT / 4);
+              const nodeBaseZ = trunkBaseZ + accumulatedHeight - 1;
+              let nodeSprites: Sprite[] = [];
+              for (let h = 0; h < node.height; h++) {
+                const nodeTexture = spritesheet.textures['stone'];
+                const [screenX, screenY] = isoToScreen(node.x, node.y);
+                const nodeSprite = new Sprite(nodeTexture);
+                nodeSprite.anchor.set(0.5, 1);
+                nodeSprite.x = screenX;
+                nodeSprite.y = screenY - (nodeBaseZ + h) * (TILE_HEIGHT / 4);
+                nodeSprite.scale.set(BRANCH_SCALE, BRANCH_SCALE);
                 const colorVariation = Math.min(0.3, depth * 0.1);
                 const baseColor = 0x654321;
                 const r = Math.min(255, Math.floor((baseColor >> 16) * (1 + colorVariation)));
                 const g = Math.min(255, Math.floor(((baseColor >> 8) & 0xFF) * (1 + colorVariation)));
                 const b = Math.min(255, Math.floor((baseColor & 0xFF) * (1 + colorVariation)));
-                branchSprite.tint = (r << 16) | (g << 8) | b;
-                tileContainer.addChild(branchSprite);
-                treeSprites.push(branchSprite);
-                branchSprites.push(branchSprite);
-                spriteOriginalTints.current.set(branchSprite, branchSprite.tint);
-                spriteOriginalTextures.current.set(branchSprite, branchSprite.texture);
+                nodeSprite.tint = (r << 16) | (g << 8) | b;
+                tileContainer.addChild(nodeSprite);
+                treeSprites.push(nodeSprite);
+                nodeSprites.push(nodeSprite);
+                spriteOriginalTints.current.set(nodeSprite, nodeSprite.tint);
+                spriteOriginalTextures.current.set(nodeSprite, nodeSprite.texture);
               }
-              // Map node id to all branch sprites
-              if (branch.parentId) {
-                nodeSpriteMap.current[branch.parentId] = branchSprites;
+              // Map node id to all node sprites
+              if (node.parentId) {
+                nodeSpriteMap.current[node.parentId] = nodeSprites;
               }
             }
           });
         });
         
-        // Second pass: render leaves (always last to appear on top) with depth-based positioning
+        // Second pass: render leaf nodes (always last to appear on top) with depth-based positioning
         isometricTrees.forEach(tree => {
           const trunkBaseZ = 6;
-          tree.branches.forEach(branch => {
-            if (branch.x >= 0 && branch.x < GRID_SIZE && branch.y >= 0 && branch.y < GRID_SIZE && branch.isLeaf) {
-              // Calculate accumulated height from trunk and parent branches
+          tree.branches.forEach(node => {
+            if (node.x >= 0 && node.x < GRID_SIZE && node.y >= 0 && node.y < GRID_SIZE && node.isLeaf) {
+              // Calculate accumulated height from trunk and parent nodes
               let accumulatedHeight = tree.trunkHeight;
-              const depth = branch.depth || 0;
+              const depth = node.depth || 0;
               
-              // Add height from parent branches at lower depths
-              tree.branches.forEach(parentBranch => {
-                if (parentBranch.depth !== undefined && parentBranch.depth < depth && !parentBranch.isLeaf) {
-                  accumulatedHeight += parentBranch.height;
+              // Add height from parent nodes at lower depths
+              tree.branches.forEach(parentNode => {
+                if (parentNode.depth !== undefined && parentNode.depth < depth && !parentNode.isLeaf) {
+                  accumulatedHeight += parentNode.height;
                 }
               });
               
               const leafTexture = spritesheet.textures['bush'];
-              const [screenX, screenY] = isoToScreen(branch.x, branch.y);
+              const [screenX, screenY] = isoToScreen(node.x, node.y);
               const leafSprite = new Sprite(leafTexture);
               leafSprite.anchor.set(0.5, 1);
               leafSprite.x = screenX;
-              leafSprite.y = screenY - (trunkBaseZ + accumulatedHeight - 1 + branch.height) * (TILE_HEIGHT / 4);
+              leafSprite.y = screenY - (trunkBaseZ + accumulatedHeight - 1 + node.height) * (TILE_HEIGHT / 4);
               const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
               leafSprite.scale.set(scaleVariation, scaleVariation);
               const greenVariation = Math.min(0.4, depth * 0.15);
@@ -546,8 +551,8 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               spriteOriginalTints.current.set(leafSprite, leafSprite.tint);
               spriteOriginalTextures.current.set(leafSprite, leafSprite.texture);
               // Map leaf node id to this leaf sprite
-              if (branch.parentId) {
-                nodeSpriteMap.current[branch.parentId] = [leafSprite];
+              if (node.parentId) {
+                nodeSpriteMap.current[node.parentId] = [leafSprite];
               }
             }
           });
