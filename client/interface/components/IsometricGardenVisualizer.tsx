@@ -1047,13 +1047,13 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   useEffect(() => {
     if (!selectedTree || !appRef.current || !isSceneInitialized) return;
 
-    // Map 3D position to 2D grid position
-    const scale = 0.1;
+    // Map 3D position to 2D grid position - use same scale as tree generation
+    const POSITION_SCALE = 0.15; // Same as used in tree generation
     const offsetX = GRID_SIZE / 2;
     const offsetY = GRID_SIZE / 2;
     
-    const gridX = Math.floor((selectedTree.position.x * scale) + offsetX);
-    const gridY = Math.floor((selectedTree.position.z * scale) + offsetY);
+    const gridX = Math.floor((selectedTree.position.x * POSITION_SCALE) + offsetX);
+    const gridY = Math.floor((selectedTree.position.z * POSITION_SCALE) + offsetY);
     
     // Convert grid position to screen position
     const [screenX, screenY] = isoToScreen(gridX, gridY);
@@ -1230,6 +1230,59 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       });
     } else {
       console.log(`[PREVIEW DEBUG] No sprites found for previewNodeId=${previewNodeId}`);
+    }
+    
+    // Preview highlight connection sprites leading to the previewed node
+    if (previewNodeId && pathFromRoot.length > 0) {
+      // Find the parent of the previewed node in the path
+      const previewNodeIndex = pathFromRoot.findIndex(node => node.id === previewNodeId);
+      if (previewNodeIndex === -1) {
+        // If preview node is not in the current path, find its parent from the current depth
+        if (currentDepth >= 0 && pathFromRoot.length > currentDepth) {
+          const parentNode = pathFromRoot[currentDepth];
+          if (connectionSpriteMap.current[parentNode.id] && connectionSpriteMap.current[parentNode.id][previewNodeId]) {
+            const previewConnectionSprites = connectionSpriteMap.current[parentNode.id][previewNodeId];
+            console.log(`[PREVIEW CONNECTION] Highlighting connection to previewNodeId=${previewNodeId}, count=${previewConnectionSprites.length}`);
+            
+            previewConnectionSprites.forEach(sprite => {
+              if (sprite && spriteOriginalTextures.current.has(sprite)) {
+                // Use preview texture for connection sprites too
+                if (previewTextureRef.current) {
+                  sprite.texture = previewTextureRef.current;
+                  // Make the preview connection sprite slightly larger and with blue tint
+                  sprite.scale.set(0.55, 0.55); // Slightly larger than original 0.5
+                  sprite.tint = 0x87CEEB; // Sky blue tint for preview
+                  console.log(`[PREVIEW CONNECTION] Preview highlighted connection sprite at position x=${sprite.x} y=${sprite.y}`);
+                }
+              }
+            });
+          } else {
+            console.log(`[PREVIEW CONNECTION DEBUG] No connection sprites found to previewNodeId=${previewNodeId}`);
+          }
+        }
+      } else if (previewNodeIndex > 0) {
+        // If preview node is in the path, highlight the connection from its parent
+        const parentNode = pathFromRoot[previewNodeIndex - 1];
+        if (connectionSpriteMap.current[parentNode.id] && connectionSpriteMap.current[parentNode.id][previewNodeId]) {
+          const previewConnectionSprites = connectionSpriteMap.current[parentNode.id][previewNodeId];
+          console.log(`[PREVIEW CONNECTION] Highlighting connection to previewNodeId=${previewNodeId}, count=${previewConnectionSprites.length}`);
+          
+          previewConnectionSprites.forEach(sprite => {
+            if (sprite && spriteOriginalTextures.current.has(sprite)) {
+              // Use preview texture for connection sprites too
+              if (previewTextureRef.current) {
+                sprite.texture = previewTextureRef.current;
+                // Make the preview connection sprite slightly larger and with blue tint
+                sprite.scale.set(0.55, 0.55); // Slightly larger than original 0.5
+                sprite.tint = 0x87CEEB; // Sky blue tint for preview
+                console.log(`[PREVIEW CONNECTION] Preview highlighted connection sprite at position x=${sprite.x} y=${sprite.y}`);
+              }
+            }
+          });
+        } else {
+          console.log(`[PREVIEW CONNECTION DEBUG] No connection sprites found to previewNodeId=${previewNodeId}`);
+        }
+      }
     }
   }, [selectedNodeId, currentDepth, selectedOptions, isSceneInitialized, treesGenerated, selectedTree, getPathFromRoot]);
 
