@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Application, Sprite, Assets, Spritesheet, Texture, Ticker, Container } from 'pixi.js';
 import { useGardenStore } from '../stores/gardenStore';
 import type { TreePosition } from '../types/garden';
@@ -140,9 +140,10 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const keysPressedRef = useRef<Set<string>>(new Set());
+  const [isSceneInitialized, setIsSceneInitialized] = useState(false);
 
   // Get trees from garden store
-  const { trees } = useGardenStore();
+  const { trees, selectedTree } = useGardenStore();
 
   // Handle keyboard events
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -446,6 +447,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         if (!destroyed) {
           containerRef.current.appendChild(app.canvas);
           appRef.current = app;
+          setIsSceneInitialized(true);
         } else {
           app.destroy(true);
           // Don't destroy ticker here as it's handled in the cleanup function
@@ -466,6 +468,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
 
     return () => {
       destroyed = true;
+      setIsSceneInitialized(false);
       
       // Remove event listeners
       window.removeEventListener('keydown', handleKeyDown);
@@ -503,6 +506,38 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       }
     };
   }, [width, height, handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, trees]);
+
+  // Snap camera to selected tree
+  useEffect(() => {
+    if (!selectedTree || !appRef.current || !isSceneInitialized) return;
+
+    // Map 3D position to 2D grid position
+    const scale = 0.1;
+    const offsetX = GRID_SIZE / 2;
+    const offsetY = GRID_SIZE / 2;
+    
+    const gridX = Math.floor((selectedTree.position.x * scale) + offsetX);
+    const gridY = Math.floor((selectedTree.position.z * scale) + offsetY);
+    
+    // Convert grid position to screen position
+    const [screenX, screenY] = isoToScreen(gridX, gridY);
+    
+    // Calculate camera position to center the selected tree
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    cameraRef.current = {
+      x: centerX - screenX,
+      y: centerY - screenY
+    };
+    
+    console.log('📷 IsometricGardenVisualizer: Camera snapped to tree:', {
+      treeName: selectedTree.name,
+      gridPosition: { x: gridX, y: gridY },
+      screenPosition: { x: screenX, y: screenY },
+      cameraPosition: cameraRef.current
+    });
+  }, [selectedTree, width, height, isSceneInitialized]);
 
   return (
     <div
