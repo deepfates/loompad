@@ -691,12 +691,12 @@ const GamepadInterface = () => {
                   height={600}
                 />
               ) : (
-                <GardenVisualizer
-                  showMeshGrid={true}
-                  showAxis={false}
-                  currentDepth={currentDepth}
-                  selectedOptions={selectedOptions}
-                />
+              <GardenVisualizer
+                showMeshGrid={true}
+                showAxis={false}
+                currentDepth={currentDepth}
+                selectedOptions={selectedOptions}
+              />
               )}
             </>
           )}
@@ -704,16 +704,16 @@ const GamepadInterface = () => {
           {/* Metadata panel - only show when not in a menu */}
           {!activeMenu && (
             <>
-              <MetadataPanel
-                currentNode={getCurrentNode()}
-                currentDepth={getCurrentNodeDepth()}
-                totalDepth={getCurrentPath().length}
-                selectedOptions={selectedOptions}
-                isExpanded={isMetadataExpanded}
-                onToggle={() => setIsMetadataExpanded(!isMetadataExpanded)}
-                isFullscreen={isFullscreen}
-                onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-              />
+            <MetadataPanel
+              currentNode={getCurrentNode()}
+              currentDepth={getCurrentNodeDepth()}
+              totalDepth={getCurrentPath().length}
+              selectedOptions={selectedOptions}
+              isExpanded={isMetadataExpanded}
+              onToggle={() => setIsMetadataExpanded(!isMetadataExpanded)}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+            />
               {/* Visualizer toggle button */}
               <button
                 onClick={() => setUseIsometricVisualizer(!useIsometricVisualizer)}
