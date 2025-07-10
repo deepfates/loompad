@@ -48,7 +48,7 @@ const EMPTY_STORY = {
 const GamepadInterface = () => {
   const { models, getModelName } = useModels();
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
   const [useIsometricVisualizer, setUseIsometricVisualizer] = useState(true);
   
@@ -590,7 +590,7 @@ const GamepadInterface = () => {
                   for (let i = 1; i <= currentDepth; i++) {
                     if (!current.continuations) break;
                     parent = current;
-                    const selectedIndex = selectedOptions[i - 1];
+                    const selectedIndex = selectedOptions[i - 1] ?? 0;
                     if (selectedIndex >= 0 && selectedIndex < current.continuations.length) {
                       current = current.continuations[selectedIndex];
                     } else {

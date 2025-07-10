@@ -70,7 +70,7 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
     }
   }, [trees, setTrees]);
   const [currentDepth, setCurrentDepth] = useState(0);
-  const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
+  const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
   const [generatingAt, setGeneratingAt] = useState<GeneratingState | null>(
     null
   );
@@ -102,12 +102,14 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
 
       let currentNode = storyTree.root;
       for (let i = 0; i < depth - 1; i++) {
-        if (!currentNode.continuations?.[selectedOptions[i]]) return [];
-        currentNode = currentNode.continuations[selectedOptions[i]];
+        const selectedIndex = selectedOptions[i] ?? 0;
+        if (!currentNode.continuations?.[selectedIndex]) return [];
+        currentNode = currentNode.continuations[selectedIndex];
       }
 
+      const selectedIndex = selectedOptions[depth - 1] ?? 0;
       return (
-        currentNode.continuations?.[selectedOptions[depth - 1]]
+        currentNode.continuations?.[selectedIndex]
           ?.continuations || []
       );
     },
@@ -120,7 +122,8 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
 
     // First follow the selected options
     for (let i = 0; i < selectedOptions.length; i++) {
-      const nextNode = currentNode.continuations?.[selectedOptions[i]];
+      const selectedIndex = selectedOptions[i] ?? 0;
+      const nextNode = currentNode.continuations?.[selectedIndex];
       if (!nextNode) break;
       path.push(nextNode);
       currentNode = nextNode;
@@ -325,8 +328,9 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
             if (nextOptions.length > 0) {
               // Use lastSelectedIndex when moving down
               const currentNode = currentPath[currentDepth];
+              const selectedIndex = selectedOptions[currentDepth] ?? 0;
               const nextNode =
-                currentNode.continuations?.[selectedOptions[currentDepth]];
+                currentNode.continuations?.[selectedIndex];
               if (nextNode) {
                 const lastIndex = getLastSelectedIndex(nextNode, 0);
                 setSelectedOptions((prev) => {
@@ -497,7 +501,9 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
       setCurrentTreeKey(key);
       setStoryTree(trees[key] || INITIAL_STORY);
       setCurrentDepth(0);
-      setSelectedOptions([0]);
+      // Don't reset selectedOptions to [0] - let the tree's natural state determine the initial selection
+      // This allows trees with existing continuations to show their natural first option
+      setSelectedOptions([]);
     },
     getCurrentPath,
     getOptionsAtDepth,

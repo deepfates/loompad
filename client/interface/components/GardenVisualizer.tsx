@@ -726,7 +726,7 @@ const GardenVisualizer: React.FC<GardenVisualizerProps> = ({
       if (currentPath.length > currentDepth) {
         const currentNodeAtDepth = currentPath[currentDepth];
         if (currentNodeAtDepth && currentNodeAtDepth.continuations) {
-          const selectedOptionIndex = selectedOptions[currentDepth];
+          const selectedOptionIndex = selectedOptions[currentDepth] ?? 0;
           if (selectedOptionIndex >= 0 && selectedOptionIndex < currentNodeAtDepth.continuations.length) {
             previewNodeId = currentNodeAtDepth.continuations[selectedOptionIndex].id;
           }
