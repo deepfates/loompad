@@ -1,15 +1,15 @@
 :root {
   --background-color: #0a0a0a;
   --font-color: #c9d1d9;
-  --primary-color: #58a6ff;
+  --primary-color:rgb(155, 198, 247);
   --secondary-color: #8b949e;
-  --error-color: #ff7b72;
+  --error-color:rgb(255, 180, 174);
 }
 
 body {
   --background-color: #0a0a0a;
   --font-color: #c9d1d9;
-  --primary-color: #58a6ff;
+  --primary-color: rgb(155, 198, 247);
   --secondary-color: #8b949e;
   --error-color: #ff7b72;
 
@@ -47,7 +47,7 @@ body {
   margin-top: 1.25rem;
   background: var(--background-color);
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   overflow: hidden;
   position: relative;
   gap: 1rem;
@@ -143,6 +143,8 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--secondary-color) transparent;
   white-space: pre-wrap;
+  font-size: 1.5rem;
+  line-height: normal;
 }
 
 .story-text::-webkit-scrollbar {
@@ -268,7 +270,7 @@ body {
   margin: 0;
   background: var(--background-color);
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   overflow: hidden;
   position: relative;
   gap: 1rem;

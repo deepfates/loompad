@@ -784,6 +784,16 @@ const GamepadInterface = () => {
             </MenuScreen>
           ) : (
             <>
+              
+              <IsometricGardenVisualizer
+                width={950}
+                height={640}
+                selectedNodeId={selectedNode?.id}
+                currentDepth={currentDepth}
+                selectedOptions={selectedOptions}
+                // Only visualize the active tree (selectedTree)
+                // The visualizer already uses the selectedTree from the store
+              />
               <div className="story-content">
                 {renderStoryText()}
                 <NavigationDots
@@ -800,15 +810,6 @@ const GamepadInterface = () => {
                   </output>
                 )}
               </div>
-              <IsometricGardenVisualizer
-                width={800}
-                height={640}
-                selectedNodeId={selectedNode?.id}
-                currentDepth={currentDepth}
-                selectedOptions={selectedOptions}
-                // Only visualize the active tree (selectedTree)
-                // The visualizer already uses the selectedTree from the store
-              />
             </>
           )}
 
