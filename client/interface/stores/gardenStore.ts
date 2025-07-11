@@ -239,8 +239,8 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
     const tree = trees.find(t => t.id === treeId);
     if (tree) {
       set({
-        selectedTree: tree,
-        selectedNode: tree.root
+        selectedTree: tree
+        // Don't automatically select root node - let existing selection persist
       });
     }
   },
@@ -250,7 +250,8 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
       const newTrees = state.trees.filter(t => t.id !== treeId);
       const newSelectedTree = state.selectedTree?.id === treeId ? 
         (newTrees.length > 0 ? newTrees[0] : null) : state.selectedTree;
-      const newSelectedNode = newSelectedTree?.root || null;
+      // Don't automatically select root node - let existing selection persist
+      const newSelectedNode = null;
       
       return {
         trees: newTrees,
@@ -285,8 +286,8 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
     
     const newSelectedTree = trees[newIndex];
     set({
-      selectedTree: newSelectedTree,
-      selectedNode: newSelectedTree.root
+      selectedTree: newSelectedTree
+      // Don't automatically select root node - let existing selection persist
     });
   },
 
@@ -295,7 +296,7 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
     const { trees, selectedTree, selectedNode } = get();
     if (!trees.length) return;
     
-    console.log('🎯 Garden Store: selectNode called with:', {
+    console.log('🎯 [GARDEN STORE] selectNode called with:', {
       nodeId,
       currentSelectedNodeId: selectedNode?.id,
       currentTreeName: selectedTree?.name,
@@ -329,24 +330,35 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
     
     if (foundNode && foundTree) {
       const wasInDifferentTree = foundTree.id !== selectedTree?.id;
-      console.log('✅ Garden Store: Node found and selected:', {
+      console.log('✅ [GARDEN STORE] Node found and selected:', {
         nodeId: foundNode.id,
         nodeText: foundNode.text.slice(0, 50),
         treeName: foundTree.name,
-        wasInDifferentTree
+        wasInDifferentTree,
+        previousSelectedNodeId: selectedNode?.id
       });
       
       // If the node is in a different tree, switch to that tree
       if (wasInDifferentTree) {
+        console.log('🔄 [GARDEN STORE] Switching to different tree:', {
+          fromTree: selectedTree?.name,
+          toTree: foundTree.name,
+          nodeId: foundNode.id
+        });
         set({ 
           selectedTree: foundTree,
           selectedNode: foundNode 
         });
       } else {
+        console.log('🔄 [GARDEN STORE] Updating selected node in same tree:', {
+          treeName: foundTree.name,
+          fromNodeId: selectedNode?.id,
+          toNodeId: foundNode.id
+        });
         set({ selectedNode: foundNode });
       }
     } else {
-      console.warn('❌ Garden Store: Node not found in any tree:', {
+      console.warn('❌ [GARDEN STORE] Node not found in any tree:', {
         nodeId,
         availableTrees: trees.map(t => t.name)
       });
@@ -498,13 +510,14 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
 
   // Integration with existing loompad story tree
   syncWithStoryTrees: (storyTrees: { [key: string]: { root: StoryNode } }) => {
-    const { trees } = get();
+    const { trees, selectedTree, selectedNode } = get();
     const storyTreeKeys = Object.keys(storyTrees);
     
     console.log('🌳 Garden Store: Syncing with story trees:', {
       storyTreeKeys,
       currentGardenTrees: trees.map(t => t.name),
-      currentSelectedTree: trees.find(t => t.id === get().selectedTree?.id)?.name
+      currentSelectedTree: trees.find(t => t.id === get().selectedTree?.id)?.name,
+      currentSelectedNode: selectedNode?.id
     });
     
     // Remove garden trees that no longer exist in story trees
@@ -531,15 +544,58 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
       }
     });
     
+    // Preserve the currently selected tree if it still exists
+    let preservedSelectedTree = null;
+    let preservedSelectedNode = null;
+    
+    if (selectedTree) {
+      const preservedTree = newGardenTrees.find(t => t.name === selectedTree.name);
+      if (preservedTree) {
+        preservedSelectedTree = preservedTree;
+        
+        // Try to preserve the selected node if it still exists in the updated tree
+        if (selectedNode) {
+          const findNodeInTree = (node: StoryNode, targetId: string): StoryNode | null => {
+            if (node.id === targetId) return node;
+            if (node.continuations) {
+              for (const child of node.continuations) {
+                const found = findNodeInTree(child, targetId);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          
+          const preservedNode = findNodeInTree(preservedTree.root, selectedNode.id);
+          if (preservedNode) {
+            preservedSelectedNode = preservedNode;
+          } else {
+            // If the selected node no longer exists, default to root
+            preservedSelectedNode = preservedTree.root;
+          }
+        } else {
+          preservedSelectedNode = preservedTree.root;
+        }
+      }
+    }
+    
+    // If no tree was preserved, default to the first tree but don't auto-select root node
+    if (!preservedSelectedTree && newGardenTrees.length > 0) {
+      preservedSelectedTree = newGardenTrees[0];
+      // Don't automatically select the root node - let the existing selection persist
+      preservedSelectedNode = null;
+    }
+    
     console.log('🌳 Garden Store: Sync complete:', {
       newGardenTrees: newGardenTrees.map(t => t.name),
-      selectedTreeAfterSync: newGardenTrees.length > 0 ? newGardenTrees[0].name : null
+      preservedSelectedTree: preservedSelectedTree?.name,
+      preservedSelectedNode: preservedSelectedNode?.id
     });
     
     set({
       trees: newGardenTrees,
-      selectedTree: newGardenTrees.length > 0 ? newGardenTrees[0] : null,
-      selectedNode: newGardenTrees.length > 0 ? newGardenTrees[0].root : null
+      selectedTree: preservedSelectedTree,
+      selectedNode: preservedSelectedNode
     });
   },
 

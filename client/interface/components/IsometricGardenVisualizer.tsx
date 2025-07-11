@@ -719,15 +719,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   });
   console.log(`[SUMMARY] Generated ${isometricTrees.length} trees with ${totalNonLeafNodes} non-leaf nodes and ${totalLeafNodes} leaf nodes`);
   
-  // Debug: Log tree structure to verify parent-child relationships
-  isometricTrees.forEach((tree, treeIndex) => {
-    console.log(`[TREE ${treeIndex}] Root at (${tree.x}, ${tree.y}) with ${tree.branches.length} nodes`);
-    tree.branches.forEach((node, nodeIndex) => {
-      if (nodeIndex < 5) { // Only log first 5 nodes per tree to avoid spam
-        console.log(`  [NODE ${nodeIndex}] at (${node.x}, ${node.y}), depth: ${node.depth}, isLeaf: ${node.isLeaf}`);
-      }
-    });
-  });
+
   
   setTreesGenerated(true);
         
@@ -1275,9 +1267,6 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
 
   // Highlighting effect for selected node and preview selection
   useEffect(() => {
-    console.log(`[HIGHLIGHT DEBUG] selectedNodeId=${selectedNodeId}, currentDepth=${currentDepth}, selectedOptions=${selectedOptions}`);
-    console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap keys:`, Object.keys(nodeSpriteMap.current));
-    console.log(`[HIGHLIGHT DEBUG] nodeSpriteMap values:`, Object.values(nodeSpriteMap.current).map(sprites => sprites.length));
     
     // Remove highlight from all nodes
     Object.values(nodeSpriteMap.current).forEach(sprites => {
@@ -1319,7 +1308,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       }
     }
     
-    console.log(`[PREVIEW DEBUG] previewNodeId=${previewNodeId}`);
+
     
     // Determine which node to highlight
     let nodeToHighlight = selectedNodeId;
@@ -1330,7 +1319,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       const rootKeys = Object.keys(nodeSpriteMap.current).filter(key => key.startsWith('root_'));
       if (rootKeys.length > 0) {
         nodeToHighlight = rootKeys[0];
-        console.log(`[HIGHLIGHT DEBUG] No selectedNodeId provided, defaulting to root: ${nodeToHighlight}`);
+
       }
     }
     
@@ -1338,7 +1327,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     let pathFromRoot: any[] = [];
     if (nodeToHighlight && selectedTree) {
       pathFromRoot = getPathFromRoot(nodeToHighlight);
-      console.log(`[PATH DEBUG] Path from root to ${nodeToHighlight}:`, pathFromRoot.map(node => node.id));
+
     }
     
     // Highlight all nodes in the path from root to selected node
@@ -1352,12 +1341,11 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       nodesToHighlight.add(nodeToHighlight);
     }
     
-    console.log(`[PATH HIGHLIGHT] Nodes to highlight:`, Array.from(nodesToHighlight));
+
     
     // Highlight all nodes in the path
     nodesToHighlight.forEach(nodeId => {
       if (nodeSpriteMap.current[nodeId]) {
-        console.log(`[PATH HIGHLIGHT] Highlighting nodeId=${nodeId}, count=${nodeSpriteMap.current[nodeId].length}`);
         nodeSpriteMap.current[nodeId].forEach(sprite => {
           if (sprite && spriteOriginalTextures.current.has(sprite)) {
             // Swap to highlight texture (flowers_red) and add visual enhancement
@@ -1366,17 +1354,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               // Make the highlighted sprite larger and brighter
               sprite.scale.set(1.1, 1.1);
               sprite.tint = 0xFFFF00; // Bright yellow tint
-              // Log highlighting
-              console.log(`[PATH HIGHLIGHT] Highlighted nodeId=${nodeId} at sprite position x=${sprite.x} y=${sprite.y}`);
-            } else {
-              console.log(`[PATH HIGHLIGHT DEBUG] highlightTextureRef.current is null`);
             }
-          } else {
-            console.log(`[PATH HIGHLIGHT DEBUG] Sprite or original texture not found for nodeId=${nodeId}`);
           }
         });
-      } else {
-        console.log(`[PATH HIGHLIGHT DEBUG] No sprites found for nodeId=${nodeId}`);
       }
     });
     
@@ -1387,7 +1367,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       
       if (connectionSpriteMap.current[parentNode.id] && connectionSpriteMap.current[parentNode.id][childNode.id]) {
         const connectionSprites = connectionSpriteMap.current[parentNode.id][childNode.id];
-        console.log(`[PATH HIGHLIGHT] Highlighting connection from ${parentNode.id} to ${childNode.id}, count=${connectionSprites.length}`);
+
         
         connectionSprites.forEach(sprite => {
           if (sprite && spriteOriginalTextures.current.has(sprite)) {
@@ -1397,18 +1377,15 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
               // Make the highlighted connection sprite larger and brighter
               sprite.scale.set(0.6, 0.6); // Slightly larger than original 0.5
               sprite.tint = 0xFFFF00; // Bright yellow tint
-              console.log(`[PATH HIGHLIGHT] Highlighted connection sprite at position x=${sprite.x} y=${sprite.y}`);
+
             }
           }
         });
-      } else {
-        console.log(`[PATH HIGHLIGHT DEBUG] No connection sprites found from ${parentNode.id} to ${childNode.id}`);
       }
     }
     
     // Preview highlight child node (blue flowers)
     if (previewNodeId && nodeSpriteMap.current[previewNodeId]) {
-      console.log(`[PREVIEW DEBUG] Found sprites for previewNodeId=${previewNodeId}, count=${nodeSpriteMap.current[previewNodeId].length}`);
       nodeSpriteMap.current[previewNodeId].forEach(sprite => {
         if (sprite && spriteOriginalTextures.current.has(sprite)) {
           // Swap to preview texture (flowers_blue) and add visual enhancement
@@ -1417,17 +1394,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             // Make the preview sprite slightly larger and with a different tint
             sprite.scale.set(1.05, 1.05);
             sprite.tint = 0x87CEEB; // Sky blue tint for preview
-            // Log preview highlighting
-            console.log(`[PREVIEW] Preview highlighted nodeId=${previewNodeId} at sprite position x=${sprite.x} y=${sprite.y}`);
-          } else {
-            console.log(`[PREVIEW DEBUG] previewTextureRef.current is null`);
           }
-        } else {
-          console.log(`[PREVIEW DEBUG] Sprite or original texture not found for previewNodeId=${previewNodeId}`);
         }
       });
-    } else {
-      console.log(`[PREVIEW DEBUG] No sprites found for previewNodeId=${previewNodeId}`);
     }
     
     // Preview highlight connection sprites leading to the previewed node
@@ -1440,7 +1409,6 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           const parentNode = pathFromRoot[currentDepth];
           if (connectionSpriteMap.current[parentNode.id] && connectionSpriteMap.current[parentNode.id][previewNodeId]) {
             const previewConnectionSprites = connectionSpriteMap.current[parentNode.id][previewNodeId];
-            console.log(`[PREVIEW CONNECTION] Highlighting connection to previewNodeId=${previewNodeId}, count=${previewConnectionSprites.length}`);
             
             previewConnectionSprites.forEach(sprite => {
               if (sprite && spriteOriginalTextures.current.has(sprite)) {
@@ -1450,12 +1418,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                   // Make the preview connection sprite slightly larger and with blue tint
                   sprite.scale.set(0.55, 0.55); // Slightly larger than original 0.5
                   sprite.tint = 0x87CEEB; // Sky blue tint for preview
-                  console.log(`[PREVIEW CONNECTION] Preview highlighted connection sprite at position x=${sprite.x} y=${sprite.y}`);
                 }
               }
             });
-          } else {
-            console.log(`[PREVIEW CONNECTION DEBUG] No connection sprites found to previewNodeId=${previewNodeId}`);
           }
         }
       } else if (previewNodeIndex > 0) {
@@ -1463,7 +1428,6 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         const parentNode = pathFromRoot[previewNodeIndex - 1];
         if (connectionSpriteMap.current[parentNode.id] && connectionSpriteMap.current[parentNode.id][previewNodeId]) {
           const previewConnectionSprites = connectionSpriteMap.current[parentNode.id][previewNodeId];
-          console.log(`[PREVIEW CONNECTION] Highlighting connection to previewNodeId=${previewNodeId}, count=${previewConnectionSprites.length}`);
           
           previewConnectionSprites.forEach(sprite => {
             if (sprite && spriteOriginalTextures.current.has(sprite)) {
@@ -1473,12 +1437,9 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
                 // Make the preview connection sprite slightly larger and with blue tint
                 sprite.scale.set(0.55, 0.55); // Slightly larger than original 0.5
                 sprite.tint = 0x87CEEB; // Sky blue tint for preview
-                console.log(`[PREVIEW CONNECTION] Preview highlighted connection sprite at position x=${sprite.x} y=${sprite.y}`);
               }
             }
           });
-        } else {
-          console.log(`[PREVIEW CONNECTION DEBUG] No connection sprites found to previewNodeId=${previewNodeId}`);
         }
       }
     }

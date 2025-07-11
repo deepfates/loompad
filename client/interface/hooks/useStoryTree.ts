@@ -106,7 +106,12 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
     for (let i = 0; i < selectedOptions.length; i++) {
       const selectedIndex = selectedOptions[i] ?? 0;
       const nextNode = currentNode.continuations?.[selectedIndex];
-      if (!nextNode) break;
+      if (!nextNode) {
+        console.log("🔄 [PATH DEBUG] getCurrentPath: No next node found at depth", i, "index", selectedIndex, "available continuations:", currentNode.continuations?.length ?? 0);
+        // If we can't follow the selected options, stop here
+        // This can happen during generation when the tree structure changes
+        break;
+      }
       path.push(nextNode);
       currentNode = nextNode;
     }
@@ -119,6 +124,12 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
       path.push(nextNode);
       currentNode = nextNode;
     }
+
+    console.log("🔄 [PATH DEBUG] getCurrentPath result:", {
+      pathLength: path.length,
+      selectedOptionsLength: selectedOptions.length,
+      pathNodes: path.map(n => ({ id: n.id, text: n.text.slice(0, 20) }))
+    });
 
     return path;
   }, [storyTree, selectedOptions, getLastSelectedIndex]);
@@ -190,12 +201,16 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
       newContinuations: StoryNode[],
       isNewChildren: boolean
     ) => {
-      console.log("Adding continuations:", {
+      console.log("🔄 [DEPTH DEBUG] Adding continuations:", {
         path: path.map((n) => ({ id: n.id, text: n.text.slice(0, 20) })),
         newContinuations: newContinuations.map((n) => ({
           id: n.id,
           text: n.text.slice(0, 20),
         })),
+        isNewChildren,
+        currentDepth,
+        selectedOptions,
+        pathLength: path.length
       });
 
       const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
@@ -231,18 +246,21 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
         current.lastSelectedIndex = (current.continuations?.length ?? 1) - 1;
       }
 
-      console.log("Updated tree node:", {
+      console.log("🔄 [DEPTH DEBUG] Updated tree node:", {
         nodeId: current.id,
         continuations: current.continuations.map((n) => ({
           id: n.id,
           text: n.text.slice(0, 20),
         })),
         lastSelectedIndex: current.lastSelectedIndex,
+        isNewChildren,
+        currentDepth,
+        selectedOptions
       });
 
       return newTree;
     },
-    [storyTree]
+    [storyTree, currentDepth, selectedOptions]
   );
 
   const handleModelSwitch = useCallback(
@@ -389,7 +407,7 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
             currentNode.continuations?.length > 0;
           const count = params.generationCount;
 
-          console.log("Starting generation:", {
+          console.log("🔄 [DEPTH DEBUG] Starting generation:", {
             depth: currentDepth,
             hasExisting: hasExistingContinuations,
             count,
@@ -399,6 +417,9 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
               id: currentNode.id,
               text: currentNode.text.slice(0, 20),
             },
+            currentPath: currentPath.map(n => ({ id: n.id, text: n.text.slice(0, 20) })),
+            selectedOptions,
+            pathLength: currentPath.length
           });
 
           setGeneratingAt({
@@ -411,7 +432,7 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
           try {
             const newContinuations = await generateContinuations(count);
             console.log(
-              "Generated continuations:",
+              "🔄 [DEPTH DEBUG] Generated continuations:",
               newContinuations.map((n) => ({
                 id: n.id,
                 text: n.text.slice(0, 20),
@@ -424,21 +445,44 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
               !hasExistingContinuations
             );
 
+            console.log("🔄 [DEPTH DEBUG] Before state updates:", {
+              currentDepth,
+              selectedOptions,
+              hasExistingContinuations,
+              newContinuationsCount: newContinuations.length
+            });
+
             // Update all state at once
             if (hasExistingContinuations) {
               // For siblings, select the new continuation
               const newIndex = currentNode.continuations?.length ?? 0;
-              setSelectedOptions((prev) => {
-                const newOptions = [...prev];
-                newOptions[currentDepth] = newIndex;
-                return newOptions.slice(0, currentDepth + 1);
-              });
+              console.log("🔄 [DEPTH DEBUG] Updating for siblings - new index:", newIndex);
+              
+              // Update selectedOptions first to ensure consistency
+              const newSelectedOptions = [...selectedOptions];
+              // Ensure the array has the right length for the current depth
+              while (newSelectedOptions.length <= currentDepth) {
+                newSelectedOptions.push(0);
+              }
+              newSelectedOptions[currentDepth] = newIndex;
+              const finalSelectedOptions = newSelectedOptions.slice(0, currentDepth + 1);
+              
+              console.log("🔄 [DEPTH DEBUG] New selectedOptions for siblings:", finalSelectedOptions);
+              setSelectedOptions(finalSelectedOptions);
             } else {
               // For new children, stay at current depth
               // The children will be visible but not selected
-              console.log("Generated new children, staying at current depth");
-              setSelectedOptions(prev => prev.slice(0, currentDepth + 1));
+              console.log("🔄 [DEPTH DEBUG] Generated new children, staying at current depth:", currentDepth);
+              const finalSelectedOptions = selectedOptions.slice(0, currentDepth + 1);
+              console.log("🔄 [DEPTH DEBUG] New selectedOptions for children:", finalSelectedOptions);
+              setSelectedOptions(finalSelectedOptions);
             }
+
+            console.log("🔄 [DEPTH DEBUG] After state updates:", {
+              currentDepth,
+              selectedOptions,
+              hasExistingContinuations
+            });
 
             // Update tree last to ensure all state is consistent
             setStoryTree(updatedTree);
@@ -484,18 +528,47 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
     trees,
     currentTreeKey,
     setCurrentTreeKey: (key: string) => {
+      console.log('🔄 [STORY TREE] Switching story tree:', {
+        fromKey: currentTreeKey,
+        toKey: key,
+        currentDepth,
+        selectedOptions,
+        willResetDepth: true,
+        willResetOptions: true
+      });
       setCurrentTreeKey(key);
       setStoryTree(trees[key] || INITIAL_STORY);
       setCurrentDepth(0);
       // Don't reset selectedOptions to [0] - let the tree's natural state determine the initial selection
       // This allows trees with existing continuations to show their natural first option
       setSelectedOptions([]);
+      console.log('🔄 [STORY TREE] Story tree switched - depth and options reset:', {
+        newKey: key,
+        newDepth: 0,
+        newSelectedOptions: []
+      });
     },
     getCurrentPath,
     getOptionsAtDepth,
     setTrees,
     setStoryTree,
-    setSelectedOptions,
-    setCurrentDepth,
+    setSelectedOptions: (options: number[] | ((prev: number[]) => number[])) => {
+      console.log('🔄 [DEPTH STATE] setSelectedOptions called:', {
+        from: selectedOptions,
+        to: typeof options === 'function' ? 'function' : options,
+        currentDepth,
+        stackTrace: new Error().stack?.split('\n').slice(1, 4).join('\n')
+      });
+      setSelectedOptions(options);
+    },
+    setCurrentDepth: (depth: number) => {
+      console.log('🔄 [DEPTH STATE] setCurrentDepth called:', {
+        from: currentDepth,
+        to: depth,
+        selectedOptions,
+        stackTrace: new Error().stack?.split('\n').slice(1, 4).join('\n')
+      });
+      setCurrentDepth(depth);
+    },
   };
 }

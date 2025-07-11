@@ -52,7 +52,6 @@ const GamepadInterface = () => {
   const [isAgentEnabled, setIsAgentEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
-  const [useIsometricVisualizer, setUseIsometricVisualizer] = useState(true);
   
   // Garden store integration
   const { syncWithStoryTrees, setGenerating, selectedNode, selectedTree, getPathFromRoot } = useGardenStore();
@@ -103,11 +102,22 @@ const GamepadInterface = () => {
 
   // Sync garden store with story trees
   useEffect(() => {
+    console.log('🔄 [GARDEN SYNC] Syncing garden store with story trees:', {
+      treesCount: Object.keys(trees).length,
+      currentTreeKey,
+      currentDepth,
+      selectedOptions
+    });
     syncWithStoryTrees(trees);
   }, [trees, syncWithStoryTrees]);
 
   // Sync generation state
   useEffect(() => {
+    console.log('🔄 [GENERATION SYNC] Syncing generation state:', {
+      isGenerating,
+      currentDepth,
+      selectedOptions
+    });
     setGenerating(isGenerating);
   }, [isGenerating, setGenerating]);
 
@@ -117,21 +127,29 @@ const GamepadInterface = () => {
       // When story is switched, update the garden store
       const currentStoryTree = trees[currentTreeKey];
       if (currentStoryTree && currentStoryTree.root) {
-        console.log('🔄 Story switched, updating garden store:', {
+        console.log('🔄 [STORY SWITCH] Story switched, updating garden store:', {
           storyKey: currentTreeKey,
           rootNodeId: currentStoryTree.root.id,
-          rootText: currentStoryTree.root.text.slice(0, 50)
+          rootText: currentStoryTree.root.text.slice(0, 50),
+          currentDepth,
+          selectedOptions
         });
         
         // Sync the story trees to update garden store
         syncWithStoryTrees(trees);
         
-        // Find and select the corresponding garden tree
+        // Find and select the corresponding garden tree, but don't automatically select root node
         const gardenStore = useGardenStore.getState();
         const gardenTree = gardenStore.trees.find(t => t.name === currentTreeKey);
         if (gardenTree) {
+          console.log('🔄 [STORY SWITCH] Selecting garden tree:', {
+            treeName: gardenTree.name,
+            treeId: gardenTree.id,
+            willSelectRoot: false // Don't automatically select root
+          });
           gardenStore.selectTree(gardenTree.id);
-          gardenStore.selectNode(currentStoryTree.root.id);
+          // Don't call gardenStore.selectNode() here - let the existing node selection persist
+          // This prevents the depth reset when switching stories
         }
       }
     }
@@ -163,32 +181,71 @@ const GamepadInterface = () => {
 
   // Sync selected node with garden store
   const lastSelectedNodeId = useRef<string | null>(null);
+  const lastStoryTreeKey = useRef<string | null>(null);
   useEffect(() => {
     const path = getCurrentPath();
     const currentNode = path[currentDepth] || storyTree.root;
+    const hasStoryChanged = lastStoryTreeKey.current !== currentTreeKey;
+    
     if (currentNode && currentNode.id && currentNode.id !== lastSelectedNodeId.current) {
       lastSelectedNodeId.current = currentNode.id;
-      console.log('🔄 Text Interface -> Garden Store: Selecting node:', {
+      lastStoryTreeKey.current = currentTreeKey;
+      
+      console.log('🔄 [GARDEN SYNC] Text Interface -> Garden Store: Selecting node:', {
         nodeId: currentNode.id,
         nodeText: currentNode.text.slice(0, 50),
         currentDepth,
         selectedOptions,
-        pathLength: path.length
+        pathLength: path.length,
+        pathNodes: path.map(n => ({ id: n.id, text: n.text.slice(0, 20) })),
+        hasStoryChanged
       });
       useGardenStore.getState().selectNode(currentNode.id);
+    } else if (hasStoryChanged) {
+      // Update the story tree key reference even if node hasn't changed
+      lastStoryTreeKey.current = currentTreeKey;
+      console.log('🔄 [GARDEN SYNC] Text Interface -> Garden Store: Story changed but node unchanged:', {
+        nodeId: currentNode?.id,
+        currentDepth,
+        selectedOptions,
+        hasStoryChanged
+      });
     }
-  }, [currentDepth, selectedOptions, getCurrentPath, storyTree.root]);
+  }, [currentDepth, selectedOptions, getCurrentPath, storyTree.root, currentTreeKey]);
 
   // Sync garden store selectedNode back to text interface
   const lastGardenSelectedNodeId = useRef<string | null>(null);
   useEffect(() => {
     if (selectedNode && selectedNode.id && selectedNode.id !== lastGardenSelectedNodeId.current) {
       lastGardenSelectedNodeId.current = selectedNode.id;
-      console.log('🔄 Garden Store -> Text Interface: Node selected in visualizer:', {
+      console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Node selected in visualizer:', {
         nodeId: selectedNode.id,
         nodeText: selectedNode.text?.slice(0, 50),
-        currentTreeKey
+        currentTreeKey,
+        currentDepth,
+        selectedOptions
       });
+      
+      // Check if this is just a story switch and the node is already the current node
+      const currentPath = getCurrentPath();
+      const currentNode = currentPath[currentDepth] || storyTree.root;
+      const isSameNode = currentNode.id === selectedNode.id;
+      const isRootNode = selectedNode.id === storyTree.root.id;
+      
+      console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Node selection analysis:', {
+        selectedNodeId: selectedNode.id,
+        currentNodeId: currentNode.id,
+        isSameNode,
+        isRootNode,
+        currentDepth,
+        willSkipNavigation: isSameNode || (isRootNode && currentDepth === 0)
+      });
+      
+      // Skip navigation if it's the same node or if it's the root node and we're already at depth 0
+      if (isSameNode || (isRootNode && currentDepth === 0)) {
+        console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Skipping navigation - same node or root at depth 0');
+        return;
+      }
       
       // Find the node in all story trees and navigate to it
       const findNodeInTree = (node: StoryNode, targetId: string, path: StoryNode[] = []): StoryNode[] | null => {
@@ -219,7 +276,7 @@ const GamepadInterface = () => {
             pathToNode = findNodeInTree(treeData.root, selectedNode.id);
             if (pathToNode) {
               targetTreeKey = treeKey;
-              console.log('🔄 Garden Store -> Text Interface: Node found in different story:', {
+              console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Node found in different story:', {
                 nodeId: selectedNode.id,
                 targetTreeKey,
                 currentTreeKey
@@ -231,9 +288,17 @@ const GamepadInterface = () => {
       }
       
       if (pathToNode) {
+        console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Found path to node:', {
+          nodeId: selectedNode.id,
+          pathLength: pathToNode.length,
+          pathNodes: pathToNode.map(n => ({ id: n.id, text: n.text.slice(0, 20) })),
+          currentDepth,
+          selectedOptions
+        });
+        
         // If the node is in a different story, switch to that story first
         if (targetTreeKey !== currentTreeKey) {
-          console.log('🔄 Garden Store -> Text Interface: Switching to story:', targetTreeKey);
+          console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Switching to story:', targetTreeKey);
           setCurrentTreeKey(targetTreeKey);
         }
         
@@ -261,22 +326,42 @@ const GamepadInterface = () => {
           newSelectedOptions.push(0); // Default to first option for missing depths
         }
         
-        // Update depth and preserve existing selectedOptions for depths up to newDepth
-        setCurrentDepth(newDepth);
-        
-        // Preserve existing selectedOptions for depths 0 to newDepth-1
-        // Only update if the newSelectedOptions are different from current
-        setSelectedOptions(prev => {
-          const updated = [...prev];
-          // Update only the depths that are in the path to the selected node
-          for (let i = 0; i < newSelectedOptions.length && i < newDepth; i++) {
-            updated[i] = newSelectedOptions[i];
-          }
-          return updated;
+        console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Updating navigation state:', {
+          currentDepth,
+          newDepth,
+          currentSelectedOptions: selectedOptions,
+          newSelectedOptions,
+          willChangeDepth: newDepth !== currentDepth,
+          willChangeOptions: JSON.stringify(newSelectedOptions) !== JSON.stringify(selectedOptions)
         });
+        
+        // Only update if the depth or options actually need to change
+        if (newDepth !== currentDepth || JSON.stringify(newSelectedOptions) !== JSON.stringify(selectedOptions)) {
+          // Update depth and preserve existing selectedOptions for depths up to newDepth
+          setCurrentDepth(newDepth);
+          
+          // Preserve existing selectedOptions for depths 0 to newDepth-1
+          // Only update if the newSelectedOptions are different from current
+          setSelectedOptions(prev => {
+            const updated = [...prev];
+            // Update only the depths that are in the path to the selected node
+            for (let i = 0; i < newSelectedOptions.length && i < newDepth; i++) {
+              updated[i] = newSelectedOptions[i];
+            }
+            console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: Final selectedOptions update:', {
+              previous: prev,
+              updated,
+              newDepth,
+              newSelectedOptions
+            });
+            return updated;
+          });
+        } else {
+          console.log('🔄 [GARDEN SYNC] Garden Store -> Text Interface: No navigation state changes needed');
+        }
       }
     }
-  }, [selectedNode, storyTree.root, trees, currentTreeKey, setCurrentDepth, setSelectedOptions, setCurrentTreeKey]);
+  }, [selectedNode, storyTree.root, trees, currentTreeKey, setCurrentDepth, setSelectedOptions, setCurrentTreeKey, currentDepth, selectedOptions, getCurrentPath]);
 
   const handleNewTree = useCallback(() => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;
@@ -425,9 +510,6 @@ const GamepadInterface = () => {
           return;
         }
         setActiveMenu("edit");
-      } else if ((key === "v" || key === "V") && !activeMenu) {
-        // Toggle between 3D and 2D isometric visualizers
-        setUseIsometricVisualizer((prev) => !prev);
       }
     },
     [
@@ -533,15 +615,7 @@ const GamepadInterface = () => {
   return (
     <main className={`terminal ${isFullscreen ? 'fullscreen' : ''}`} aria-label="Story Interface">
       <div className={`container ${isFullscreen ? 'fullscreen' : ''}`}>
-        {/* Agent toggle button */}
-        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
-          <button
-            className={`btn btn-sm ${isAgentEnabled ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setIsAgentEnabled((prev) => !prev)}
-          >
-            {isAgentEnabled ? 'Stop Agent' : 'Start Agent'}
-          </button>
-        </div>
+
         {/* Screen area */}
         <section className={`terminal-screen ${isFullscreen ? 'fullscreen' : ''}`} aria-label="Story Display">
           {activeMenu === "select" ? (
@@ -720,24 +794,15 @@ const GamepadInterface = () => {
                   </output>
                 )}
               </div>
-              {useIsometricVisualizer ? (
-                <IsometricGardenVisualizer
-                  width={800}
-                  height={640}
-                  selectedNodeId={selectedNode?.id}
-                  currentDepth={currentDepth}
-                  selectedOptions={selectedOptions}
-                  // Only visualize the active tree (selectedTree)
-                  // The visualizer already uses the selectedTree from the store
-                />
-              ) : (
-              <GardenVisualizer
-                showMeshGrid={true}
-                showAxis={false}
+              <IsometricGardenVisualizer
+                width={800}
+                height={640}
+                selectedNodeId={selectedNode?.id}
                 currentDepth={currentDepth}
                 selectedOptions={selectedOptions}
+                // Only visualize the active tree (selectedTree)
+                // The visualizer already uses the selectedTree from the store
               />
-              )}
             </>
           )}
 
@@ -754,16 +819,16 @@ const GamepadInterface = () => {
               isFullscreen={isFullscreen}
               onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
             />
-              {/* Visualizer toggle button */}
+              {/* Agent toggle button */}
               <button
-                onClick={() => setUseIsometricVisualizer(!useIsometricVisualizer)}
+                onClick={() => setIsAgentEnabled((prev) => !prev)}
                 style={{
                   position: 'absolute',
                   top: '10px',
                   right: '10px',
                   padding: '8px 12px',
-                  backgroundColor: useIsometricVisualizer ? '#4A5D23' : '#2A2A2A',
-                  color: '#fff',
+                  backgroundColor: 'rgba(42, 42, 42, 0.8)',
+                  color: '#ccc',
                   border: '1px solid #666',
                   borderRadius: '4px',
                   fontFamily: 'monospace',
@@ -771,9 +836,9 @@ const GamepadInterface = () => {
                   cursor: 'pointer',
                   zIndex: 1000
                 }}
-                title="Toggle between 3D and 2D isometric visualizers"
+                title={isAgentEnabled ? "Stop autonomous agent" : "Start autonomous agent"}
               >
-                {useIsometricVisualizer ? '🌳 2D' : '🌲 3D'}
+                {isAgentEnabled ? '⏹️ Stop Agent' : '▶️ Start Agent'}
               </button>
             </>
           )}
