@@ -49,7 +49,7 @@ const TILESET_MAP = {
 
 const TILE_FRAMES = Object.values(TILESET_MAP);
 const BRANCH_TEXTURE_KEY = 'tile_2_0';
-const PREVIEW_TEXTURE_KEY = 'tile_1_5';
+const PREVIEW_TEXTURE_KEY = 'tile_6_0';
 const LEAF_TILE_KEY = 'tile_3_6';
 const HIGHLIGHT_TEXTURE_KEY = 'tile_6_6';
 
@@ -486,9 +486,24 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const keysPressedRef = useRef<Set<string>>(new Set());
   const [isSceneInitialized, setIsSceneInitialized] = useState(false);
   const [treesGenerated, setTreesGenerated] = useState(false);
+  const isGeneratingRef = useRef(false);
+  const animationEndTimeRef = useRef<number>(0);
 
   // Get trees from garden store
-  const { trees, selectedTree, getPathFromRoot } = useGardenStore();
+  const { trees, selectedTree, getPathFromRoot, isGenerating } = useGardenStore();
+  
+  // Update ref when isGenerating changes
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+    
+    // When generation starts, reset the end time
+    if (isGenerating) {
+      animationEndTimeRef.current = 0;
+    } else {
+      // When generation ends, set a delay before stopping the animation
+      animationEndTimeRef.current = performance.now() + 2000; // 2 second delay
+    }
+  }, [isGenerating]);
 
   // Handle keyboard events
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -1051,6 +1066,94 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             const baseY = sprite.y;
             sprite.y = baseY + Math.cos(time + sprite.x + sprite.y) * 1; // Very subtle wave for connections
           });
+          
+          // Generation animation for highlighted path sprites
+          const shouldAnimate = isGeneratingRef.current || performance.now() < animationEndTimeRef.current;
+          if (shouldAnimate) {
+            // Pulsing glow effect for highlighted nodes and connections
+            const pulseIntensity = Math.sin(time * 3) * 0.5 + 0.5; // Faster pulse during generation
+            const glowScale = 1.0 + pulseIntensity * 0.3; // Scale up to 1.3x during pulse
+            const glowAlpha = 0.7 + pulseIntensity * 0.3; // Vary alpha for glow effect
+            
+
+            
+            // Apply to highlighted node sprites
+            Object.values(nodeSpriteMap.current).forEach(sprites => {
+              sprites.forEach(sprite => {
+                if (sprite && spriteOriginalTextures.current.has(sprite)) {
+                  // Check if this sprite is part of the highlighted path
+                  const isHighlighted = sprite.texture === highlightTextureRef.current || 
+                                       sprite.texture === previewTextureRef.current;
+                  if (isHighlighted) {
+                    sprite.scale.set(glowScale, glowScale);
+                    sprite.alpha = glowAlpha;
+                    // Add a subtle color shift for the glow effect
+                    const glowColor = 0xFFFF00; // Bright yellow base
+                    const r = Math.min(255, Math.floor((glowColor >> 16) * (1 + pulseIntensity * 0.2)));
+                    const g = Math.min(255, Math.floor(((glowColor >> 8) & 0xFF) * (1 + pulseIntensity * 0.2)));
+                    const b = Math.min(255, Math.floor((glowColor & 0xFF) * (1 + pulseIntensity * 0.2)));
+                    sprite.tint = (r << 16) | (g << 8) | b;
+                  }
+                }
+              });
+            });
+            
+            // Apply to highlighted connection sprites
+            Object.values(connectionSpriteMap.current).forEach(childMap => {
+              Object.values(childMap).forEach(sprites => {
+                sprites.forEach(sprite => {
+                  if (sprite && spriteOriginalTextures.current.has(sprite)) {
+                    // Check if this sprite is part of the highlighted path
+                    const isHighlighted = sprite.texture === highlightTextureRef.current || 
+                                         sprite.texture === previewTextureRef.current;
+                                      if (isHighlighted) {
+                    sprite.scale.set(glowScale * 0.5, glowScale * 0.5); // Scale for connections
+                    sprite.alpha = glowAlpha;
+                    // Add a subtle color shift for the glow effect
+                    const glowColor = 0xFFFF00; // Bright yellow base
+                    const r = Math.min(255, Math.floor((glowColor >> 16) * (1 + pulseIntensity * 0.2)));
+                    const g = Math.min(255, Math.floor(((glowColor >> 8) & 0xFF) * (1 + pulseIntensity * 0.2)));
+                    const b = Math.min(255, Math.floor((glowColor & 0xFF) * (1 + pulseIntensity * 0.2)));
+                    sprite.tint = (r << 16) | (g << 8) | b;
+                  }
+                  }
+                });
+              });
+            });
+          } else {
+            // Reset to normal when animation is completely done
+            Object.values(nodeSpriteMap.current).forEach(sprites => {
+              sprites.forEach(sprite => {
+                if (sprite && spriteOriginalTextures.current.has(sprite)) {
+                  const isHighlighted = sprite.texture === highlightTextureRef.current || 
+                                       sprite.texture === previewTextureRef.current;
+                  if (isHighlighted) {
+                    // Restore original scale and alpha
+                    sprite.scale.set(1.1, 1.1); // Default highlight scale
+                    sprite.alpha = 1.0;
+                    sprite.tint = 0xFFFF00; // Default highlight tint
+                  }
+                }
+              });
+            });
+            
+            Object.values(connectionSpriteMap.current).forEach(childMap => {
+              Object.values(childMap).forEach(sprites => {
+                sprites.forEach(sprite => {
+                  if (sprite && spriteOriginalTextures.current.has(sprite)) {
+                    const isHighlighted = sprite.texture === highlightTextureRef.current || 
+                                         sprite.texture === previewTextureRef.current;
+                    if (isHighlighted) {
+                      // Restore original scale and alpha
+                      sprite.scale.set(0.6, 0.6); // Default connection highlight scale
+                      sprite.alpha = 1.0;
+                      sprite.tint = 0xFFFF00; // Default highlight tint
+                    }
+                  }
+                });
+              });
+            });
+          }
         });
         
         // Only start ticker if component is not destroyed
@@ -1379,7 +1482,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         }
       }
     }
-  }, [selectedNodeId, currentDepth, selectedOptions, isSceneInitialized, treesGenerated, selectedTree, getPathFromRoot]);
+  }, [selectedNodeId, currentDepth, selectedOptions, isSceneInitialized, treesGenerated, selectedTree, getPathFromRoot, isGenerating]);
 
   return (
     <div

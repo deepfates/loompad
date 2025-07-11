@@ -51,7 +51,7 @@
     "tile_6_6": { "frame": { "x": 192, "y": 192, "w": 32, "h": 32 }, "sourceSize": { "w": 32, "h": 32 }, "spriteSourceSize": { "x": 0, "y": 0, "w": 32, "h": 32 } }
   },
   "meta": {
-    "image": "tileset_32.png",
+    "image": "tileset.png",
     "size": { "w": 224, "h": 224 }
   }
 } 
