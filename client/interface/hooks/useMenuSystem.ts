@@ -11,7 +11,7 @@ interface MenuParams {
 }
 
 interface MenuCallbacks {
-  onNewTree?: () => void;
+  onNewTree?: () => Promise<void> | void;
   onSelectTree?: (key: string) => void;
   onDeleteTree?: (key: string) => void;
   onExportData?: () => void;
@@ -164,7 +164,10 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           case "Enter": // A button
             if (selectedTreeIndex === 0) {
-              callbacks.onNewTree?.();
+              const result = callbacks.onNewTree?.();
+              if (result instanceof Promise) {
+                result.catch(console.error);
+              }
             } else {
               const treeKey = Object.keys(trees)[selectedTreeIndex - 1];
               callbacks.onSelectTree?.(treeKey);

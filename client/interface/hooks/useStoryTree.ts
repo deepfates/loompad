@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { StoryNode, GeneratingState } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
 import { useLocalStorage } from "./useLocalStorage";
+import { getRandomStoryStarterSync } from "../utils/storyStarters";
 import type { ModelId } from "../../../server/apis/generation";
 
 // Helper function to generate unique node IDs
@@ -12,7 +13,7 @@ const generateNodeId = (prefix: string = 'node') => {
 const INITIAL_STORY = {
   root: {
     id: generateNodeId('root'),
-    text: "Once upon a time...",
+    text: getRandomStoryStarterSync(),
     continuations: [],
   },
 };

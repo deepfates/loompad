@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { StoryNode } from '../types';
 import type { GardenState, GardenTree, TreePosition, Camera } from '../types/garden';
+import { getRandomStoryStarterSync } from '../utils/storyStarters';
 
 interface GardenStore extends GardenState {
   // Tree management
@@ -219,7 +220,7 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
     const newTree: GardenTree = {
       id: `tree_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name,
-      root: root || { id: 'root', text: 'Once upon a time...', continuations: [] },
+      root: root || { id: 'root', text: getRandomStoryStarterSync(), continuations: [] },
       position,
       createdAt: Date.now(),
       updatedAt: Date.now()

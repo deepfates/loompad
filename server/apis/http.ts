@@ -28,4 +28,20 @@ export function setup_routes(app: Application, io: Server) {
   app.post("/api/models", addModel);
   app.put("/api/models/:id", updateModel);
   app.delete("/api/models/:id", deleteModel);
+
+  // Add this new endpoint
+  app.get('/api/story-starters', async (req, res) => {
+    try {
+      const response = await fetch('https://apolinar.io/loompad_tree/starters.txt');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch starters: ${response.status}`);
+      }
+      const text = await response.text();
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(text);
+    } catch (error) {
+      console.error('Error fetching story starters:', error);
+      res.status(500).json({ error: 'Failed to fetch story starters' });
+    }
+  });
 }

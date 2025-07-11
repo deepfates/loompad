@@ -24,6 +24,7 @@ import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { ModelManagementMenu } from "./menus/ModelManagementMenu";
+import { getRandomStoryStarter, getRandomStoryStarterSync, preloadStoryStarters, refreshStoryStartersNow } from "./utils/storyStarters";
 
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
@@ -42,7 +43,7 @@ const generateNodeId = (prefix: string = 'node') => {
 const createEmptyStory = (): { root: StoryNode } => ({
   root: {
     id: generateNodeId('root'),
-    text: "Once upon a time...",
+    text: getRandomStoryStarterSync(),
     continuations: [],
   },
 });
@@ -155,6 +156,11 @@ const GamepadInterface = () => {
       }
     }
   }, [currentTreeKey, trees, syncWithStoryTrees]);
+
+  // Preload story starters on component mount
+  useEffect(() => {
+    preloadStoryStarters();
+  }, []);
 
   const storyTextRef = useRef<HTMLDivElement>(null);
 
@@ -364,11 +370,19 @@ const GamepadInterface = () => {
     }
   }, [selectedNode, storyTree.root, trees, currentTreeKey, setCurrentDepth, setSelectedOptions, setCurrentTreeKey, currentDepth, selectedOptions, getCurrentPath]);
 
-  const handleNewTree = useCallback(() => {
+  const handleNewTree = useCallback(async () => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;
+    const storyStarter = await getRandomStoryStarter();
+    const newStory = {
+      root: {
+        id: generateNodeId('root'),
+        text: storyStarter,
+        continuations: [],
+      },
+    };
     setTrees((prev) => ({
       ...prev,
-      [newKey]: createEmptyStory(),
+      [newKey]: newStory,
     }));
     setCurrentTreeKey(newKey);
     setActiveMenu(null);
@@ -503,7 +517,14 @@ const GamepadInterface = () => {
       if (key === "`" || key === "z" || key === "Z") {
         setActiveMenu((prev) => (prev === "select" ? null : "select"));
       } else if ((key === "Escape" || key === "m" || key === "M") && !activeMenu) {
-        setActiveMenu((prev) => (prev === "start" ? null : "start"));
+        setActiveMenu((prev) => {
+          const newMenu = prev === "start" ? null : "start";
+          // Refresh story starters immediately when opening the story menu
+          if (newMenu === "start") {
+            refreshStoryStartersNow().catch(console.error);
+          }
+          return newMenu;
+        });
       } else if (key === "Backspace" && !activeMenu) {
         const currentNode = getCurrentPath()[currentDepth];
         // Prevent editing empty branching root nodes
