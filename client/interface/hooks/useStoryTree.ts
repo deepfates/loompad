@@ -96,25 +96,7 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
     []
   );
 
-  const getOptionsAtDepth = useCallback(
-    (depth: number): StoryNode[] => {
-      if (depth === 0) return storyTree.root.continuations || [];
 
-      let currentNode = storyTree.root;
-      for (let i = 0; i < depth - 1; i++) {
-        const selectedIndex = selectedOptions[i] ?? 0;
-        if (!currentNode.continuations?.[selectedIndex]) return [];
-        currentNode = currentNode.continuations[selectedIndex];
-      }
-
-      const selectedIndex = selectedOptions[depth - 1] ?? 0;
-      return (
-        currentNode.continuations?.[selectedIndex]
-          ?.continuations || []
-      );
-    },
-    [storyTree, selectedOptions]
-  );
 
   const getCurrentPath = useCallback((): StoryNode[] => {
     const path = [storyTree.root];
@@ -140,7 +122,15 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
 
     return path;
   }, [storyTree, selectedOptions, getLastSelectedIndex]);
-
+  
+  const getOptionsAtDepth = useCallback(
+    (depth: number): StoryNode[] => {
+      const path = getCurrentPath();
+      const parentNode = path[depth];
+      return parentNode?.continuations || [];
+    },
+    [getCurrentPath]
+  );
   // Helper to update the lastSelectedIndex in the tree
   const updateLastSelectedIndex = useCallback(
     (path: StoryNode[], depth: number, index: number) => {
@@ -309,16 +299,11 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
 
       switch (key) {
         case "ArrowUp":
-          const newDepth = Math.max(0, currentDepth - 1);
-          setCurrentDepth(newDepth);
-          // Ensure selectedOptions array has the correct value for the new depth
-          // If the selectedOptions array doesn't have a value for this depth, use 0 as default
-          if (selectedOptions[newDepth] === undefined) {
-            setSelectedOptions((prev) => {
-              const newOptions = [...prev];
-              newOptions[newDepth] = 0;
-              return newOptions;
-            });
+          if (currentDepth > 0) {
+            const newDepth = currentDepth - 1;
+            setCurrentDepth(newDepth);
+            // Truncate selected options when moving up, as deeper selections are no longer valid.
+            setSelectedOptions((opts) => opts.slice(0, newDepth + 1));
           }
           break;
         case "ArrowDown":
@@ -452,6 +437,7 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
               // For new children, stay at current depth
               // The children will be visible but not selected
               console.log("Generated new children, staying at current depth");
+              setSelectedOptions(prev => prev.slice(0, currentDepth + 1));
             }
 
             // Update tree last to ensure all state is consistent

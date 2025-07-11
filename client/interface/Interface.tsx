@@ -10,6 +10,7 @@ import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
 import { useStoryTree } from "./hooks/useStoryTree";
 import { useModels } from "./hooks/useModels";
+import { useLLMAgent } from "./hooks/useLLMAgent";
 import { useGardenStore } from "./stores/gardenStore";
 
 import { DPad } from "./components/DPad";
@@ -48,6 +49,7 @@ const EMPTY_STORY = {
 const GamepadInterface = () => {
   const { models, getModelName } = useModels();
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
+  const [isAgentEnabled, setIsAgentEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
   const [useIsometricVisualizer, setUseIsometricVisualizer] = useState(true);
@@ -446,6 +448,18 @@ const GamepadInterface = () => {
 
   const { activeControls, handleControlPress, handleControlRelease } =
     useKeyboardControls(handleControlAction);
+  
+  
+  useLLMAgent({
+    isEnabled: isAgentEnabled,
+    isGenerating,
+    currentDepth,
+    selectedOptions,
+    getCurrentPath,
+    getOptionsAtDepth,
+    handleControlPress,
+    model: menuParams.model,
+  });
 
   // Scroll to next depth (highlighted text)
   useEffect(() => {
@@ -504,9 +518,30 @@ const GamepadInterface = () => {
     );
   };
 
+  const optionsForNavDots = getOptionsAtDepth(currentDepth);
+  
+  console.log("--- RENDER LOG ---", {
+    currentDepth,
+    selectedOptions: JSON.stringify(selectedOptions),
+    optionsForNavDotsCount: optionsForNavDots.length,
+    optionsForNavDots: optionsForNavDots.map(o => ({id: o.id, text: o.text.slice(0, 20)})),
+    currentPathLength: getCurrentPath().length,
+    isGenerating,
+    generatingAt,
+  });
+
   return (
     <main className={`terminal ${isFullscreen ? 'fullscreen' : ''}`} aria-label="Story Interface">
       <div className={`container ${isFullscreen ? 'fullscreen' : ''}`}>
+        {/* Agent toggle button */}
+        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
+          <button
+            className={`btn btn-sm ${isAgentEnabled ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setIsAgentEnabled((prev) => !prev)}
+          >
+            {isAgentEnabled ? 'Stop Agent' : 'Start Agent'}
+          </button>
+        </div>
         {/* Screen area */}
         <section className={`terminal-screen ${isFullscreen ? 'fullscreen' : ''}`} aria-label="Story Display">
           {activeMenu === "select" ? (
@@ -672,7 +707,7 @@ const GamepadInterface = () => {
               <div className="story-content">
                 {renderStoryText()}
                 <NavigationDots
-                  options={getOptionsAtDepth(currentDepth)}
+                  options={optionsForNavDots}
                   currentDepth={currentDepth}
                   selectedOptions={selectedOptions}
                   activeControls={activeControls}
