@@ -32,7 +32,7 @@ import type { ModelId } from "../../server/apis/generation";
 const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 100,
-  model: "llama-3.1-405b-base" as ModelId,
+  model: "deepseek-v3-base" as ModelId,
   generationCount: 3,
 };
 
