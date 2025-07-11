@@ -510,92 +510,96 @@ export const useGardenStore = create<GardenStore>((set, get) => ({
 
   // Integration with existing loompad story tree
   syncWithStoryTrees: (storyTrees: { [key: string]: { root: StoryNode } }) => {
-    const { trees, selectedTree, selectedNode } = get();
-    const storyTreeKeys = Object.keys(storyTrees);
-    
-    console.log('🌳 Garden Store: Syncing with story trees:', {
-      storyTreeKeys,
-      currentGardenTrees: trees.map(t => t.name),
-      currentSelectedTree: trees.find(t => t.id === get().selectedTree?.id)?.name,
-      currentSelectedNode: selectedNode?.id
-    });
-    
-    // Remove garden trees that no longer exist in story trees
-    const validTrees = trees.filter(tree => 
-      storyTreeKeys.some(key => key === tree.name)
-    );
-    
-    // Add new story trees as garden trees
-    const newGardenTrees: GardenTree[] = [];
-    storyTreeKeys.forEach(key => {
-      const existingGardenTree = validTrees.find(t => t.name === key);
-      if (!existingGardenTree) {
-        // Create new garden tree for this story tree
-        const newTree = get().createTree(key, storyTrees[key].root);
-        newGardenTrees.push(newTree);
-      } else {
-        // Update existing garden tree with new root
-        const updatedTree = {
-          ...existingGardenTree,
-          root: storyTrees[key].root,
-          updatedAt: Date.now()
-        };
-        newGardenTrees.push(updatedTree);
-      }
-    });
-    
-    // Preserve the currently selected tree if it still exists
-    let preservedSelectedTree = null;
-    let preservedSelectedNode = null;
-    
-    if (selectedTree) {
-      const preservedTree = newGardenTrees.find(t => t.name === selectedTree.name);
-      if (preservedTree) {
-        preservedSelectedTree = preservedTree;
-        
-        // Try to preserve the selected node if it still exists in the updated tree
-        if (selectedNode) {
-          const findNodeInTree = (node: StoryNode, targetId: string): StoryNode | null => {
-            if (node.id === targetId) return node;
-            if (node.continuations) {
-              for (const child of node.continuations) {
-                const found = findNodeInTree(child, targetId);
-                if (found) return found;
-              }
+    set(state => {
+      const { trees: currentGardenTrees, selectedTree, selectedNode, generateMultivariateGaussian, checkMinimumDistance } = state;
+      const storyTreeKeys = Object.keys(storyTrees);
+
+      let finalTrees: GardenTree[] = [];
+
+      // 1. Update existing and add new trees
+      storyTreeKeys.forEach(key => {
+        const storyTreeData = storyTrees[key];
+        let existingTree = currentGardenTrees.find(t => t.name === key);
+
+        if (existingTree) {
+            // If root object is different, update it.
+            if (existingTree.root !== storyTreeData.root) {
+                finalTrees.push({ ...existingTree, root: storyTreeData.root, updatedAt: Date.now() });
+            } else {
+                finalTrees.push(existingTree);
             }
-            return null;
-          };
-          
-          const preservedNode = findNodeInTree(preservedTree.root, selectedNode.id);
-          if (preservedNode) {
-            preservedSelectedNode = preservedNode;
-          } else {
-            // If the selected node no longer exists, default to root
-            preservedSelectedNode = preservedTree.root;
-          }
         } else {
-          preservedSelectedNode = preservedTree.root;
+            // New tree to add.
+            let position: TreePosition = { x: 0, y: 0, z: 0 };
+            const allCurrentTrees = [...currentGardenTrees, ...finalTrees]; // Use all known trees for positioning
+            if (allCurrentTrees.length === 0) {
+                position = { x: 0, y: 0, z: 0 };
+            } else {
+                const mean = { x: 0, y: 0, z: 0 };
+                const covarianceMatrix = [[20000, 0, 0], [0, 400, 0], [0, 0, 20000]];
+                const minDistance = 200;
+                let attempts = 0;
+                const maxAttempts = 100;
+                do {
+                    const samples = generateMultivariateGaussian(mean, covarianceMatrix, 1);
+                    position = samples[0];
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                        position = { x: Math.random() * 400 - 200, y: 0, z: Math.random() * 400 - 200 };
+                        break;
+                    }
+                } while (!checkMinimumDistance(position, allCurrentTrees, minDistance));
+            }
+
+            const newTree: GardenTree = {
+                id: storyTreeData.root.id, // Use root ID for tree ID for consistency
+                name: key,
+                root: storyTreeData.root,
+                position,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            finalTrees.push(newTree);
         }
+      });
+
+      // 2. Filter out trees that are no longer in storyTrees
+      finalTrees = finalTrees.filter(t => storyTreeKeys.includes(t.name));
+
+      // 3. Preserve selection
+      let newSelectedTree = selectedTree ? finalTrees.find(t => t.id === selectedTree.id) || null : null;
+      let newSelectedNode = newSelectedTree ? selectedNode : null;
+
+      if (!newSelectedTree && selectedTree) {
+           newSelectedTree = finalTrees.find(t => t.name === selectedTree.name) || null;
       }
-    }
-    
-    // If no tree was preserved, default to the first tree but don't auto-select root node
-    if (!preservedSelectedTree && newGardenTrees.length > 0) {
-      preservedSelectedTree = newGardenTrees[0];
-      // Don't automatically select the root node - let the existing selection persist
-      preservedSelectedNode = null;
-    }
-    
-    console.log('🌳 Garden Store: Sync complete:', {
-      newGardenTrees: newGardenTrees.map(t => t.name),
-      preservedSelectedTree: preservedSelectedTree?.name,
-      preservedSelectedNode: preservedSelectedNode?.id
-    });
-    
-    set({
-      trees: newGardenTrees,
-      selectedTree: preservedSelectedTree,
-      selectedNode: preservedSelectedNode
+
+      if (newSelectedTree && newSelectedNode) {
+        const findNodeInTree = (node: StoryNode, targetId: string): StoryNode | null => {
+          if (node.id === targetId) return node;
+          if (node.continuations) {
+            for (const child of node.continuations) {
+              const found = findNodeInTree(child, targetId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        newSelectedNode = findNodeInTree(newSelectedTree.root, newSelectedNode.id);
+      } else {
+          newSelectedNode = null;
+      }
+
+      if (!newSelectedTree && finalTrees.length > 0) {
+        const currentKey = Object.keys(storyTrees).find(k => storyTrees[k].root.id === state.selectedTree?.root.id);
+        newSelectedTree = currentKey ? finalTrees.find(t => t.name === currentKey) || finalTrees[0] : (selectedTree ? finalTrees.find(t => t.name === selectedTree.name) || finalTrees[0] : finalTrees[0]);
+      }
+
+      return {
+        trees: finalTrees,
+        selectedTree: newSelectedTree,
+        selectedNode: newSelectedNode,
+      };
     });
   },
 

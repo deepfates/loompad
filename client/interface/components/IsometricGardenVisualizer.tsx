@@ -3,6 +3,26 @@ import { Application, Sprite, Assets, Spritesheet, Texture, Ticker, Container } 
 import { useGardenStore } from '../stores/gardenStore';
 import type { TreePosition } from '../types/garden';
 
+function mulberry32(a: number) {
+  return function() {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+const stringToSeed = (str: string) => {
+    let hash = 0;
+    if (!str) return hash;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+};
+
 interface IsometricGardenVisualizerProps {
   width?: number;
   height?: number;
@@ -101,10 +121,10 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
   };
 
   // Generate Gaussian random position around a center point
-  const generateGaussianPosition = (centerX: number, centerY: number, radius: number): { x: number; y: number } => {
+  const generateGaussianPosition = (centerX: number, centerY: number, radius: number, random: () => number): { x: number; y: number } => {
     // Box-Muller transform for Gaussian distribution
-    const u1 = Math.random();
-    const u2 = Math.random();
+    const u1 = random();
+    const u2 = random();
     const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
     const z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(2.0 * Math.PI * u2);
     
@@ -129,14 +149,17 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     if (depth > maxDepth) return [];
     const nodes = [];
     
+    const seed = stringToSeed(node.id + (parentNodeId || ''));
+    const random = mulberry32(seed);
+
     // Calculate depth-based height reduction
     const depthHeightMultiplier = Math.pow(DEPTH_HEIGHT_REDUCTION, depth);
-    const baseNodeHeight = Math.floor(Math.random() * (BRANCH_HEIGHT_MAX - BRANCH_HEIGHT_MIN + 1)) + BRANCH_HEIGHT_MIN;
+    const baseNodeHeight = Math.floor(random() * (BRANCH_HEIGHT_MAX - BRANCH_HEIGHT_MIN + 1)) + BRANCH_HEIGHT_MIN;
     const actualNodeHeight = Math.max(1, Math.floor(baseNodeHeight * depthHeightMultiplier));
     
     // Generate position using Gaussian distribution centered at parent
     const radius = BASE_GAUSSIAN_RADIUS * Math.pow(DEPTH_RADIUS_MULTIPLIER, depth);
-    let nodePosition = generateGaussianPosition(parentPosition.x, parentPosition.y, radius);
+    let nodePosition = generateGaussianPosition(parentPosition.x, parentPosition.y, radius, random);
     nodePosition = clampToGrid(nodePosition);
     
     // Debug: Log parent-child relationship for Gaussian distribution
@@ -199,7 +222,9 @@ const generateTreesFromStore = (trees: any[], gridSize: number): IsometricTree[]
     trunkPosition = clampToGrid(trunkPosition);
     
     // Generate trunk height
-    const trunkHeight = Math.floor(Math.random() * (TRUNK_HEIGHT_MAX - TRUNK_HEIGHT_MIN + 1)) + TRUNK_HEIGHT_MIN;
+    const trunkSeed = stringToSeed(tree.root.id);
+    const random = mulberry32(trunkSeed);
+    const trunkHeight = Math.floor(random() * (TRUNK_HEIGHT_MAX - TRUNK_HEIGHT_MIN + 1)) + TRUNK_HEIGHT_MIN;
     
     // Build all nodes recursively from the trunk position
     const trunkPosition2D = { x: trunkPosition.x, y: trunkPosition.y };
@@ -478,8 +503,10 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
   const tilesRef = useRef<Sprite[][]>([]);
   const treeSpritesRef = useRef<Sprite[]>([]);
   const connectionSpritesRef = useRef<Sprite[]>([]); // Store connection sprites
+  const spritesheetRef = useRef<Spritesheet | null>(null); // Store spritesheet reference
   const tickerRef = useRef<Ticker>();
   const cameraRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isCameraInitializedRef = useRef(false);
   const zoomRef = useRef<number>(1.0); // Add zoom level reference
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -528,6 +555,8 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       cameraRef.current.x += deltaX * MOUSE_DRAG_SPEED;
       cameraRef.current.y += deltaY * MOUSE_DRAG_SPEED;
       
+      console.log(`📷 Camera moved via mouse drag: delta(${deltaX.toFixed(1)}, ${deltaY.toFixed(1)}) -> position(${cameraRef.current.x.toFixed(1)}, ${cameraRef.current.y.toFixed(1)})`);
+      
       lastMousePosRef.current = { x: event.clientX, y: event.clientY };
     }
   }, []);
@@ -561,7 +590,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
     
     zoomRef.current = newZoom;
     
-    console.log(`[ZOOM] Zoom level: ${zoomRef.current.toFixed(2)}`);
+    console.log(`📷 Camera zoomed: zoom=${zoomRef.current.toFixed(2)} position(${cameraRef.current.x.toFixed(1)}, ${cameraRef.current.y.toFixed(1)}) mouse(${mouseX.toFixed(1)}, ${mouseY.toFixed(1)})`);
   }, []);
 
   // Map nodeId to sprite(s) for highlighting
@@ -650,6 +679,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           }
           spritesheet = new Spritesheet(texture, atlas);
           await spritesheet.parse();
+          spritesheetRef.current = spritesheet; // Store reference for updates
           console.log('Spritesheet parsed successfully');
         } catch (e) {
           console.error('Failed to parse spritesheet:', e);
@@ -740,6 +770,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
             sprite.anchor.set(0.5, 1); // Center bottom
             sprite.x = screenX;
             sprite.y = screenY;
+            sprite.name = 'tile'; // Tag the sprite as a tile
             tileContainer.addChild(sprite);
             tiles[x][y] = sprite;
           }
@@ -986,17 +1017,26 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         console.log(`[OVERLAP PREVENTION] Total occupied positions: ${occupiedPositions.size}`);
         console.log(`[OVERLAP PREVENTION] Rendered ${treeSprites.length} tree sprites and ${leafSprites.length} leaf sprites`);
 
-        // Set initial camera position to center the grid
-        cameraRef.current = {
-          x: centerX - (GRID_SIZE * TILE_WIDTH) / 4,
-          y: centerY - (GRID_SIZE * TILE_HEIGHT) / 8
-        };
-
+        // Set initial camera position to center the grid but only once
+        if (!isCameraInitializedRef.current) {
+          cameraRef.current = {
+            x: centerX - (GRID_SIZE * TILE_WIDTH) / 4,
+            y: centerY - (GRID_SIZE * TILE_HEIGHT) / 8
+          };
+          isCameraInitializedRef.current = true;
+          console.log(`📷 Initial camera position set: position(${cameraRef.current.x.toFixed(1)}, ${cameraRef.current.y.toFixed(1)}) grid=${GRID_SIZE} center(${centerX.toFixed(1)}, ${centerY.toFixed(1)})`);
+        }
+        
         // Update camera position
         const updateCamera = () => {
           tileContainer.x = cameraRef.current.x;
           tileContainer.y = cameraRef.current.y;
           tileContainer.scale.set(zoomRef.current, zoomRef.current);
+          
+          // Log camera updates (throttled to avoid spam)
+          if (Math.random() < 0.01) { // Log approximately 1% of updates
+            console.log(`📷 Camera updated: position(${cameraRef.current.x.toFixed(1)}, ${cameraRef.current.y.toFixed(1)}) zoom=${zoomRef.current.toFixed(2)} container(${tileContainer.x.toFixed(1)}, ${tileContainer.y.toFixed(1)})`);
+          }
         };
         
         // Initialize last dimensions
@@ -1022,17 +1062,26 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
           time += 0.01; // Significantly slowed down from 0.05 to 0.01
           
           // Handle keyboard input
+          let keyboardMovement = false;
           if (keysPressedRef.current.has('arrowleft')) {
             cameraRef.current.x += CAMERA_SPEED;
+            keyboardMovement = true;
           }
           if (keysPressedRef.current.has('arrowright')) {
             cameraRef.current.x -= CAMERA_SPEED;
+            keyboardMovement = true;
           }
           if (keysPressedRef.current.has('arrowup')) {
             cameraRef.current.y += CAMERA_SPEED;
+            keyboardMovement = true;
           }
           if (keysPressedRef.current.has('arrowdown')) {
             cameraRef.current.y -= CAMERA_SPEED;
+            keyboardMovement = true;
+          }
+          
+          if (keyboardMovement) {
+            console.log(`📷 Camera moved via keyboard: keys=[${Array.from(keysPressedRef.current).join(',')}] position(${cameraRef.current.x.toFixed(1)}, ${cameraRef.current.y.toFixed(1)})`);
           }
 
           // Update camera position
@@ -1230,7 +1279,226 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
         containerRef.current.innerHTML = '';
       }
     };
-  }, [width, height, handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, trees]);
+  }, [width, height, handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel]);
+
+  // Update trees without destroying the application
+  useEffect(() => {
+    if (!appRef.current || !isSceneInitialized) return;
+
+    console.log('🌳 Updating trees without recreation');
+    
+    // Find the tile container
+    const tileContainer = appRef.current.stage.children.find(child => child instanceof Container) as Container;
+    if (!tileContainer) return;
+
+    // Remove all non-tile sprites (trees, connections, etc.)
+    // This is safer than trying to manage individual sprite removals
+    for (let i = tileContainer.children.length - 1; i >= 0; i--) {
+        const child = tileContainer.children[i];
+        // Assuming tiles are added first and are the only ones without a specific name or tag
+        // A better approach would be to add sprites to specific sub-containers
+        if (child.name !== 'tile') { 
+            tileContainer.removeChild(child);
+        }
+    }
+
+    treeSpritesRef.current = [];
+    connectionSpritesRef.current = [];
+    nodeSpriteMap.current = {};
+    connectionSpriteMap.current = {};
+
+    // Regenerate trees if we have a spritesheet
+    const spritesheet = spritesheetRef.current;
+    if (!spritesheet) {
+        console.warn('No spritesheet available for tree update');
+        return;
+    }
+
+    const isometricTrees = generateTreesFromStore(trees, GRID_SIZE);
+    const treeSprites: Sprite[] = [];
+    const leafSprites: Sprite[] = [];
+    const occupiedPositions = new Set<string>();
+        
+    const checkAndMarkPosition = (x: number, y: number, z: number): boolean => {
+      const positionKey = `${x},${y},${z}`;
+      if (occupiedPositions.has(positionKey)) return false;
+      occupiedPositions.add(positionKey);
+      return true;
+    };
+
+    const connectionContainer = new Container();
+    tileContainer.addChild(connectionContainer);
+
+    isometricTrees.forEach(tree => {
+      const trunkX = tree.x;
+      const trunkY = tree.y;
+      const trunkBaseZ = 6;
+      let trunkSprites: Sprite[] = [];
+      if (trunkX < GRID_SIZE && trunkY < GRID_SIZE) {
+        for (let height = 0; height < tree.trunkHeight; height++) {
+          if (checkAndMarkPosition(trunkX, trunkY, trunkBaseZ + height)) {
+            const trunkTexture = spritesheet.textures[BRANCH_TEXTURE_KEY];
+            const [screenX, screenY] = isoToScreen(trunkX, trunkY);
+            const trunkSprite = new Sprite(trunkTexture);
+            trunkSprite.anchor.set(0.5, 1);
+            trunkSprite.x = screenX;
+            trunkSprite.y = screenY - (trunkBaseZ + height) * (TILE_HEIGHT / 4);
+            trunkSprite.scale.set(TRUNK_SCALE, TRUNK_SCALE);
+            trunkSprite.tint = 0x8B4513;
+            tileContainer.addChild(trunkSprite);
+            treeSprites.push(trunkSprite);
+            trunkSprites.push(trunkSprite);
+            spriteOriginalTints.current.set(trunkSprite, trunkSprite.tint);
+            spriteOriginalTextures.current.set(trunkSprite, trunkSprite.texture);
+          }
+        }
+        if (tree.rootId) {
+          nodeSpriteMap.current[tree.rootId] = trunkSprites;
+        }
+      }
+      
+      tree.branches.forEach(node => {
+        if (node.x >= 0 && node.x < GRID_SIZE && node.y >= 0 && node.y < GRID_SIZE && !node.isLeaf) {
+          let accumulatedHeight = tree.trunkHeight;
+          const depth = node.depth || 0;
+          
+          tree.branches.forEach(parentNode => {
+            if (parentNode.depth !== undefined && parentNode.depth < depth && !parentNode.isLeaf) {
+              accumulatedHeight += parentNode.height;
+            }
+          });
+          
+          const nodeBaseZ = trunkBaseZ + accumulatedHeight - 1;
+          let nodeSprites: Sprite[] = [];
+          
+          for (let h = 0; h < node.height; h++) {
+            if (checkAndMarkPosition(node.x, node.y, nodeBaseZ + h)) {
+              const nodeTexture = spritesheet.textures[BRANCH_TEXTURE_KEY];
+              const [screenX, screenY] = isoToScreen(node.x, node.y);
+              const nodeSprite = new Sprite(nodeTexture);
+              nodeSprite.anchor.set(0.5, 1);
+              nodeSprite.x = screenX;
+              nodeSprite.y = screenY - (nodeBaseZ + h) * (TILE_HEIGHT / 4);
+              nodeSprite.scale.set(0.5, 0.5);
+              const colorVariation = Math.min(0.3, depth * 0.1);
+              const baseColor = 0x654321;
+              const r = Math.min(255, Math.floor((baseColor >> 16) * (1 + colorVariation)));
+              const g = Math.min(255, Math.floor(((baseColor >> 8) & 0xFF) * (1 + colorVariation)));
+              const b = Math.min(255, Math.floor((baseColor & 0xFF) * (1 + colorVariation)));
+              nodeSprite.tint = (r << 16) | (g << 8) | b;
+              tileContainer.addChild(nodeSprite);
+              treeSprites.push(nodeSprite);
+              nodeSprites.push(nodeSprite);
+              spriteOriginalTints.current.set(nodeSprite, nodeSprite.tint);
+              spriteOriginalTextures.current.set(nodeSprite, nodeSprite.texture);
+            }
+          }
+          
+          if (node.parentId) {
+            nodeSpriteMap.current[node.parentId] = nodeSprites;
+          }
+        }
+      });
+    });
+
+    isometricTrees.forEach(tree => {
+      const trunkBaseZ = 6;
+      tree.branches.forEach(node => {
+        if (node.x >= 0 && node.x < GRID_SIZE && node.y >= 0 && node.y < GRID_SIZE && node.isLeaf) {
+          let accumulatedHeight = tree.trunkHeight;
+          const depth = node.depth || 0;
+          
+          tree.branches.forEach(parentNode => {
+            if (parentNode.depth !== undefined && parentNode.depth < depth && !parentNode.isLeaf) {
+              accumulatedHeight += parentNode.height;
+            }
+          });
+          
+          const leafZ = trunkBaseZ + accumulatedHeight - 1 + node.height;
+          
+          if (checkAndMarkPosition(node.x, node.y, leafZ)) {
+            const leafTexture = spritesheet.textures[LEAF_TILE_KEY];
+            const [screenX, screenY] = isoToScreen(node.x, node.y);
+            const leafSprite = new Sprite(leafTexture);
+            leafSprite.anchor.set(0.5, 1);
+            leafSprite.x = screenX;
+            leafSprite.y = screenY - leafZ * (TILE_HEIGHT / 4);
+            const scaleVariation = Math.max(0.6, 1 - depth * 0.1);
+            leafSprite.scale.set(scaleVariation, scaleVariation);
+            const greenVariation = Math.min(0.4, depth * 0.15);
+            const baseGreen = 0x32CD32;
+            const r = Math.min(255, Math.floor((baseGreen >> 16) * (1 + greenVariation)));
+            const g = Math.min(255, Math.floor(((baseGreen >> 8) & 0xFF) * (1 + greenVariation)));
+            const b = Math.min(255, Math.floor((baseGreen & 0xFF) * (1 + greenVariation)));
+            leafSprite.tint = (r << 16) | (g << 8) | b;
+            leafSprites.push(leafSprite);
+            spriteOriginalTints.current.set(leafSprite, leafSprite.tint);
+            spriteOriginalTextures.current.set(leafSprite, leafSprite.texture);
+            if (node.parentId) {
+              nodeSpriteMap.current[node.parentId] = [leafSprite];
+            }
+          }
+        }
+      });
+    });
+    
+    const newConnectionSprites: Sprite[] = [];
+    isometricTrees.forEach(tree => {
+      const trunkPositions = calculateTrunkPositions(tree, 6);
+      const firstLevelChildren = tree.branches.filter(node => node.depth === 0);
+      
+      firstLevelChildren.forEach(child => {
+        const childPositions = calculateNodePositions(tree, child, 6);
+        const connectionPath = createConnectionPath(trunkPositions.top, childPositions.bottom);
+        const pathSprites = createConnectionSprites(connectionPath, spritesheet, connectionContainer);
+        newConnectionSprites.push(...pathSprites);
+        pathSprites.forEach(sprite => {
+          spriteOriginalTints.current.set(sprite, sprite.tint);
+          spriteOriginalTextures.current.set(sprite, sprite.texture);
+        });
+        if (!connectionSpriteMap.current[tree.rootId]) {
+          connectionSpriteMap.current[tree.rootId] = {};
+        }
+        connectionSpriteMap.current[tree.rootId][child.parentId] = pathSprites;
+      });
+      
+      tree.branches.forEach(parentNode => {
+        if (parentNode.isLeaf) return;
+        const children = tree.parentChildMap?.get(parentNode.parentId) || [];
+        
+        children.forEach(childId => {
+          const childNode = tree.branches.find(node => node.parentId === childId);
+          if (!childNode) return;
+          
+          const parentPositions = calculateNodePositions(tree, parentNode, 6);
+          const childPositions = calculateNodePositions(tree, childNode, 6);
+          const connectionPath = createConnectionPath(parentPositions.top, childPositions.bottom);
+          const pathSprites = createConnectionSprites(connectionPath, spritesheet, connectionContainer);
+          newConnectionSprites.push(...pathSprites);
+          pathSprites.forEach(sprite => {
+            spriteOriginalTints.current.set(sprite, sprite.tint);
+            spriteOriginalTextures.current.set(sprite, sprite.texture);
+          });
+          if (!connectionSpriteMap.current[parentNode.parentId]) {
+            connectionSpriteMap.current[parentNode.parentId] = {};
+          }
+          connectionSpriteMap.current[parentNode.parentId][childId] = pathSprites;
+        });
+      });
+    });
+
+    leafSprites.forEach(leafSprite => tileContainer.addChild(leafSprite));
+
+    treeSpritesRef.current = [...treeSprites, ...leafSprites];
+    connectionSpritesRef.current = newConnectionSprites;
+    setTreesGenerated(true);
+
+    console.log(`🌳 Updated trees: ${treeSpritesRef.current.length} tree sprites, ${connectionSpritesRef.current.length} connection sprites`);
+    // Trigger a highlight update after trees are redrawn
+    const event = new Event('highlightUpdate');
+    window.dispatchEvent(event);
+
+  }, [trees, isSceneInitialized]);
 
   // Snap camera to selected tree
   useEffect(() => {
@@ -1257,12 +1525,7 @@ const IsometricGardenVisualizer: React.FC<IsometricGardenVisualizerProps> = ({
       y: centerY - screenY + verticalOffset
     };
     
-    console.log('📷 IsometricGardenVisualizer: Camera snapped to tree:', {
-      treeName: selectedTree.name,
-      gridPosition: { x: gridX, y: gridY },
-      screenPosition: { x: screenX, y: screenY },
-      cameraPosition: cameraRef.current
-    });
+    console.log(`📷 Isometric Visualizer: Camera snapped to tree '${selectedTree.name}' grid(${gridX}, ${gridY}) screen(${screenX.toFixed(1)}, ${screenY.toFixed(1)}) camera(${cameraRef.current.x.toFixed(1)}, ${cameraRef.current.y.toFixed(1)})`);
   }, [selectedTree, width, height, isSceneInitialized]);
 
   // Highlighting effect for selected node and preview selection

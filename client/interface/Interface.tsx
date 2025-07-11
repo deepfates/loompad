@@ -1,10 +1,7 @@
 import { useCallback, useRef, useEffect, useState } from "react";
 import "./terminal-custom.css";
 
-// Helper function to generate unique node IDs (same as in useStoryTree)
-const generateNodeId = (prefix: string = 'node') => {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
+
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
@@ -38,13 +35,17 @@ const DEFAULT_PARAMS = {
   generationCount: 3,
 };
 
-const EMPTY_STORY = {
+const generateNodeId = (prefix: string = 'node') => {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+const createEmptyStory = (): { root: StoryNode } => ({
   root: {
-    id: "root",
+    id: generateNodeId('root'),
     text: "Once upon a time...",
     continuations: [],
   },
-};
+});
 
 const GamepadInterface = () => {
   const { models, getModelName } = useModels();
@@ -367,7 +368,7 @@ const GamepadInterface = () => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;
     setTrees((prev) => ({
       ...prev,
-      [newKey]: EMPTY_STORY,
+      [newKey]: createEmptyStory(),
     }));
     setCurrentTreeKey(newKey);
     setActiveMenu(null);
