@@ -718,42 +718,47 @@ const GamepadInterface = () => {
                   const hasExistingChildren = current.continuations && current.continuations.length > 0;
                   
                   if (hasExistingChildren && current.text !== text) {
-                    // Create a new sibling node with the edited text
-                    const newSibling: StoryNode = {
-                      id: generateNodeId('node'),
-                      text: text,
-                      continuations: [],
-                      // Mark as edited if the original was generated content
-                      ...(current.generationMetadata && { isEdited: true })
-                    };
-                    
-                    if (currentDepth === 0) {
-                      // Root node: create a branching structure with original and edited versions
-                      const originalRoot = { ...current };
-                      const newRoot = {
-                        id: generateNodeId('root'),
+                    // Only create a new sibling node if the text is not empty
+                    if (text.trim()) {
+                      const newSibling: StoryNode = {
+                        id: generateNodeId('node'),
                         text: text,
                         continuations: [],
                         // Mark as edited if the original was generated content
                         ...(current.generationMetadata && { isEdited: true })
                       };
-                      
-                      // Create a new root that branches to both versions
-                      current.text = ""; // Empty text for branching root
-                      current.continuations = [originalRoot, newRoot];
-                      
-                      // Select the new version (second option)
-                      const newSelectedOptions = [1];
-                      setSelectedOptions(newSelectedOptions);
-                      setCurrentDepth(1);
-                    } else if (parent && parent.continuations) {
-                      // Add the new sibling to the parent's continuations
-                      parent.continuations.push(newSibling);
-                      
-                      // Update selectedOptions to point to the new sibling
-                      const newSelectedOptions = [...selectedOptions];
-                      newSelectedOptions[currentDepth - 1] = parent.continuations.length - 1;
-                      setSelectedOptions(newSelectedOptions);
+                    
+                      if (currentDepth === 0) {
+                        // Root node: create a branching structure with original and edited versions
+                        const originalRoot = { ...current };
+                        const newRoot = {
+                          id: generateNodeId('root'),
+                          text: text,
+                          continuations: [],
+                          // Mark as edited if the original was generated content
+                          ...(current.generationMetadata && { isEdited: true })
+                        };
+                        
+                        // Create a new root that branches to both versions
+                        current.text = ""; // Empty text for branching root
+                        current.continuations = [originalRoot, newRoot];
+                        
+                        // Select the new version (second option)
+                        const newSelectedOptions = [1];
+                        setSelectedOptions(newSelectedOptions);
+                        setCurrentDepth(1);
+                      } else if (parent && parent.continuations) {
+                        // Add the new sibling to the parent's continuations
+                        parent.continuations.push(newSibling);
+                        
+                        // Update selectedOptions to point to the new sibling
+                        const newSelectedOptions = [...selectedOptions];
+                        newSelectedOptions[currentDepth - 1] = parent.continuations.length - 1;
+                        setSelectedOptions(newSelectedOptions);
+                      }
+                    } else {
+                      // Text is empty, don't create a new sibling
+                      console.log("🔄 [EDIT] Skipping empty text sibling creation");
                     }
                   } else {
                     // No existing children, or text unchanged - just update the text

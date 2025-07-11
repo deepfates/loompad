@@ -37,7 +37,7 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
     () => trees[currentTreeKey]
   );
 
-  // Migration effect to update old "root" IDs to proper IDs
+  // Migration effect to update old "root" IDs to proper IDs and clean up empty nodes
   useEffect(() => {
     let hasChanges = false;
     const migratedTrees = { ...trees };
@@ -50,13 +50,27 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
         hasChanges = true;
       }
       
-      // Also migrate any continuations that might have simple IDs
+      // Also migrate any continuations that might have simple IDs and clean up empty nodes
       const migrateNode = (node: StoryNode) => {
         if (node.id && node.id.length < 10) {
           // Simple ID detected, migrate it
           node.id = generateNodeId('node');
+          hasChanges = true;
         }
+        
+        // Clean up empty continuations
         if (node.continuations) {
+          const originalLength = node.continuations.length;
+          node.continuations = node.continuations.filter(child => child.text.trim());
+          if (node.continuations.length !== originalLength) {
+            console.log("🔄 Cleaned up empty nodes in tree:", treeKey, {
+              removed: originalLength - node.continuations.length,
+              remaining: node.continuations.length
+            });
+            hasChanges = true;
+          }
+          
+          // Recursively migrate children
           node.continuations.forEach(migrateNode);
         }
       };
@@ -190,7 +204,18 @@ export function useStoryTree(params: StoryParams, onModelChange?: (model: ModelI
             };
           })
       );
-      return results;
+      
+      // Filter out nodes with empty text
+      const filteredResults = results.filter(node => node.text.trim());
+      
+      console.log("🔄 [GENERATION] Generated continuations:", {
+        total: results.length,
+        filtered: filteredResults.length,
+        emptyNodes: results.length - filteredResults.length,
+        results: results.map(n => ({ id: n.id, text: n.text.slice(0, 20), isEmpty: !n.text.trim() }))
+      });
+      
+      return filteredResults;
     },
     [getCurrentPath, currentDepth, params, generateContinuation]
   );
