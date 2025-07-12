@@ -414,7 +414,7 @@
 }
 
 .menu-content .loading-message {
-  color: var(--primary-color);
+  color: #888;
   font-size: 0.8em;
   margin-top: 1em;
   text-align: center;
@@ -425,7 +425,74 @@
   0% { opacity: 0.6; }
   50% { opacity: 1; }
   100% { opacity: 0.6; }
-} 
+}
+
+/* PWA Offline status styles */
+.offline-message {
+  color: var(--warning-color, #888);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 0.5rem;
+  margin-top: 1rem;
+  border: 0.125rem solid var(--warning-color, #555);
+  border-radius: 0.25rem;
+  background: rgba(136, 136, 136, 0.1);
+  animation: pulseWarning 2s infinite;
+}
+
+@keyframes pulseWarning {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}
+
+/* Disabled button styles */
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(50%);
+  pointer-events: none;
+}
+
+.btn-disabled:hover {
+  transform: none !important;
+  background: var(--secondary-color) !important;
+}
+
+/* PWA install prompt styles */
+.install-prompt {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--background-color);
+  border: 0.125rem solid #555;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  max-width: 20rem;
+  text-align: center;
+  z-index: 1000;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+.install-prompt .btn {
+  margin: 0.5rem 0.25rem;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
 
 /* Loading indicator */
 .loading-indicator {
@@ -467,7 +534,7 @@
 }
 
 .menu-item.new-tree {
-  border: 2px dashed var(--primary-color);
+  border: 2px dashed #555;
   opacity: 0.8;
   margin-bottom: 1rem;
 }

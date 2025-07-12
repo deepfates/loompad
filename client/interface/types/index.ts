@@ -55,6 +55,7 @@ export interface GamepadButtonProps {
   label: string;
   className?: string;
   active?: boolean;
+  disabled?: boolean;
   onMouseDown: () => void;
   onMouseUp: () => void;
 }

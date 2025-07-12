@@ -9,6 +9,7 @@ A gamepad-style interface for exploring branching narratives with AI text genera
 - 🤖 AI-powered text generation
 - 💾 Automatic local storage
 - 🎯 Focus-driven navigation
+- 📱 **Progressive Web App (PWA)** - Install to home screen, works offline
 
 ## Quick Start
 
@@ -99,6 +100,37 @@ Press Tab/Select to adjust:
 3. Commit your changes
 4. Push to the branch
 5. Open a Pull Request
+
+## Progressive Web App (PWA)
+
+LoomPad is now a full PWA with:
+
+### 📱 Installation
+- Install to home screen on mobile/desktop
+- Runs in standalone mode (no browser UI)
+- Custom app icons and splash screen
+
+### ⚡ Offline Support
+- Works offline for reading saved stories
+- Automatic service worker caching
+- Network detection with graceful degradation
+
+### 🔄 Auto-Updates
+- Background updates download automatically
+- Seamless version management
+
+### Testing PWA Features
+```bash
+# Build and run production server
+bun run build
+bun run prod
+
+# Open http://localhost:4000
+# Look for install prompt in browser
+# Test offline mode in DevTools
+```
+
+See `docs/PWA.md` for detailed implementation guide.
 
 ## License
 

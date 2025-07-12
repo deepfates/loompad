@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="144" height="144" viewBox="0 0 144 144" xmlns="http://www.w3.org/2000/svg">
+  
+  
+  <!-- D-pad plus shape - Game Boy style -->
+  <!-- Horizontal bar -->
+  <rect x="29.160000000000004" y="54.36" width="85.67999999999999" height="35.279999999999994" fill="#FFF" rx="5.291999999999999"/>
+  
+  <!-- Vertical bar -->
+  <rect x="54.36" y="29.160000000000004" width="35.279999999999994" height="85.67999999999999" fill="#FFF" rx="5.291999999999999"/>
+  
+  <!-- Center L -->
+  <text x="72" y="80.64" text-anchor="middle" fill="#000" font-family="monospace" font-size="28.8" font-weight="bold">L</text>
+</svg>

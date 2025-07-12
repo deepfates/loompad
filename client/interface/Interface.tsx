@@ -4,6 +4,7 @@ import "./terminal-custom.css";
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
 import { useStoryTree } from "./hooks/useStoryTree";
+import { useOfflineStatus } from "./hooks/useOfflineStatus";
 
 import { DPad } from "./components/DPad";
 import { GamepadButton } from "./components/GamepadButton";
@@ -14,6 +15,7 @@ import { NavigationDots } from "./components/NavigationDots";
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
+import { InstallPrompt } from "./components/InstallPrompt";
 
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
@@ -21,7 +23,7 @@ import type { ModelId } from "../../server/apis/generation";
 const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 100,
-  model: "mistralai/mixtral-8x7b" as ModelId,
+  model: "deepseek/deepseek-v3-base:free" as ModelId,
 };
 
 const EMPTY_STORY = {
@@ -33,6 +35,8 @@ const EMPTY_STORY = {
 };
 
 const GamepadInterface = () => {
+  const { isOnline, isOffline, wasOffline } = useOfflineStatus();
+
   const {
     activeMenu,
     setActiveMenu,
@@ -92,7 +96,7 @@ const GamepadInterface = () => {
         }
       }
     },
-    [currentTreeKey, trees, setTrees, setCurrentTreeKey]
+    [currentTreeKey, trees, setTrees, setCurrentTreeKey],
   );
 
   const handleControlAction = useCallback(
@@ -139,7 +143,7 @@ const GamepadInterface = () => {
       setCurrentTreeKey,
       setActiveMenu,
       setSelectedTreeIndex,
-    ]
+    ],
   );
 
   const { activeControls, handleControlPress, handleControlRelease } =
@@ -188,8 +192,8 @@ const GamepadInterface = () => {
                 color: isCurrentDepth
                   ? "var(--font-color)"
                   : isNextDepth
-                  ? "var(--primary-color)"
-                  : "var(--secondary-color)",
+                    ? "var(--primary-color)"
+                    : "var(--secondary-color)",
               }}
               className={isLoading ? "opacity-50" : ""}
             >
@@ -203,6 +207,7 @@ const GamepadInterface = () => {
 
   return (
     <main className="terminal" aria-label="Story Interface">
+      <InstallPrompt />
       <div className="container">
         {/* Screen area */}
         <section className="terminal-screen" aria-label="Story Display">
@@ -236,7 +241,7 @@ const GamepadInterface = () => {
                   // Adjust selected index if needed
                   if (selectedTreeIndex > 0) {
                     setSelectedTreeIndex((prev) =>
-                      Math.min(prev, Object.keys(trees).length - 1)
+                      Math.min(prev, Object.keys(trees).length - 1),
                     );
                   }
                 }}
@@ -278,6 +283,11 @@ const GamepadInterface = () => {
                 activeControls={activeControls}
                 generatingAt={generatingAt}
               />
+              {isOffline && (
+                <output className="offline-message">
+                  ⚡ Offline - Stories saved locally, generation unavailable
+                </output>
+              )}
               {error && (
                 <output className="error-message">
                   Generation error: {error.message}
@@ -307,6 +317,7 @@ const GamepadInterface = () => {
                 active={activeControls.a}
                 onMouseDown={() => handleControlPress("Enter")}
                 onMouseUp={() => handleControlRelease("Enter")}
+                disabled={isOffline}
               />
             </div>
           </div>

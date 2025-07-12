@@ -50,7 +50,14 @@ export async function createServer() {
           clearScreen: false,
     })
   } else if (mode === 'production') {
-    app.use('/client', express.static(client_dir_prod))
+    app.use('/client', express.static(client_dir_prod, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('sw.js')) {
+          res.setHeader('Service-Worker-Allowed', '/');
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
+    }))
   }
 
   // vite exposes all files at root by default, this is to prevent accessing server files
@@ -141,6 +148,27 @@ export async function createServer() {
   if(mode === 'development') {
     app.use(vite.middlewares)
   }
+
+  // Serve PWA files at root level
+  app.get('/sw.js', (req, res) => {
+    if (mode === 'production') {
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(path.resolve(client_dir_prod, 'sw.js'));
+    } else {
+      res.status(404).send('Service worker not available in development');
+    }
+  });
+
+  app.get('/manifest.webmanifest', (req, res) => {
+    if (mode === 'production') {
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.sendFile(path.resolve(client_dir_prod, 'manifest.webmanifest'));
+    } else {
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.sendFile(path.resolve(__dirname, '../client/manifest.webmanifest'));
+    }
+  });
 
   http_server.listen(port, () => {
     console.log(`Server listening on http://localhost:${port}`)
