@@ -36,7 +36,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             setSelectedParam((prev) => Math.max(0, prev - 1));
             break;
           case "ArrowDown":
-            setSelectedParam((prev) => Math.min(3, prev + 1));
+            setSelectedParam((prev) => Math.min(4, prev + 1));
             break;
           case "ArrowLeft": {
             const param = [
@@ -167,7 +167,14 @@ export function useMenuSystem(defaultParams: MenuParams) {
         setActiveMenu(null);
       }
     },
-    [activeMenu, selectedParam, selectedTreeIndex, menuParams, models],
+    [
+      activeMenu,
+      selectedParam,
+      selectedTreeIndex,
+      menuParams,
+      models,
+      scrollMenuItemIntoView,
+    ],
   );
 
   return {

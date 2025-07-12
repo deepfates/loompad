@@ -247,7 +247,13 @@ const GamepadInterface = () => {
         scrollToSelectedSibling(container, path, currentDepth, true);
       });
     }
-  }, [selectedOptions, getCurrentPath, activeMenu, debouncedScroll]);
+  }, [
+    selectedOptions,
+    getCurrentPath,
+    activeMenu,
+    debouncedScroll,
+    currentDepth,
+  ]);
 
   // Scroll to end when new content is added (after text splitting or generation)
   useEffect(() => {
