@@ -27,6 +27,9 @@ import {
   createDebouncedScroll,
 } from "./utils/scrolling";
 
+// Constants
+const SCROLL_DEBOUNCE_DELAY = 150;
+
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
 
@@ -220,7 +223,7 @@ const GamepadInterface = () => {
     useKeyboardControls(handleControlAction);
 
   // Create debounced scroll function
-  const debouncedScroll = createDebouncedScroll(150);
+  const debouncedScroll = createDebouncedScroll(SCROLL_DEBOUNCE_DELAY);
 
   // Scroll to current depth when navigation changes
   useEffect(() => {

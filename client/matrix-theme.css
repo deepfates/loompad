@@ -1,6 +1,6 @@
 /* Theme System - Dark and Light modes with System detection */
 
-/* Core palette definitions */
+/* Core palette definitions and default theme (Dark/Game Boy) */
 :root {
     /* Dark/Game Boy Green palette */
     --gb-100: #f7f9f3;
@@ -23,10 +23,8 @@
 
     /* Common colors */
     --error-color: #ff2d55;
-}
 
-/* Default theme (Dark/Game Boy) */
-:root {
+    /* Default theme (Dark/Game Boy) applied */
     --background-color: var(--gb-800);
     --font-color: var(--gb-200);
     --primary-color: var(--gb-100);

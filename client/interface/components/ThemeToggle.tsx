@@ -2,13 +2,18 @@ import { useState, useEffect } from "react";
 
 export type Theme = "matrix" | "light" | "system";
 
+// Type guard for validating theme values
+function isValidTheme(value: string | null): value is Theme {
+  return value !== null && ["matrix", "light", "system"].includes(value);
+}
+
 export const useTheme = () => {
   const [theme, setTheme] = useState<Theme>("matrix");
 
   // Load theme from localStorage on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme;
-    if (savedTheme && ["matrix", "light", "system"].includes(savedTheme)) {
+    const savedTheme = localStorage.getItem("theme");
+    if (isValidTheme(savedTheme)) {
       setTheme(savedTheme);
     }
   }, []);

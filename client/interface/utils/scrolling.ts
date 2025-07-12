@@ -1,5 +1,11 @@
 import type { StoryNode } from "../types";
 
+// Constants for scroll configuration
+const SCROLL_PADDING = 80;
+const MIN_MENU_ITEM_HEIGHT = 40;
+const DEFAULT_MENU_ITEM_HEIGHT = 60;
+const SCROLL_DEBOUNCE_DELAY = 150;
+
 /**
  * Scrolls to a specific text position in a story container
  */
@@ -25,11 +31,11 @@ export function scrollToTextPosition(
     temp.textContent = text.substring(0, Math.min(position, text.length));
     document.body.appendChild(temp);
 
-    const scrollPosition = temp.offsetHeight;
+    const scrollPosition = temp.getBoundingClientRect().height;
     document.body.removeChild(temp);
 
     // Scroll with padding to show context
-    const targetScroll = Math.max(0, scrollPosition - 80);
+    const targetScroll = Math.max(0, scrollPosition - SCROLL_PADDING);
 
     if (smooth && container.scrollTo) {
       container.scrollTo({
@@ -193,7 +199,7 @@ export function isAtBottom(
 /**
  * Debounced scroll function to prevent excessive scroll calls
  */
-export function createDebouncedScroll(delay: number = 100) {
+export function createDebouncedScroll(delay: number = SCROLL_DEBOUNCE_DELAY) {
   let timeoutId: number | null = null;
 
   return (fn: () => void) => {
@@ -220,10 +226,10 @@ export function getMenuItemHeight(container: HTMLElement): number {
       const styles = getComputedStyle(firstItem);
       const height = firstItem.getBoundingClientRect().height;
       const marginBottom = parseFloat(styles.marginBottom) || 0;
-      return Math.max(40, height + marginBottom); // Minimum height
+      return Math.max(MIN_MENU_ITEM_HEIGHT, height + marginBottom); // Minimum height
     }
   } catch (error) {
     console.warn("Error getting menu item height:", error);
   }
-  return 60; // Default fallback
+  return DEFAULT_MENU_ITEM_HEIGHT; // Default fallback
 }
