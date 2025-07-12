@@ -18,6 +18,14 @@ import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { splitTextToNodes } from "./utils/textSplitter";
+import {
+  scrollToCurrentDepth,
+  scrollToEndOfPath,
+  scrollToSelectedSibling,
+  scrollMenuItemIntoView,
+  isAtBottom,
+  createDebouncedScroll,
+} from "./utils/scrolling";
 
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
@@ -40,6 +48,27 @@ const EMPTY_STORY = {
 const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
   const { theme, setTheme } = useTheme();
+
+  // Helper function for menu navigation with scrolling
+  const handleMenuNavWithScroll = (
+    direction: "up" | "down",
+    currentIndex: number,
+    maxIndex: number,
+    setIndex: (newIndex: number) => void,
+  ) => {
+    const newIndex =
+      direction === "up"
+        ? Math.max(0, currentIndex - 1)
+        : Math.min(maxIndex, currentIndex + 1);
+
+    // Scroll menu item into view
+    const menuContent = document.querySelector(".menu-content");
+    if (menuContent) {
+      scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+    }
+
+    setIndex(newIndex);
+  };
 
   const {
     activeMenu,
@@ -117,9 +146,9 @@ const GamepadInterface = () => {
       if (activeMenu === "select") {
         // Custom handling for settings menu including theme
         if (key === "ArrowUp") {
-          setSelectedParam((prev) => Math.max(0, prev - 1));
+          handleMenuNavWithScroll("up", selectedParam, 4, setSelectedParam);
         } else if (key === "ArrowDown") {
-          setSelectedParam((prev) => Math.min(4, prev + 1));
+          handleMenuNavWithScroll("down", selectedParam, 4, setSelectedParam);
         } else if (key === "ArrowLeft" || key === "ArrowRight") {
           const direction = key === "ArrowRight" ? 1 : -1;
 
@@ -190,31 +219,48 @@ const GamepadInterface = () => {
   const { activeControls, handleControlPress, handleControlRelease } =
     useKeyboardControls(handleControlAction);
 
-  // Scroll to next depth (highlighted text)
+  // Create debounced scroll function
+  const debouncedScroll = createDebouncedScroll(150);
+
+  // Scroll to current depth when navigation changes
   useEffect(() => {
-    if (storyTextRef.current) {
-      const storyContainer = storyTextRef.current;
-      const text = storyContainer.textContent || "";
+    if (storyTextRef.current && !activeMenu) {
+      const container = storyTextRef.current;
       const path = getCurrentPath();
 
-      // Calculate the position to scroll to the next depth (highlighted text)
-      let position = 0;
-      for (let i = 0; i < currentDepth; i++) {
-        position += path[i].text.length;
-      }
-
-      // Create a temporary span to measure the position
-      const temp = document.createElement("span");
-      temp.style.whiteSpace = "pre-wrap";
-      temp.textContent = text.substring(0, position);
-      document.body.appendChild(temp);
-      const scrollPosition = temp.offsetHeight;
-      document.body.removeChild(temp);
-
-      // Scroll to show the highlighted text with some padding
-      storyContainer.scrollTop = scrollPosition - 60;
+      debouncedScroll(() => {
+        scrollToCurrentDepth(container, path, currentDepth, true);
+      });
     }
-  }, [currentDepth, getCurrentPath]);
+  }, [currentDepth, getCurrentPath, activeMenu, debouncedScroll]);
+
+  // Scroll to selected sibling when left/right navigation changes
+  useEffect(() => {
+    if (storyTextRef.current && !activeMenu) {
+      const container = storyTextRef.current;
+      const path = getCurrentPath();
+
+      debouncedScroll(() => {
+        scrollToSelectedSibling(container, path, currentDepth, true);
+      });
+    }
+  }, [selectedOptions, getCurrentPath, activeMenu, debouncedScroll]);
+
+  // Scroll to end when new content is added (after text splitting or generation)
+  useEffect(() => {
+    if (storyTextRef.current && !isGenerating && !activeMenu) {
+      const container = storyTextRef.current;
+      const path = getCurrentPath();
+      const wasAtBottom = isAtBottom(container);
+
+      // If user was at bottom or near end, scroll to show new content
+      if (wasAtBottom) {
+        debouncedScroll(() => {
+          scrollToEndOfPath(container, path, true);
+        });
+      }
+    }
+  }, [storyTree, isGenerating, getCurrentPath, activeMenu, debouncedScroll]);
 
   const renderStoryText = () => {
     const currentPath = getCurrentPath();
@@ -350,6 +396,15 @@ const GamepadInterface = () => {
 
                   setStoryTree(newTree);
                   setActiveMenu(null);
+
+                  // Scroll to the end of the updated content after text splitting
+                  setTimeout(() => {
+                    if (storyTextRef.current) {
+                      const container = storyTextRef.current;
+                      const path = getCurrentPath();
+                      scrollToEndOfPath(container, path, true);
+                    }
+                  }, 100);
                 }}
                 onCancel={() => setActiveMenu(null)}
               />

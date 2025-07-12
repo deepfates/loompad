@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { MenuType } from "../types";
 import type { ModelId } from "../../../server/apis/generation";
 import { useModels } from "./useModels";
+import { scrollMenuItemIntoView } from "../utils/scrolling";
 
 interface MenuParams {
   temperature: number;
@@ -121,10 +122,26 @@ export function useMenuSystem(defaultParams: MenuParams) {
 
         switch (key) {
           case "ArrowUp":
-            setSelectedTreeIndex((prev) => Math.max(0, prev - 1));
+            setSelectedTreeIndex((prev) => {
+              const newIndex = Math.max(0, prev - 1);
+              // Scroll menu item into view
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+              }
+              return newIndex;
+            });
             break;
           case "ArrowDown":
-            setSelectedTreeIndex((prev) => Math.min(totalItems - 1, prev + 1));
+            setSelectedTreeIndex((prev) => {
+              const newIndex = Math.min(totalItems - 1, prev + 1);
+              // Scroll menu item into view
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+              }
+              return newIndex;
+            });
             break;
           case "Enter": // A button
             if (selectedTreeIndex === 0) {
