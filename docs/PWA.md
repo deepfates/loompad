@@ -117,7 +117,7 @@ loompad/
 │   ├── workbox-*.js           # Workbox runtime
 │   └── manifest.webmanifest   # Built manifest
 └── scripts/
-    ├── generate-icons.cjs     # Icon generation
+    ├── build-icons.cjs        # Icon generation
     └── validate-pwa.cjs       # PWA validation
 ```
 
