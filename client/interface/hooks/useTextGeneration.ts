@@ -25,6 +25,13 @@ export function useTextGeneration() {
       setIsGenerating(true);
       setError(null);
 
+      // Check if we're offline
+      if (!navigator.onLine) {
+        setError({ message: "No internet connection - generation requires online access" });
+        setIsGenerating(false);
+        return;
+      }
+
       try {
         const response = await fetch("/api/generate", {
           method: "POST",
@@ -79,10 +86,16 @@ export function useTextGeneration() {
           }
         }
       } catch (error: unknown) {
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "An error occurred during generation";
+        let errorMessage = "An error occurred during generation";
+        
+        if (error instanceof Error) {
+          if (error.name === "TypeError" && error.message.includes("fetch")) {
+            errorMessage = "Network error - check your connection";
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
         setError({ message: errorMessage });
         console.error("Generation error:", error);
       } finally {

@@ -32,13 +32,21 @@ export interface MenuSelectProps {
   selected: boolean;
 }
 
+export interface MenuToggleProps {
+  label: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  selected: boolean;
+}
+
 export interface SettingsMenuProps {
   params: {
     temperature: number;
     maxTokens: number;
     model: ModelId;
+    textSplitting: boolean;
   };
-  onParamChange: (param: string, value: number | string) => void;
+  onParamChange: (param: string, value: number | string | boolean) => void;
   selectedParam: number;
   isLoading?: boolean;
 }
@@ -55,6 +63,7 @@ export interface GamepadButtonProps {
   label: string;
   className?: string;
   active?: boolean;
+  disabled?: boolean;
   onMouseDown: () => void;
   onMouseUp: () => void;
 }

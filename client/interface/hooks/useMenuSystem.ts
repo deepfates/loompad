@@ -7,6 +7,7 @@ interface MenuParams {
   temperature: number;
   maxTokens: number;
   model: ModelId;
+  textSplitting: boolean;
 }
 
 interface MenuCallbacks {
@@ -34,10 +35,10 @@ export function useMenuSystem(defaultParams: MenuParams) {
             setSelectedParam((prev) => Math.max(0, prev - 1));
             break;
           case "ArrowDown":
-            setSelectedParam((prev) => Math.min(2, prev + 1));
+            setSelectedParam((prev) => Math.min(3, prev + 1));
             break;
           case "ArrowLeft": {
-            const param = ["temperature", "maxTokens", "model"][selectedParam];
+            const param = ["temperature", "maxTokens", "model", "textSplitting"][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -62,11 +63,16 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   ),
                 }));
               }
+            } else if (param === "textSplitting") {
+              setMenuParams((prev) => ({
+                ...prev,
+                textSplitting: !prev.textSplitting,
+              }));
             }
             break;
           }
           case "ArrowRight": {
-            const param = ["temperature", "maxTokens", "model"][selectedParam];
+            const param = ["temperature", "maxTokens", "model", "textSplitting"][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -91,6 +97,11 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   ),
                 }));
               }
+            } else if (param === "textSplitting") {
+              setMenuParams((prev) => ({
+                ...prev,
+                textSplitting: !prev.textSplitting,
+              }));
             }
             break;
           }
