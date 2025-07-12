@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTextGeneration } from "./useTextGeneration";
+import { splitTextToNodes } from "../utils/textSplitter";
 import type { StoryNode } from "../types";
 import type { ModelId } from "../../../server/apis/generation";
 
@@ -7,6 +8,7 @@ interface GenerationParams {
   model: ModelId;
   temperature: number;
   maxTokens: number;
+  textSplitting: boolean;
 }
 
 const createPrompt = (path: StoryNode[], depth: number) => {
@@ -27,7 +29,7 @@ export function useStoryGeneration() {
     path: StoryNode[],
     depth: number,
     params: GenerationParams
-  ): Promise<string> => {
+  ): Promise<StoryNode> => {
     setGeneratedText("");
     let fullText = "";
 
@@ -49,7 +51,22 @@ export function useStoryGeneration() {
       }
     );
 
-    return fullText;
+    // Conditionally split the generated text based on settings
+    if (params.textSplitting) {
+      const nodeChain = splitTextToNodes(fullText);
+      
+      // If splitting succeeded, return the chain
+      if (nodeChain) {
+        return nodeChain;
+      }
+    }
+    
+    // Fallback to single node (if splitting disabled or failed)
+    return {
+      id: Math.random().toString(36).substring(2, 15),
+      text: fullText || "...",
+      continuations: [],
+    };
   };
 
   return {

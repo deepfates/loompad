@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="384" height="384" viewBox="0 0 384 384" xmlns="http://www.w3.org/2000/svg">
+  
+
+  <!-- D-pad plus shape - Game Boy style -->
+  <!-- Horizontal bar -->
+  <rect x="77.76000000000002" y="144.96" width="228.47999999999996" height="94.07999999999998" fill="#FFF" rx="14.111999999999997"/>
+
+  <!-- Vertical bar -->
+  <rect x="144.96" y="77.76000000000002" width="94.07999999999998" height="228.47999999999996" fill="#FFF" rx="14.111999999999997"/>
+
+  <!-- Single outline path to avoid overlapping stroke joins -->
+  <path d="
+    M 144.96 77.76000000000002
+    L 144.96 144.96
+    L 77.76000000000002 144.96
+    L 77.76000000000002 239.04
+    L 144.96 239.04
+    L 144.96 306.24
+    L 239.04 306.24
+    L 239.04 239.04
+    L 306.24 239.04
+    L 306.24 144.96
+    L 239.04 144.96
+    L 239.04 77.76000000000002
+    Z
+  " fill="none" stroke="#000" stroke-width="15.36" stroke-linejoin="round"/>
+
+  <!-- Center ⌥ -->
+  <text x="192" y="222.72" text-anchor="middle" fill="#000" font-family="monospace" font-size="96" font-weight="bold">⌥</text>
+</svg>

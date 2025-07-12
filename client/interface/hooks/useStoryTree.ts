@@ -20,6 +20,7 @@ interface StoryParams {
   temperature: number;
   maxTokens: number;
   model: ModelId;
+  textSplitting: boolean;
 }
 
 export function useStoryTree(params: StoryParams) {
@@ -136,11 +137,10 @@ export function useStoryTree(params: StoryParams) {
       const results = await Promise.all(
         Array(count)
           .fill(null)
-          .map(async () => ({
-            id: Math.random().toString(36).substring(2),
-            text: await generateContinuation(currentPath, currentDepth, params),
-            continuations: [],
-          }))
+          .map(async () => {
+            // generateContinuation now returns a node chain (head node)
+            return await generateContinuation(currentPath, currentDepth, params);
+          })
       );
       return results;
     },

@@ -14,13 +14,13 @@ const openai = new OpenAI({
 
 // Available models and their configs
 export const AVAILABLE_MODELS = {
-  "mistralai/mixtral-8x7b": {
-    name: "Mixtral 8x7B",
+  "deepseek/deepseek-v3-base:free": {
+    name: "DeepSeek V3",
     maxTokens: 1024,
     defaultTemp: 0.7,
   },
-  "deepseek/deepseek-chat": {
-    name: "DeepSeek v3",
+  "moonshotai/kimi-k2": {
+    name: "Kimi K2",
     maxTokens: 1024,
     defaultTemp: 0.7,
   },
@@ -29,7 +29,17 @@ export const AVAILABLE_MODELS = {
     maxTokens: 1024,
     defaultTemp: 0.7,
   },
-} as const;
+  "baidu/ernie-4.5-300b-a47b": {
+    name: "ERNIE 4.5 300B",
+    maxTokens: 1024,
+    defaultTemp: 0.7,
+  },
+  "thudm/glm-4-32b:free": {
+    name: "GLM 4.32B",
+    maxTokens: 1024,
+    defaultTemp: 0.7,
+  },
+};
 
 export type ModelId = keyof typeof AVAILABLE_MODELS;
 

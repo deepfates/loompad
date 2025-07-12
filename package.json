@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon --exec 'bun run.ts' --watch server --watch shared --watch *.ts --ext ts,tsx,js,mjs,json",
+    "prebuild": "node scripts/build-icons.cjs",
     "build": "vite build --outDir=dist/server --ssr server/ssr.tsx  --config config/vite.config.ts && vite build --outDir=dist/client --config config/vite.config.ts",
     "prod": "bun run.ts --mode=production",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
@@ -41,6 +42,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.6",
     "typescript": "^5.2.2",
-    "vite": "^5.2.8"
+    "vite": "^5.2.8",
+    "vite-plugin-pwa": "^1.0.1"
   }
 }
