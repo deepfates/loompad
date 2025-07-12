@@ -1,6 +1,7 @@
 import { SettingsMenuProps } from "../types";
 import { MenuKnob } from "../components/MenuKnob";
 import { MenuSelect } from "../components/MenuSelect";
+import { MenuToggle } from "../components/MenuToggle";
 import { useModels } from "../hooks/useModels";
 import type { ModelId } from "../../../server/apis/generation";
 
@@ -34,7 +35,7 @@ export const SettingsMenu = ({
         label="Max Tokens"
         value={params.maxTokens}
         min={10}
-        max={currentModel?.maxTokens ?? 500}
+        max={currentModel?.maxTokens ?? 1024}
         step={10}
         onChange={(value) => onParamChange("maxTokens", value)}
         selected={selectedParam === 1}
@@ -56,6 +57,12 @@ export const SettingsMenu = ({
           }
         }}
         selected={selectedParam === 2}
+      />
+      <MenuToggle
+        label="Text Splitting"
+        value={params.textSplitting}
+        onChange={(value) => onParamChange("textSplitting", value)}
+        selected={selectedParam === 3}
       />
       {error && (
         <output className="error-message">
