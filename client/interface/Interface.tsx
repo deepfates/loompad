@@ -16,14 +16,16 @@ import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
+import { splitTextToNodes } from "./utils/textSplitter";
 
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
 
 const DEFAULT_PARAMS = {
   temperature: 0.7,
-  maxTokens: 100,
+  maxTokens: 256,
   model: "deepseek/deepseek-v3-base:free" as ModelId,
+  textSplitting: true,
 };
 
 const EMPTY_STORY = {
@@ -158,7 +160,7 @@ const GamepadInterface = () => {
 
       // Calculate the position to scroll to the next depth (highlighted text)
       let position = 0;
-      for (let i = 0; i <= currentDepth; i++) {
+      for (let i = 0; i < currentDepth; i++) {
         position += path[i].text.length;
       }
 
@@ -266,7 +268,40 @@ const GamepadInterface = () => {
                     current = current.continuations[selectedOptions[i - 1]];
                   }
 
-                  current.text = text;
+                  // Conditionally split the edited text based on settings
+                  if (menuParams.textSplitting) {
+                    const nodeChain = splitTextToNodes(text);
+                    
+                    if (nodeChain) {
+                      // Replace current node with the head of the chain
+                      current.text = nodeChain.text;
+                      
+                      // Preserve existing continuations by attaching them to the end of the chain
+                      const existingContinuations = current.continuations || [];
+                      
+                      // Walk to the end of the new chain
+                      let chainEnd = nodeChain;
+                      while (chainEnd.continuations && chainEnd.continuations.length > 0) {
+                        chainEnd = chainEnd.continuations[0];
+                      }
+                      
+                      // Attach existing continuations to the end of the chain
+                      chainEnd.continuations = existingContinuations;
+                      
+                      // Replace the current node's continuations with the new chain
+                      current.continuations = nodeChain.continuations;
+                      if (nodeChain.lastSelectedIndex !== undefined) {
+                        current.lastSelectedIndex = nodeChain.lastSelectedIndex;
+                      }
+                    } else {
+                      // Fallback to simple text replacement if splitting fails
+                      current.text = text;
+                    }
+                  } else {
+                    // Simple text replacement when splitting is disabled
+                    current.text = text;
+                  }
+                  
                   setStoryTree(newTree);
                   setActiveMenu(null);
                 }}
