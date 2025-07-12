@@ -4,7 +4,7 @@ import type { StoryNode } from "../types";
 const SCROLL_PADDING = 80;
 const MIN_MENU_ITEM_HEIGHT = 40;
 const DEFAULT_MENU_ITEM_HEIGHT = 60;
-const SCROLL_DEBOUNCE_DELAY = 150;
+export const SCROLL_DEBOUNCE_DELAY = 150;
 
 /**
  * Scrolls to a specific text position in a story container

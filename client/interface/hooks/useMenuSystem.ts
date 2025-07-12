@@ -43,6 +43,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
               "temperature",
               "maxTokens",
               "model",
+              "theme",
               "textSplitting",
             ][selectedParam];
             if (param === "temperature") {
@@ -82,6 +83,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
               "temperature",
               "maxTokens",
               "model",
+              "theme",
               "textSplitting",
             ][selectedParam];
             if (param === "temperature") {

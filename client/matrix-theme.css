@@ -98,27 +98,27 @@
     }
 }
 
-/* Force theme application to common elements */
+/* Theme application to common elements */
 body {
-    background-color: var(--background-color) !important;
-    color: var(--font-color) !important;
+    background-color: var(--background-color);
+    color: var(--font-color);
     transition:
         background-color 0.3s ease,
         color 0.3s ease;
 }
 
-/* Ensure terminal elements use the theme */
+/* Terminal elements */
 .terminal {
-    background: var(--background-color) !important;
-    color: var(--font-color) !important;
+    background: var(--background-color);
+    color: var(--font-color);
 }
 
 .terminal-screen {
-    background: var(--background-color) !important;
-    border-color: var(--font-color) !important;
+    background: var(--background-color);
+    border-color: var(--font-color);
 }
 
-/* Selection styling */
+/* Selection styling - needs !important to override browser defaults */
 *::selection {
     background: var(--primary-color) !important;
     color: var(--invert-font-color) !important;
@@ -126,38 +126,38 @@ body {
 
 /* Button styling */
 .btn {
-    border-color: var(--font-color) !important;
-    color: var(--font-color) !important;
+    border-color: var(--font-color);
+    color: var(--font-color);
     transition: all 0.2s ease;
 }
 
 .btn-primary {
-    background: var(--primary-color) !important;
-    color: var(--invert-font-color) !important;
+    background: var(--primary-color);
+    color: var(--invert-font-color);
 }
 
 .btn-ghost {
-    background: transparent !important;
-    color: var(--font-color) !important;
+    background: transparent;
+    color: var(--font-color);
 }
 
 /* Input styling */
 input,
 textarea,
 select {
-    background: var(--background-color) !important;
-    color: var(--font-color) !important;
-    border-color: var(--border-color) !important;
+    background: var(--background-color);
+    color: var(--font-color);
+    border-color: var(--border-color);
     transition: all 0.2s ease;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-    border-color: var(--primary-color) !important;
+    border-color: var(--primary-color);
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling - needs !important to override browser defaults */
 ::-webkit-scrollbar-thumb {
     background-color: var(--primary-color) !important;
 }
@@ -168,40 +168,40 @@ select:focus {
 
 /* Link styling */
 a {
-    color: var(--primary-color) !important;
+    color: var(--primary-color);
 }
 
 a:hover {
-    color: var(--accent-weak) !important;
+    color: var(--accent-weak);
 }
 
 /* Table and other terminal.css elements */
 table {
-    border-color: var(--border-color) !important;
+    border-color: var(--border-color);
 }
 
 th,
 td {
-    border-color: var(--border-color) !important;
+    border-color: var(--border-color);
 }
 
 /* Code blocks */
 pre,
 code {
-    background: var(--code-bg-color) !important;
-    color: var(--font-color) !important;
-    border-color: var(--border-color) !important;
+    background: var(--code-bg-color);
+    color: var(--font-color);
+    border-color: var(--border-color);
 }
 
 /* Progress bars */
 progress {
-    background: var(--progress-bar-background) !important;
+    background: var(--progress-bar-background);
 }
 
 progress::-webkit-progress-value {
-    background: var(--progress-bar-fill) !important;
+    background: var(--progress-bar-fill);
 }
 
 progress::-moz-progress-bar {
-    background: var(--progress-bar-fill) !important;
+    background: var(--progress-bar-fill);
 }

@@ -25,10 +25,8 @@ import {
   scrollMenuItemIntoView,
   isAtBottom,
   createDebouncedScroll,
+  SCROLL_DEBOUNCE_DELAY,
 } from "./utils/scrolling";
-
-// Constants
-const SCROLL_DEBOUNCE_DELAY = 150;
 
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
@@ -52,6 +50,9 @@ const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
   const { theme, setTheme } = useTheme();
 
+  // Create debounced scroll function
+  const debouncedScroll = createDebouncedScroll(SCROLL_DEBOUNCE_DELAY);
+
   // Helper function for menu navigation with scrolling
   const handleMenuNavWithScroll = (
     direction: "up" | "down",
@@ -64,13 +65,15 @@ const GamepadInterface = () => {
         ? Math.max(0, currentIndex - 1)
         : Math.min(maxIndex, currentIndex + 1);
 
-    // Scroll menu item into view
-    const menuContent = document.querySelector(".menu-content");
-    if (menuContent) {
-      scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
-    }
-
     setIndex(newIndex);
+
+    // Use debounced scroll to avoid excessive calls
+    debouncedScroll(() => {
+      const menuContent = document.querySelector(".menu-content");
+      if (menuContent) {
+        scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+      }
+    });
   };
 
   const {
@@ -221,9 +224,6 @@ const GamepadInterface = () => {
 
   const { activeControls, handleControlPress, handleControlRelease } =
     useKeyboardControls(handleControlAction);
-
-  // Create debounced scroll function
-  const debouncedScroll = createDebouncedScroll(SCROLL_DEBOUNCE_DELAY);
 
   // Scroll to current depth when navigation changes
   useEffect(() => {
