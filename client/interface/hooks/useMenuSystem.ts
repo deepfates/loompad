@@ -27,7 +27,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
     (
       key: string,
       trees: { [key: string]: any } = {},
-      callbacks: MenuCallbacks = {}
+      callbacks: MenuCallbacks = {},
     ) => {
       if (activeMenu === "select") {
         switch (key) {
@@ -38,7 +38,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
             setSelectedParam((prev) => Math.min(3, prev + 1));
             break;
           case "ArrowLeft": {
-            const param = ["temperature", "maxTokens", "model", "textSplitting"][selectedParam];
+            const param = [
+              "temperature",
+              "maxTokens",
+              "model",
+              "textSplitting",
+            ][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -59,7 +64,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   model: newModel,
                   maxTokens: Math.min(
                     prev.maxTokens,
-                    models[newModel].maxTokens
+                    models[newModel].maxTokens,
                   ),
                 }));
               }
@@ -72,7 +77,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           }
           case "ArrowRight": {
-            const param = ["temperature", "maxTokens", "model", "textSplitting"][selectedParam];
+            const param = [
+              "temperature",
+              "maxTokens",
+              "model",
+              "textSplitting",
+            ][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -93,7 +103,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   model: newModel,
                   maxTokens: Math.min(
                     prev.maxTokens,
-                    models[newModel].maxTokens
+                    models[newModel].maxTokens,
                   ),
                 }));
               }
@@ -138,7 +148,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
         setActiveMenu(null);
       }
     },
-    [activeMenu, selectedParam, selectedTreeIndex, menuParams, models]
+    [activeMenu, selectedParam, selectedTreeIndex, menuParams, models],
   );
 
   return {

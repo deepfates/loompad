@@ -11,6 +11,7 @@ import { GamepadButton } from "./components/GamepadButton";
 import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
+import { useTheme } from "./components/ThemeToggle";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
@@ -38,6 +39,7 @@ const EMPTY_STORY = {
 
 const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
+  const { theme, setTheme } = useTheme();
 
   const {
     activeMenu,
@@ -112,7 +114,44 @@ const GamepadInterface = () => {
         return;
       }
 
-      if (activeMenu) {
+      if (activeMenu === "select") {
+        // Custom handling for settings menu including theme
+        if (key === "ArrowUp") {
+          setSelectedParam((prev) => Math.max(0, prev - 1));
+        } else if (key === "ArrowDown") {
+          setSelectedParam((prev) => Math.min(4, prev + 1));
+        } else if (key === "ArrowLeft" || key === "ArrowRight") {
+          const direction = key === "ArrowRight" ? 1 : -1;
+
+          if (selectedParam === 3) {
+            // Theme parameter
+            const themes = ["matrix", "light", "system"] as const;
+            const currentIndex = themes.indexOf(theme);
+            const newIndex =
+              direction > 0
+                ? (currentIndex + 1) % themes.length
+                : (currentIndex - 1 + themes.length) % themes.length;
+            setTheme(themes[newIndex]);
+          } else if (selectedParam === 4) {
+            // Text Splitting parameter
+            setMenuParams((prev) => ({
+              ...prev,
+              textSplitting: !prev.textSplitting,
+            }));
+          } else {
+            // Regular menu parameters - delegate to existing handler
+            handleMenuNavigation(key, trees, {
+              onNewTree: handleNewTree,
+              onSelectTree: (key) => {
+                setCurrentTreeKey(key);
+                setActiveMenu(null);
+                setSelectedTreeIndex(0);
+              },
+              onDeleteTree: handleDeleteTree,
+            });
+          }
+        }
+      } else if (activeMenu) {
         handleMenuNavigation(key, trees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
@@ -216,10 +255,14 @@ const GamepadInterface = () => {
           {activeMenu === "select" ? (
             <MenuScreen title="Settings" onClose={() => setActiveMenu(null)}>
               <SettingsMenu
-                params={menuParams}
-                onParamChange={(param, value) =>
-                  setMenuParams((prev) => ({ ...prev, [param]: value }))
-                }
+                params={{ ...menuParams, theme }}
+                onParamChange={(param, value) => {
+                  if (param === "theme") {
+                    setTheme(value as "matrix" | "light" | "system");
+                  } else {
+                    setMenuParams((prev) => ({ ...prev, [param]: value }));
+                  }
+                }}
                 selectedParam={selectedParam}
                 isLoading={isGenerating}
               />
@@ -271,23 +314,26 @@ const GamepadInterface = () => {
                   // Conditionally split the edited text based on settings
                   if (menuParams.textSplitting) {
                     const nodeChain = splitTextToNodes(text);
-                    
+
                     if (nodeChain) {
                       // Replace current node with the head of the chain
                       current.text = nodeChain.text;
-                      
+
                       // Preserve existing continuations by attaching them to the end of the chain
                       const existingContinuations = current.continuations || [];
-                      
+
                       // Walk to the end of the new chain
                       let chainEnd = nodeChain;
-                      while (chainEnd.continuations && chainEnd.continuations.length > 0) {
+                      while (
+                        chainEnd.continuations &&
+                        chainEnd.continuations.length > 0
+                      ) {
                         chainEnd = chainEnd.continuations[0];
                       }
-                      
+
                       // Attach existing continuations to the end of the chain
                       chainEnd.continuations = existingContinuations;
-                      
+
                       // Replace the current node's continuations with the new chain
                       current.continuations = nodeChain.continuations;
                       if (nodeChain.lastSelectedIndex !== undefined) {
@@ -301,7 +347,7 @@ const GamepadInterface = () => {
                     // Simple text replacement when splitting is disabled
                     current.text = text;
                   }
-                  
+
                   setStoryTree(newTree);
                   setActiveMenu(null);
                 }}

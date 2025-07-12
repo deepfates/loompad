@@ -2,7 +2,7 @@
     --button-size: 3rem;
     --controls-height: 12.75rem;
     --max-width: 48rem;
-    --loading-message-color: #888;
+    --loading-message-color: var(--gb-400);
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -302,14 +302,14 @@
     padding: 0.75rem;
     margin-bottom: 0.5rem;
     border: 0.125rem solid transparent;
-    background: var(--background-color);
+    background: transparent;
     transition: all 0.2s ease;
 }
 
 .menu-item.selected {
     border-color: var(--primary-color);
-    background: var(--background-color);
-    transform: translateX(0.5rem);
+    background: transparent;
+    box-shadow: 0 0 0.25rem var(--primary-color);
 }
 
 .menu-item-label {
@@ -340,7 +340,7 @@
 .menu-knob-track {
     width: 100%;
     height: 0.25rem;
-    background: var(--secondary-color);
+    background: var(--border-color);
     position: relative;
     cursor: pointer;
     border-radius: 0.125rem;
@@ -391,7 +391,7 @@
     width: 1.25rem;
     height: 1.25rem;
     border: 0.125rem solid var(--font-color);
-    background: var(--background-color);
+    background: var(--surface-color);
     text-align: center;
     line-height: 1rem;
     font-family: monospace;
@@ -408,7 +408,7 @@
 /* When the menu item is selected, highlight the checkbox */
 .menu-item.selected .menu-checkbox-box {
     background: var(--primary-color);
-    color: var(--background-color);
+    color: var(--invert-font-color);
     box-shadow: 0 0 0.125rem var(--primary-color);
 }
 
@@ -504,14 +504,14 @@
 
 /* PWA Offline status styles */
 .offline-message {
-    color: var(--warning-color, #888);
+    color: var(--warning-color);
     font-size: 0.875rem;
     text-align: center;
     padding: 0.5rem;
     margin-top: 1rem;
-    border: 0.125rem solid var(--warning-color, #555);
+    border: 0.125rem solid var(--warning-color);
     border-radius: 0.25rem;
-    background: rgba(136, 136, 136, 0.1);
+    background: rgba(161, 179, 104, 0.1);
     animation: pulseWarning 2s infinite;
 }
 
@@ -546,8 +546,8 @@
     bottom: 1rem;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--background-color);
-    border: 0.125rem solid #555;
+    background: var(--surface-color);
+    border: 0.125rem solid var(--border-color);
     border-radius: 0.5rem;
     padding: 1rem;
     max-width: 20rem;
@@ -587,7 +587,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--secondary-color);
+    background-color: var(--accent-weak);
     animation: simplePulse 1s infinite;
 }
 
@@ -621,14 +621,14 @@
 }
 
 .menu-item.new-tree {
-    border: 2px dashed #555;
+    border: 2px dashed var(--border-color);
     opacity: 0.8;
     margin-bottom: 1rem;
 }
 
 .menu-item.new-tree:hover {
     opacity: 1;
-    background: var(--background-color);
+    background: var(--surface-color);
 }
 
 .delete-button {

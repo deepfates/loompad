@@ -45,6 +45,7 @@ export interface SettingsMenuProps {
     maxTokens: number;
     model: ModelId;
     textSplitting: boolean;
+    theme: "matrix" | "light" | "system";
   };
   onParamChange: (param: string, value: number | string | boolean) => void;
   selectedParam: number;
