@@ -58,11 +58,32 @@ export const SettingsMenu = ({
         }}
         selected={selectedParam === 2}
       />
+      <MenuSelect
+        label="Theme"
+        value={
+          params.theme === "matrix"
+            ? "Dark"
+            : params.theme === "light"
+              ? "Light"
+              : "System"
+        }
+        options={["Dark", "Light", "System"]}
+        onChange={(value) => {
+          const themeValue =
+            value === "Dark"
+              ? "matrix"
+              : value === "Light"
+                ? "light"
+                : "system";
+          onParamChange("theme", themeValue);
+        }}
+        selected={selectedParam === 3}
+      />
       <MenuToggle
         label="Text Splitting"
         value={params.textSplitting}
         onChange={(value) => onParamChange("textSplitting", value)}
-        selected={selectedParam === 3}
+        selected={selectedParam === 4}
       />
       {error && (
         <output className="error-message">

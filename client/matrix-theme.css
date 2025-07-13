@@ -1,0 +1,207 @@
+/* Theme System - Dark and Light modes with System detection */
+
+/* Core palette definitions and default theme (Dark/Game Boy) */
+:root {
+    /* Dark/Game Boy Green palette */
+    --gb-100: #f7f9f3;
+    --gb-200: #cad8a5;
+    --gb-300: #a1b368;
+    --gb-400: #7c8d43;
+    --gb-500: #5a682e;
+    --gb-600: #3b441c;
+    --gb-700: #1e240b;
+    --gb-800: #060701;
+
+    /* Light theme palette */
+    --light-bg: #ffffff;
+    --light-surface: #f5f5f5;
+    --light-text: #151515;
+    --light-text-secondary: #727578;
+    --light-border: #d0d0d0;
+    --light-primary: #1a95e0;
+    --light-accent: #0066cc;
+
+    /* Common colors */
+    --error-color: #ff2d55;
+
+    /* Default theme (Dark/Game Boy) applied */
+    --background-color: var(--gb-800);
+    --font-color: var(--gb-200);
+    --primary-color: var(--gb-100);
+    --secondary-color: var(--gb-400);
+    --invert-font-color: var(--gb-800);
+    --code-bg-color: var(--gb-700);
+    --progress-bar-background: var(--gb-600);
+    --progress-bar-fill: var(--gb-300);
+    --block-background-color: var(--gb-800);
+    --warning-color: var(--gb-300);
+    --loading-message-color: var(--gb-400);
+    --surface-color: var(--gb-700);
+    --border-color: var(--gb-600);
+    --accent-weak: var(--gb-300);
+}
+
+/* Light theme */
+.theme-light {
+    --background-color: var(--light-bg);
+    --font-color: var(--light-text);
+    --primary-color: var(--light-primary);
+    --secondary-color: var(--light-text-secondary);
+    --invert-font-color: var(--light-bg);
+    --code-bg-color: var(--light-surface);
+    --progress-bar-background: var(--light-border);
+    --progress-bar-fill: var(--light-primary);
+    --block-background-color: var(--light-bg);
+    --warning-color: var(--light-accent);
+    --loading-message-color: var(--light-text-secondary);
+    --surface-color: var(--light-surface);
+    --border-color: var(--light-border);
+    --accent-weak: var(--light-accent);
+}
+
+/* System theme detection */
+@media (prefers-color-scheme: light) {
+    .theme-system {
+        --background-color: var(--light-bg);
+        --font-color: var(--light-text);
+        --primary-color: var(--light-primary);
+        --secondary-color: var(--light-text-secondary);
+        --invert-font-color: var(--light-bg);
+        --code-bg-color: var(--light-surface);
+        --progress-bar-background: var(--light-border);
+        --progress-bar-fill: var(--light-primary);
+        --block-background-color: var(--light-bg);
+        --warning-color: var(--light-accent);
+        --loading-message-color: var(--light-text-secondary);
+        --surface-color: var(--light-surface);
+        --border-color: var(--light-border);
+        --accent-weak: var(--light-accent);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .theme-system {
+        --background-color: var(--gb-800);
+        --font-color: var(--gb-200);
+        --primary-color: var(--gb-100);
+        --secondary-color: var(--gb-400);
+        --invert-font-color: var(--gb-800);
+        --code-bg-color: var(--gb-700);
+        --progress-bar-background: var(--gb-600);
+        --progress-bar-fill: var(--gb-300);
+        --block-background-color: var(--gb-800);
+        --warning-color: var(--gb-300);
+        --loading-message-color: var(--gb-400);
+        --surface-color: var(--gb-700);
+        --border-color: var(--gb-600);
+        --accent-weak: var(--gb-300);
+    }
+}
+
+/* Theme application to common elements */
+body {
+    background-color: var(--background-color);
+    color: var(--font-color);
+    transition:
+        background-color 0.3s ease,
+        color 0.3s ease;
+}
+
+/* Terminal elements */
+.terminal {
+    background: var(--background-color);
+    color: var(--font-color);
+}
+
+.terminal-screen {
+    background: var(--background-color);
+    border-color: var(--font-color);
+}
+
+/* Selection styling - needs !important to override browser defaults */
+*::selection {
+    background: var(--primary-color) !important;
+    color: var(--invert-font-color) !important;
+}
+
+/* Button styling */
+.btn {
+    border-color: var(--font-color);
+    color: var(--font-color);
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: var(--invert-font-color);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--font-color);
+}
+
+/* Input styling */
+input,
+textarea,
+select {
+    background: var(--background-color);
+    color: var(--font-color);
+    border-color: var(--border-color);
+    transition: all 0.2s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--primary-color);
+}
+
+/* Scrollbar styling - needs !important to override browser defaults */
+::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color) !important;
+}
+
+::-webkit-scrollbar-track {
+    background-color: var(--surface-color) !important;
+}
+
+/* Link styling */
+a {
+    color: var(--primary-color);
+}
+
+a:hover {
+    color: var(--accent-weak);
+}
+
+/* Table and other terminal.css elements */
+table {
+    border-color: var(--border-color);
+}
+
+th,
+td {
+    border-color: var(--border-color);
+}
+
+/* Code blocks */
+pre,
+code {
+    background: var(--code-bg-color);
+    color: var(--font-color);
+    border-color: var(--border-color);
+}
+
+/* Progress bars */
+progress {
+    background: var(--progress-bar-background);
+}
+
+progress::-webkit-progress-value {
+    background: var(--progress-bar-fill);
+}
+
+progress::-moz-progress-bar {
+    background: var(--progress-bar-fill);
+}

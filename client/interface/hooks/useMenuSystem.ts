@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { MenuType } from "../types";
 import type { ModelId } from "../../../server/apis/generation";
 import { useModels } from "./useModels";
+import { scrollMenuItemIntoView } from "../utils/scrolling";
 
 interface MenuParams {
   temperature: number;
@@ -27,7 +28,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
     (
       key: string,
       trees: { [key: string]: any } = {},
-      callbacks: MenuCallbacks = {}
+      callbacks: MenuCallbacks = {},
     ) => {
       if (activeMenu === "select") {
         switch (key) {
@@ -35,10 +36,16 @@ export function useMenuSystem(defaultParams: MenuParams) {
             setSelectedParam((prev) => Math.max(0, prev - 1));
             break;
           case "ArrowDown":
-            setSelectedParam((prev) => Math.min(3, prev + 1));
+            setSelectedParam((prev) => Math.min(4, prev + 1));
             break;
           case "ArrowLeft": {
-            const param = ["temperature", "maxTokens", "model", "textSplitting"][selectedParam];
+            const param = [
+              "temperature",
+              "maxTokens",
+              "model",
+              "theme",
+              "textSplitting",
+            ][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -59,7 +66,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   model: newModel,
                   maxTokens: Math.min(
                     prev.maxTokens,
-                    models[newModel].maxTokens
+                    models[newModel].maxTokens,
                   ),
                 }));
               }
@@ -72,7 +79,13 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           }
           case "ArrowRight": {
-            const param = ["temperature", "maxTokens", "model", "textSplitting"][selectedParam];
+            const param = [
+              "temperature",
+              "maxTokens",
+              "model",
+              "theme",
+              "textSplitting",
+            ][selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -93,7 +106,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   model: newModel,
                   maxTokens: Math.min(
                     prev.maxTokens,
-                    models[newModel].maxTokens
+                    models[newModel].maxTokens,
                   ),
                 }));
               }
@@ -111,10 +124,26 @@ export function useMenuSystem(defaultParams: MenuParams) {
 
         switch (key) {
           case "ArrowUp":
-            setSelectedTreeIndex((prev) => Math.max(0, prev - 1));
+            setSelectedTreeIndex((prev) => {
+              const newIndex = Math.max(0, prev - 1);
+              // Scroll menu item into view
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+              }
+              return newIndex;
+            });
             break;
           case "ArrowDown":
-            setSelectedTreeIndex((prev) => Math.min(totalItems - 1, prev + 1));
+            setSelectedTreeIndex((prev) => {
+              const newIndex = Math.min(totalItems - 1, prev + 1);
+              // Scroll menu item into view
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+              }
+              return newIndex;
+            });
             break;
           case "Enter": // A button
             if (selectedTreeIndex === 0) {
@@ -138,7 +167,14 @@ export function useMenuSystem(defaultParams: MenuParams) {
         setActiveMenu(null);
       }
     },
-    [activeMenu, selectedParam, selectedTreeIndex, menuParams, models]
+    [
+      activeMenu,
+      selectedParam,
+      selectedTreeIndex,
+      menuParams,
+      models,
+      scrollMenuItemIntoView,
+    ],
   );
 
   return {

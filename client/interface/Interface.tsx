@@ -11,12 +11,22 @@ import { GamepadButton } from "./components/GamepadButton";
 import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
+import { useTheme } from "./components/ThemeToggle";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { splitTextToNodes } from "./utils/textSplitter";
+import {
+  scrollToCurrentDepth,
+  scrollToEndOfPath,
+  scrollToSelectedSibling,
+  scrollMenuItemIntoView,
+  isAtBottom,
+  createDebouncedScroll,
+  SCROLL_DEBOUNCE_DELAY,
+} from "./utils/scrolling";
 
 import type { StoryNode } from "./types";
 import type { ModelId } from "../../server/apis/generation";
@@ -38,6 +48,33 @@ const EMPTY_STORY = {
 
 const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
+  const { theme, setTheme } = useTheme();
+
+  // Create debounced scroll function
+  const debouncedScroll = createDebouncedScroll(SCROLL_DEBOUNCE_DELAY);
+
+  // Helper function for menu navigation with scrolling
+  const handleMenuNavWithScroll = (
+    direction: "up" | "down",
+    currentIndex: number,
+    maxIndex: number,
+    setIndex: (newIndex: number) => void,
+  ) => {
+    const newIndex =
+      direction === "up"
+        ? Math.max(0, currentIndex - 1)
+        : Math.min(maxIndex, currentIndex + 1);
+
+    setIndex(newIndex);
+
+    // Use debounced scroll to avoid excessive calls
+    debouncedScroll(() => {
+      const menuContent = document.querySelector(".menu-content");
+      if (menuContent) {
+        scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+      }
+    });
+  };
 
   const {
     activeMenu,
@@ -112,7 +149,44 @@ const GamepadInterface = () => {
         return;
       }
 
-      if (activeMenu) {
+      if (activeMenu === "select") {
+        // Custom handling for settings menu including theme
+        if (key === "ArrowUp") {
+          handleMenuNavWithScroll("up", selectedParam, 4, setSelectedParam);
+        } else if (key === "ArrowDown") {
+          handleMenuNavWithScroll("down", selectedParam, 4, setSelectedParam);
+        } else if (key === "ArrowLeft" || key === "ArrowRight") {
+          const direction = key === "ArrowRight" ? 1 : -1;
+
+          if (selectedParam === 3) {
+            // Theme parameter
+            const themes = ["matrix", "light", "system"] as const;
+            const currentIndex = themes.indexOf(theme);
+            const newIndex =
+              direction > 0
+                ? (currentIndex + 1) % themes.length
+                : (currentIndex - 1 + themes.length) % themes.length;
+            setTheme(themes[newIndex]);
+          } else if (selectedParam === 4) {
+            // Text Splitting parameter
+            setMenuParams((prev) => ({
+              ...prev,
+              textSplitting: !prev.textSplitting,
+            }));
+          } else {
+            // Regular menu parameters - delegate to existing handler
+            handleMenuNavigation(key, trees, {
+              onNewTree: handleNewTree,
+              onSelectTree: (key) => {
+                setCurrentTreeKey(key);
+                setActiveMenu(null);
+                setSelectedTreeIndex(0);
+              },
+              onDeleteTree: handleDeleteTree,
+            });
+          }
+        }
+      } else if (activeMenu) {
         handleMenuNavigation(key, trees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
@@ -151,31 +225,51 @@ const GamepadInterface = () => {
   const { activeControls, handleControlPress, handleControlRelease } =
     useKeyboardControls(handleControlAction);
 
-  // Scroll to next depth (highlighted text)
+  // Scroll to current depth when navigation changes
   useEffect(() => {
-    if (storyTextRef.current) {
-      const storyContainer = storyTextRef.current;
-      const text = storyContainer.textContent || "";
+    if (storyTextRef.current && !activeMenu) {
+      const container = storyTextRef.current;
       const path = getCurrentPath();
 
-      // Calculate the position to scroll to the next depth (highlighted text)
-      let position = 0;
-      for (let i = 0; i < currentDepth; i++) {
-        position += path[i].text.length;
-      }
-
-      // Create a temporary span to measure the position
-      const temp = document.createElement("span");
-      temp.style.whiteSpace = "pre-wrap";
-      temp.textContent = text.substring(0, position);
-      document.body.appendChild(temp);
-      const scrollPosition = temp.offsetHeight;
-      document.body.removeChild(temp);
-
-      // Scroll to show the highlighted text with some padding
-      storyContainer.scrollTop = scrollPosition - 60;
+      debouncedScroll(() => {
+        scrollToCurrentDepth(container, path, currentDepth, true);
+      });
     }
-  }, [currentDepth, getCurrentPath]);
+  }, [currentDepth, getCurrentPath, activeMenu, debouncedScroll]);
+
+  // Scroll to selected sibling when left/right navigation changes
+  useEffect(() => {
+    if (storyTextRef.current && !activeMenu) {
+      const container = storyTextRef.current;
+      const path = getCurrentPath();
+
+      debouncedScroll(() => {
+        scrollToSelectedSibling(container, path, currentDepth, true);
+      });
+    }
+  }, [
+    selectedOptions,
+    getCurrentPath,
+    activeMenu,
+    debouncedScroll,
+    currentDepth,
+  ]);
+
+  // Scroll to end when new content is added (after text splitting or generation)
+  useEffect(() => {
+    if (storyTextRef.current && !isGenerating && !activeMenu) {
+      const container = storyTextRef.current;
+      const path = getCurrentPath();
+      const wasAtBottom = isAtBottom(container);
+
+      // If user was at bottom or near end, scroll to show new content
+      if (wasAtBottom) {
+        debouncedScroll(() => {
+          scrollToEndOfPath(container, path, true);
+        });
+      }
+    }
+  }, [storyTree, isGenerating, getCurrentPath, activeMenu, debouncedScroll]);
 
   const renderStoryText = () => {
     const currentPath = getCurrentPath();
@@ -216,10 +310,14 @@ const GamepadInterface = () => {
           {activeMenu === "select" ? (
             <MenuScreen title="Settings" onClose={() => setActiveMenu(null)}>
               <SettingsMenu
-                params={menuParams}
-                onParamChange={(param, value) =>
-                  setMenuParams((prev) => ({ ...prev, [param]: value }))
-                }
+                params={{ ...menuParams, theme }}
+                onParamChange={(param, value) => {
+                  if (param === "theme") {
+                    setTheme(value as "matrix" | "light" | "system");
+                  } else {
+                    setMenuParams((prev) => ({ ...prev, [param]: value }));
+                  }
+                }}
                 selectedParam={selectedParam}
                 isLoading={isGenerating}
               />
@@ -271,23 +369,26 @@ const GamepadInterface = () => {
                   // Conditionally split the edited text based on settings
                   if (menuParams.textSplitting) {
                     const nodeChain = splitTextToNodes(text);
-                    
+
                     if (nodeChain) {
                       // Replace current node with the head of the chain
                       current.text = nodeChain.text;
-                      
+
                       // Preserve existing continuations by attaching them to the end of the chain
                       const existingContinuations = current.continuations || [];
-                      
+
                       // Walk to the end of the new chain
                       let chainEnd = nodeChain;
-                      while (chainEnd.continuations && chainEnd.continuations.length > 0) {
+                      while (
+                        chainEnd.continuations &&
+                        chainEnd.continuations.length > 0
+                      ) {
                         chainEnd = chainEnd.continuations[0];
                       }
-                      
+
                       // Attach existing continuations to the end of the chain
                       chainEnd.continuations = existingContinuations;
-                      
+
                       // Replace the current node's continuations with the new chain
                       current.continuations = nodeChain.continuations;
                       if (nodeChain.lastSelectedIndex !== undefined) {
@@ -301,9 +402,18 @@ const GamepadInterface = () => {
                     // Simple text replacement when splitting is disabled
                     current.text = text;
                   }
-                  
+
                   setStoryTree(newTree);
                   setActiveMenu(null);
+
+                  // Scroll to the end of the updated content after text splitting
+                  setTimeout(() => {
+                    if (storyTextRef.current) {
+                      const container = storyTextRef.current;
+                      const path = getCurrentPath();
+                      scrollToEndOfPath(container, path, true);
+                    }
+                  }, 100);
                 }}
                 onCancel={() => setActiveMenu(null)}
               />
