@@ -22,13 +22,13 @@ const createPrompt = (path: StoryNode[], depth: number) => {
 };
 
 export function useStoryGeneration() {
-  const { generate, isGenerating, error } = useTextGeneration();
+  const { generate, error } = useTextGeneration();
   const [generatedText, setGeneratedText] = useState("");
 
   const generateContinuation = async (
     path: StoryNode[],
     depth: number,
-    params: GenerationParams
+    params: GenerationParams,
   ): Promise<StoryNode> => {
     setGeneratedText("");
     let fullText = "";
@@ -48,19 +48,19 @@ export function useStoryGeneration() {
       },
       () => {
         setGeneratedText(fullText);
-      }
+      },
     );
 
     // Conditionally split the generated text based on settings
     if (params.textSplitting) {
       const nodeChain = splitTextToNodes(fullText);
-      
+
       // If splitting succeeded, return the chain
       if (nodeChain) {
         return nodeChain;
       }
     }
-    
+
     // Fallback to single node (if splitting disabled or failed)
     return {
       id: Math.random().toString(36).substring(2, 15),
@@ -72,7 +72,6 @@ export function useStoryGeneration() {
   return {
     generateContinuation,
     generatedText,
-    isGenerating,
     error,
   };
 }

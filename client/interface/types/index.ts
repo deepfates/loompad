@@ -82,9 +82,13 @@ export interface MenuButtonProps {
   onMouseUp: () => void;
 }
 
-export interface GeneratingState {
-  depth: number;
-  index: number | null;
+export type InFlight = Set<string>;
+
+export interface GeneratingInfo {
+  [nodeId: string]: {
+    depth: number;
+    index: number | null;
+  };
 }
 
 export interface ActiveControls {

@@ -94,8 +94,10 @@ const GamepadInterface = () => {
     storyTree,
     currentDepth,
     selectedOptions,
-    generatingAt,
-    isGenerating,
+    inFlight,
+    generatingInfo,
+    isGeneratingAt,
+    isAnyGenerating,
     error,
     handleStoryNavigation,
     setCurrentTreeKey,
@@ -257,7 +259,7 @@ const GamepadInterface = () => {
 
   // Scroll to end when new content is added (after text splitting or generation)
   useEffect(() => {
-    if (storyTextRef.current && !isGenerating && !activeMenu) {
+    if (storyTextRef.current && !isAnyGenerating && !activeMenu) {
       const container = storyTextRef.current;
       const path = getCurrentPath();
       const wasAtBottom = isAtBottom(container);
@@ -269,7 +271,7 @@ const GamepadInterface = () => {
         });
       }
     }
-  }, [storyTree, isGenerating, getCurrentPath, activeMenu, debouncedScroll]);
+  }, [storyTree, isAnyGenerating, getCurrentPath, activeMenu, debouncedScroll]);
 
   const renderStoryText = () => {
     const currentPath = getCurrentPath();
@@ -279,7 +281,7 @@ const GamepadInterface = () => {
         {currentPath.map((segment, index) => {
           const isCurrentDepth = index === currentDepth;
           const isNextDepth = index === currentDepth + 1;
-          const isLoading = generatingAt?.depth === index;
+          const isLoading = isGeneratingAt(segment.id);
 
           return (
             <span
@@ -319,7 +321,7 @@ const GamepadInterface = () => {
                   }
                 }}
                 selectedParam={selectedParam}
-                isLoading={isGenerating}
+                isLoading={isAnyGenerating}
               />
             </MenuScreen>
           ) : activeMenu === "start" ? (
@@ -426,7 +428,8 @@ const GamepadInterface = () => {
                 currentDepth={currentDepth}
                 selectedOptions={selectedOptions}
                 activeControls={activeControls}
-                generatingAt={generatingAt}
+                inFlight={inFlight}
+                generatingInfo={generatingInfo}
               />
               {isOffline && (
                 <output className="offline-message">
@@ -462,7 +465,10 @@ const GamepadInterface = () => {
                 active={activeControls.a}
                 onMouseDown={() => handleControlPress("Enter")}
                 onMouseUp={() => handleControlRelease("Enter")}
-                disabled={isOffline}
+                disabled={
+                  isOffline ||
+                  isGeneratingAt(getCurrentPath()[currentDepth]?.id)
+                }
               />
             </div>
           </div>
