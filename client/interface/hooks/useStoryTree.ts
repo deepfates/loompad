@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import type { StoryNode, GeneratingState } from "../types";
+import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
 import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../server/apis/generation";
@@ -26,18 +26,26 @@ interface StoryParams {
 export function useStoryTree(params: StoryParams) {
   const [trees, setTrees] = useLocalStorage(DEFAULT_TREES);
   const [currentTreeKey, setCurrentTreeKey] = useState(
-    () => Object.keys(trees)[0]
+    () => Object.keys(trees)[0],
   );
   const [storyTree, setStoryTree] = useState<{ root: StoryNode }>(
-    () => trees[currentTreeKey]
+    () => trees[currentTreeKey],
   );
   const [currentDepth, setCurrentDepth] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
-  const [generatingAt, setGeneratingAt] = useState<GeneratingState | null>(
-    null
+  const [inFlight, setInFlight] = useState<InFlight>(new Set());
+  const [generatingInfo, setGeneratingInfo] = useState<GeneratingInfo>({});
+
+  const { generateContinuation, error } = useStoryGeneration();
+
+  // Helper to check if a specific node is generating
+  const isGeneratingAt = useCallback(
+    (nodeId: string) => inFlight.has(nodeId),
+    [inFlight],
   );
 
-  const { generateContinuation, isGenerating, error } = useStoryGeneration();
+  // Helper to check if any generation is in progress
+  const isAnyGenerating = inFlight.size > 0;
 
   useEffect(() => {
     setStoryTree(trees[currentTreeKey] || INITIAL_STORY);
@@ -55,7 +63,7 @@ export function useStoryTree(params: StoryParams) {
       }
       return defaultIndex;
     },
-    []
+    [],
   );
 
   const getOptionsAtDepth = useCallback(
@@ -73,7 +81,7 @@ export function useStoryTree(params: StoryParams) {
           ?.continuations || []
       );
     },
-    [storyTree, selectedOptions]
+    [storyTree, selectedOptions],
   );
 
   const getCurrentPath = useCallback((): StoryNode[] => {
@@ -127,7 +135,7 @@ export function useStoryTree(params: StoryParams) {
         [currentTreeKey]: newTree,
       }));
     },
-    [storyTree, currentTreeKey, setTrees]
+    [storyTree, currentTreeKey, setTrees],
   );
 
   const generateContinuations = useCallback(
@@ -139,28 +147,24 @@ export function useStoryTree(params: StoryParams) {
           .fill(null)
           .map(async () => {
             // generateContinuation now returns a node chain (head node)
-            return await generateContinuation(currentPath, currentDepth, params);
-          })
+            return await generateContinuation(
+              currentPath,
+              currentDepth,
+              params,
+            );
+          }),
       );
       return results;
     },
-    [getCurrentPath, currentDepth, params, generateContinuation]
+    [getCurrentPath, currentDepth, params, generateContinuation],
   );
 
   const addContinuations = useCallback(
     (
       path: StoryNode[],
       newContinuations: StoryNode[],
-      isNewChildren: boolean
+      isNewChildren: boolean,
     ) => {
-      console.log("Adding continuations:", {
-        path: path.map((n) => ({ id: n.id, text: n.text.slice(0, 20) })),
-        newContinuations: newContinuations.map((n) => ({
-          id: n.id,
-          text: n.text.slice(0, 20),
-        })),
-      });
-
       const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
       let current = newTree.root;
 
@@ -194,25 +198,19 @@ export function useStoryTree(params: StoryParams) {
         current.lastSelectedIndex = (current.continuations?.length ?? 1) - 1;
       }
 
-      console.log("Updated tree node:", {
-        nodeId: current.id,
-        continuations: current.continuations.map((n) => ({
-          id: n.id,
-          text: n.text.slice(0, 20),
-        })),
-        lastSelectedIndex: current.lastSelectedIndex,
-      });
-
       return newTree;
     },
-    [storyTree]
+    [storyTree],
   );
 
   const handleStoryNavigation = useCallback(
     async (key: string) => {
-      if (isGenerating) return;
-
+      // Allow arrow/backspace navigation during generation, but prevent new
+      // generations from the same node if it's already generating.
       const currentPath = getCurrentPath();
+      const currentNode = currentPath[currentDepth];
+      if (key === "Enter" && isGeneratingAt(currentNode.id)) return;
+
       const options = getOptionsAtDepth(currentDepth);
       const currentOption = selectedOptions[currentDepth] ?? 0;
 
@@ -253,7 +251,7 @@ export function useStoryTree(params: StoryParams) {
             updateLastSelectedIndex(
               currentPath,
               currentDepth,
-              currentOption - 1
+              currentOption - 1,
             );
           }
           break;
@@ -268,7 +266,7 @@ export function useStoryTree(params: StoryParams) {
             updateLastSelectedIndex(
               currentPath,
               currentDepth,
-              currentOption + 1
+              currentOption + 1,
             );
           }
           break;
@@ -280,37 +278,25 @@ export function useStoryTree(params: StoryParams) {
             currentNode.continuations?.length > 0;
           const count = hasExistingContinuations ? 1 : 3;
 
-          console.log("Starting generation:", {
-            depth: currentDepth,
-            hasExisting: hasExistingContinuations,
-            count,
-            currentNode: {
-              id: currentNode.id,
-              text: currentNode.text.slice(0, 20),
+          // Add node to in-flight set and track generation info
+          setInFlight((prev) => new Set(prev).add(currentNode.id));
+          setGeneratingInfo((prev) => ({
+            ...prev,
+            [currentNode.id]: {
+              depth: currentDepth,
+              index: hasExistingContinuations
+                ? (currentNode.continuations?.length ?? 0)
+                : null,
             },
-          });
-
-          setGeneratingAt({
-            depth: currentDepth,
-            index: hasExistingContinuations
-              ? currentNode.continuations?.length ?? 0
-              : null,
-          });
+          }));
 
           try {
             const newContinuations = await generateContinuations(count);
-            console.log(
-              "Generated continuations:",
-              newContinuations.map((n) => ({
-                id: n.id,
-                text: n.text.slice(0, 20),
-              }))
-            );
 
             const updatedTree = addContinuations(
               currentPath.slice(0, currentDepth + 1),
               newContinuations,
-              !hasExistingContinuations
+              !hasExistingContinuations,
             );
 
             // Update all state at once
@@ -325,7 +311,6 @@ export function useStoryTree(params: StoryParams) {
             } else {
               // For new children, stay at current depth
               // The children will be visible but not selected
-              console.log("Generated new children, staying at current depth");
             }
 
             // Update tree last to ensure all state is consistent
@@ -337,14 +322,23 @@ export function useStoryTree(params: StoryParams) {
           } catch (e) {
             console.error("Generation failed:", e);
           } finally {
-            setGeneratingAt(null);
+            // Remove node from in-flight set and clear generation info
+            setInFlight((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(currentNode.id);
+              return newSet;
+            });
+            setGeneratingInfo((prev) => {
+              const newInfo = { ...prev };
+              delete newInfo[currentNode.id];
+              return newInfo;
+            });
           }
           break;
         }
       }
     },
     [
-      isGenerating,
       error,
       getCurrentPath,
       getOptionsAtDepth,
@@ -356,15 +350,18 @@ export function useStoryTree(params: StoryParams) {
       setTrees,
       getLastSelectedIndex,
       updateLastSelectedIndex,
-    ]
+      isGeneratingAt,
+    ],
   );
 
   return {
     storyTree,
     currentDepth,
     selectedOptions,
-    generatingAt,
-    isGenerating,
+    inFlight,
+    generatingInfo,
+    isGeneratingAt,
+    isAnyGenerating,
     error,
     handleStoryNavigation,
     trees,

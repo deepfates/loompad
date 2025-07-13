@@ -12,7 +12,6 @@ interface GenerationError {
 }
 
 export function useTextGeneration() {
-  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<GenerationError | null>(null);
 
   const generate = useCallback(
@@ -20,15 +19,15 @@ export function useTextGeneration() {
       prompt: string,
       options: GenerationOptions,
       onToken: (token: string) => void,
-      onComplete: () => void
+      onComplete: () => void,
     ) => {
-      setIsGenerating(true);
       setError(null);
 
       // Check if we're offline
       if (!navigator.onLine) {
-        setError({ message: "No internet connection - generation requires online access" });
-        setIsGenerating(false);
+        setError({
+          message: "No internet connection - generation requires online access",
+        });
         return;
       }
 
@@ -87,7 +86,7 @@ export function useTextGeneration() {
         }
       } catch (error: unknown) {
         let errorMessage = "An error occurred during generation";
-        
+
         if (error instanceof Error) {
           if (error.name === "TypeError" && error.message.includes("fetch")) {
             errorMessage = "Network error - check your connection";
@@ -95,19 +94,16 @@ export function useTextGeneration() {
             errorMessage = error.message;
           }
         }
-        
+
         setError({ message: errorMessage });
         console.error("Generation error:", error);
-      } finally {
-        setIsGenerating(false);
       }
     },
-    []
+    [],
   );
 
   return {
     generate,
-    isGenerating,
     error,
   };
 }

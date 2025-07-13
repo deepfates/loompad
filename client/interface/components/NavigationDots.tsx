@@ -1,11 +1,17 @@
-import type { StoryNode, ActiveControls, GeneratingState } from "../types";
+import type {
+  StoryNode,
+  ActiveControls,
+  InFlight,
+  GeneratingInfo,
+} from "../types";
 
 interface NavigationDotsProps {
   options: StoryNode[];
   currentDepth: number;
   selectedOptions: number[];
   activeControls: ActiveControls;
-  generatingAt: GeneratingState | null;
+  inFlight: InFlight;
+  generatingInfo: GeneratingInfo;
 }
 
 export const NavigationDots = ({
@@ -13,10 +19,16 @@ export const NavigationDots = ({
   currentDepth,
   selectedOptions,
   activeControls,
-  generatingAt,
+  inFlight,
+  generatingInfo,
 }: NavigationDotsProps) => {
+  // Check if any node at this depth is generating
+  const isGeneratingAtDepth = Object.values(generatingInfo).some(
+    (info) => info.depth === currentDepth,
+  );
+
   // Only hide if there are no options AND we're not generating at this depth
-  if (!options.length && generatingAt?.depth !== currentDepth) return null;
+  if (!options.length && !isGeneratingAtDepth) return null;
 
   // Get which option is currently selected
   const currentIndex = selectedOptions[currentDepth] ?? 0;
@@ -27,21 +39,20 @@ export const NavigationDots = ({
     (currentIndex === options.length - 1 &&
       activeControls.direction === "right");
 
-  // If we're generating new nodes, show 3 loading dots
-  // If we're generating a sibling, show 1 loading dot
-  const isGeneratingNew =
-    generatingAt?.depth === currentDepth && generatingAt.index === null;
-  const isGeneratingSibling =
-    generatingAt?.depth === currentDepth && generatingAt.index !== null;
-  const loadingCount = isGeneratingNew ? 3 : isGeneratingSibling ? 1 : 0;
+  // Calculate loading dots based on all generations at this depth
+  let loadingCount = 0;
+  Object.values(generatingInfo).forEach((info) => {
+    if (info.depth === currentDepth) {
+      loadingCount += info.index === null ? 3 : 1;
+    }
+  });
 
   return (
     <div className="navigation-dots">
       {/* Show existing options */}
       {options.map((option, index) => {
         const isSelected = index === currentIndex;
-        const isGenerating =
-          generatingAt?.depth === currentDepth && generatingAt.index === index;
+        const isGenerating = inFlight.has(option.id);
         const shouldBump = isSelected && isEdgePress;
 
         return (
@@ -62,9 +73,7 @@ export const NavigationDots = ({
           .fill(null)
           .map((_, i) => (
             <div
-              key={`loading-${generatingAt?.depth}-${
-                generatingAt?.index ?? "new"
-              }-${i}`}
+              key={`loading-${currentDepth}-${i}`}
               className="navigation-dot generating"
             />
           ))}
