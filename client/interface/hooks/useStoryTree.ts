@@ -299,19 +299,9 @@ export function useStoryTree(params: StoryParams) {
               !hasExistingContinuations,
             );
 
-            // Update all state at once
-            if (hasExistingContinuations) {
-              // For siblings, select the new continuation
-              const newIndex = currentNode.continuations?.length ?? 0;
-              setSelectedOptions((prev) => {
-                const newOptions = [...prev];
-                newOptions[currentDepth] = newIndex;
-                return newOptions.slice(0, currentDepth + 1);
-              });
-            } else {
-              // For new children, stay at current depth
-              // The children will be visible but not selected
-            }
+            // Don't auto-jump to new nodes - let user navigate manually
+            // The new nodes will be visible in the reader and minimap
+            // but the cursor stays where it was
 
             // Update tree last to ensure all state is consistent
             setStoryTree(updatedTree);

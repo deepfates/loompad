@@ -650,3 +650,57 @@
 .delete-button:hover {
     opacity: 1 !important;
 }
+
+/* ===== MINIMAP STYLES ===== */
+
+/* Main minimap container - fills available space */
+.minimap-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+
+/* Scrollable viewport area - hidden scrollbars for clean look */
+.minimap-viewport {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+    scrollbar-width: none; /* Firefox */
+}
+
+.minimap-viewport::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+/* Terminal-style status bar at bottom */
+.minimap-minibuffer {
+    border-top: 0.125rem solid var(--font-color);
+    padding: 0.5rem;
+    background: var(--background-color);
+    text-align: center;
+}
+
+.minimap-minibuffer-text {
+    font-size: 0.875rem;
+    color: var(--font-color);
+    opacity: 0.9;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Pulsing animation for nodes currently generating */
+@keyframes minimap-pulse {
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.minimap-dot.generating {
+    animation: minimap-pulse 1s infinite;
+}

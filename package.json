@@ -18,6 +18,7 @@
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
+    "d3-hierarchy": "^3.1.2",
     "express": "^4.19.2",
     "mime": "^4.0.1",
     "nocache": "^4.0.0",
