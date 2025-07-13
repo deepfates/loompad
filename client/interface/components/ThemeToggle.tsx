@@ -8,7 +8,7 @@ function isValidTheme(value: string | null): value is Theme {
 }
 
 export const useTheme = () => {
-  const [theme, setTheme] = useState<Theme>("matrix");
+  const [theme, setTheme] = useState<Theme>("system");
 
   // Load theme from localStorage on mount
   useEffect(() => {
