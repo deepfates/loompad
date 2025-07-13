@@ -26,15 +26,15 @@ interface StoryParams {
 export function useStoryTree(params: StoryParams) {
   const [trees, setTrees] = useLocalStorage(DEFAULT_TREES);
   const [currentTreeKey, setCurrentTreeKey] = useState(
-    () => Object.keys(trees)[0]
+    () => Object.keys(trees)[0],
   );
   const [storyTree, setStoryTree] = useState<{ root: StoryNode }>(
-    () => trees[currentTreeKey]
+    () => trees[currentTreeKey],
   );
   const [currentDepth, setCurrentDepth] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
   const [generatingAt, setGeneratingAt] = useState<GeneratingState | null>(
-    null
+    null,
   );
 
   const { generateContinuation, isGenerating, error } = useStoryGeneration();
@@ -55,7 +55,7 @@ export function useStoryTree(params: StoryParams) {
       }
       return defaultIndex;
     },
-    []
+    [],
   );
 
   const getOptionsAtDepth = useCallback(
@@ -73,7 +73,7 @@ export function useStoryTree(params: StoryParams) {
           ?.continuations || []
       );
     },
-    [storyTree, selectedOptions]
+    [storyTree, selectedOptions],
   );
 
   const getCurrentPath = useCallback((): StoryNode[] => {
@@ -127,7 +127,7 @@ export function useStoryTree(params: StoryParams) {
         [currentTreeKey]: newTree,
       }));
     },
-    [storyTree, currentTreeKey, setTrees]
+    [storyTree, currentTreeKey, setTrees],
   );
 
   const generateContinuations = useCallback(
@@ -139,19 +139,23 @@ export function useStoryTree(params: StoryParams) {
           .fill(null)
           .map(async () => {
             // generateContinuation now returns a node chain (head node)
-            return await generateContinuation(currentPath, currentDepth, params);
-          })
+            return await generateContinuation(
+              currentPath,
+              currentDepth,
+              params,
+            );
+          }),
       );
       return results;
     },
-    [getCurrentPath, currentDepth, params, generateContinuation]
+    [getCurrentPath, currentDepth, params, generateContinuation],
   );
 
   const addContinuations = useCallback(
     (
       path: StoryNode[],
       newContinuations: StoryNode[],
-      isNewChildren: boolean
+      isNewChildren: boolean,
     ) => {
       console.log("Adding continuations:", {
         path: path.map((n) => ({ id: n.id, text: n.text.slice(0, 20) })),
@@ -205,12 +209,14 @@ export function useStoryTree(params: StoryParams) {
 
       return newTree;
     },
-    [storyTree]
+    [storyTree],
   );
 
   const handleStoryNavigation = useCallback(
     async (key: string) => {
-      if (isGenerating) return;
+      // Allow arrow/backspace navigation during generation, but prevent new
+      // generations from starting while one is already in progress.
+      if (key === "Enter" && isGenerating) return;
 
       const currentPath = getCurrentPath();
       const options = getOptionsAtDepth(currentDepth);
@@ -253,7 +259,7 @@ export function useStoryTree(params: StoryParams) {
             updateLastSelectedIndex(
               currentPath,
               currentDepth,
-              currentOption - 1
+              currentOption - 1,
             );
           }
           break;
@@ -268,7 +274,7 @@ export function useStoryTree(params: StoryParams) {
             updateLastSelectedIndex(
               currentPath,
               currentDepth,
-              currentOption + 1
+              currentOption + 1,
             );
           }
           break;
@@ -293,7 +299,7 @@ export function useStoryTree(params: StoryParams) {
           setGeneratingAt({
             depth: currentDepth,
             index: hasExistingContinuations
-              ? currentNode.continuations?.length ?? 0
+              ? (currentNode.continuations?.length ?? 0)
               : null,
           });
 
@@ -304,13 +310,13 @@ export function useStoryTree(params: StoryParams) {
               newContinuations.map((n) => ({
                 id: n.id,
                 text: n.text.slice(0, 20),
-              }))
+              })),
             );
 
             const updatedTree = addContinuations(
               currentPath.slice(0, currentDepth + 1),
               newContinuations,
-              !hasExistingContinuations
+              !hasExistingContinuations,
             );
 
             // Update all state at once
@@ -356,7 +362,7 @@ export function useStoryTree(params: StoryParams) {
       setTrees,
       getLastSelectedIndex,
       updateLastSelectedIndex,
-    ]
+    ],
   );
 
   return {
