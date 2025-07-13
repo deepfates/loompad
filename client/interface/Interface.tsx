@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import "./terminal-custom.css";
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
@@ -11,6 +11,7 @@ import { GamepadButton } from "./components/GamepadButton";
 import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
+import { StoryMinimap } from "./components/StoryMinimap";
 import { useTheme } from "./components/ThemeToggle";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
@@ -151,6 +152,20 @@ const GamepadInterface = () => {
         return;
       }
 
+      if (activeMenu === "map") {
+        // In map mode, navigation and generation work normally
+        if (key === "Backspace") {
+          // B button exits map and goes to edit mode
+          setActiveMenu("edit");
+          return;
+        } else if (key === "Escape") {
+          // START button from map goes to story list
+          setActiveMenu("start");
+          return;
+        }
+        // Let arrow keys and Enter fall through to story navigation
+      }
+
       if (activeMenu === "select") {
         // Custom handling for settings menu including theme
         if (key === "ArrowUp") {
@@ -188,7 +203,7 @@ const GamepadInterface = () => {
             });
           }
         }
-      } else if (activeMenu) {
+      } else if (activeMenu && activeMenu !== "map") {
         handleMenuNavigation(key, trees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
@@ -202,11 +217,15 @@ const GamepadInterface = () => {
         await handleStoryNavigation(key);
       }
 
-      // Handle menu activation/deactivation
+      // Handle menu activation/deactivation with zoom-out flow
       if (key === "`") {
         setActiveMenu((prev) => (prev === "select" ? null : "select"));
       } else if (key === "Escape" && !activeMenu) {
-        setActiveMenu((prev) => (prev === "start" ? null : "start"));
+        setActiveMenu("map"); // First START press shows minimap
+      } else if (key === "Escape" && activeMenu === "map") {
+        setActiveMenu("start"); // Second START press shows story list
+      } else if (key === "Escape" && activeMenu === "start") {
+        setActiveMenu(null); // Back to reading from story list
       } else if (key === "Backspace" && !activeMenu) {
         setActiveMenu("edit");
       }
@@ -324,6 +343,15 @@ const GamepadInterface = () => {
                 isLoading={isAnyGenerating}
               />
             </MenuScreen>
+          ) : activeMenu === "map" ? (
+            <StoryMinimap
+              tree={storyTree}
+              currentDepth={currentDepth}
+              selectedOptions={selectedOptions}
+              currentPath={getCurrentPath()}
+              inFlight={inFlight}
+              generatingInfo={generatingInfo}
+            />
           ) : activeMenu === "start" ? (
             <MenuScreen title="Trees" onClose={() => setActiveMenu(null)}>
               <TreeListMenu
