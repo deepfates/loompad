@@ -246,6 +246,34 @@ const GamepadInterface = () => {
   const { activeControls, handleControlPress, handleControlRelease } =
     useKeyboardControls(handleControlAction);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<"portrait" | "landscape">("portrait");
+
+  useEffect(() => {
+    const checkLayout = () => {
+      if (containerRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        const aspectRatio = clientWidth / clientHeight;
+        setLayout(aspectRatio >= 1.33 ? "landscape" : "portrait");
+      }
+    };
+
+    // Use ResizeObserver for more efficient layout checks
+    const resizeObserver = new ResizeObserver(checkLayout);
+    const currentContainer = containerRef.current;
+
+    if (currentContainer) {
+      resizeObserver.observe(currentContainer);
+      checkLayout(); // Initial check
+    }
+
+    return () => {
+      if (currentContainer) {
+        resizeObserver.unobserve(currentContainer);
+      }
+    };
+  }, []);
+
   // Scroll to current depth when navigation changes
   useEffect(() => {
     if (storyTextRef.current && !activeMenu) {
@@ -325,7 +353,7 @@ const GamepadInterface = () => {
   return (
     <main className="terminal" aria-label="Story Interface">
       <InstallPrompt />
-      <div className="container">
+      <div ref={containerRef} className={`container ${layout}`}>
         {/* Screen area */}
         <section className="terminal-screen" aria-label="Story Display">
           {activeMenu === "select" ? (
