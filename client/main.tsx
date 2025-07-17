@@ -1,8 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
-import "terminal.css";
-import "./matrix-theme.css";
+import "./styles/terminal.css";
 
 // @ts-ignore
 const initial_state = window.__INITIAL_STATE__;

@@ -1,5 +1,5 @@
-import ReactDOMServer from 'react-dom/server'
-import App from '../client/App'
+import ReactDOMServer from "react-dom/server";
+import App from "../client/App";
 import { Router } from "wouter";
 import { ServerStyleSheet } from "styled-components";
 import fs from "fs";
@@ -14,8 +14,8 @@ export function render(url, context) {
       sheet.collectStyles(
         <Router ssrPath={url}>
           <App />
-        </Router>
-      )
+        </Router>,
+      ),
     );
 
     // Get the styles from styled-components
@@ -23,11 +23,10 @@ export function render(url, context) {
 
     // Include Terminal CSS and your custom CSS
     const externalStyles = `
-      <link rel="stylesheet" href="/node_modules/terminal.css/dist/terminal.min.css">
       <style>
         ${fs.readFileSync(
-          path.resolve(process.cwd(), "client/interface/terminal-custom.css"),
-          "utf8"
+          path.resolve(process.cwd(), "client/styles/terminal.css"),
+          "utf8",
         )}
       </style>
     `;

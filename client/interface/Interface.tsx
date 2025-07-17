@@ -1,5 +1,4 @@
 import { useCallback, useRef, useEffect, useState } from "react";
-import "./terminal-custom.css";
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
