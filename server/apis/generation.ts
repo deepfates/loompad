@@ -14,7 +14,7 @@ const openai = new OpenAI({
 
 // Available models and their configs
 export const AVAILABLE_MODELS = {
-  "deepseek/deepseek-v3-base:free": {
+  "deepseek/deepseek-v3-base": {
     name: "DeepSeek V3",
     maxTokens: 1024,
     defaultTemp: 0.7,

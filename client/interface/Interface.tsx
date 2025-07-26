@@ -34,7 +34,7 @@ import type { ModelId } from "../../server/apis/generation";
 const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 256,
-  model: "deepseek/deepseek-v3-base:free" as ModelId,
+  model: "deepseek/deepseek-v3-base" as ModelId,
   textSplitting: true,
 };
 
