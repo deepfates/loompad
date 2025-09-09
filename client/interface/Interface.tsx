@@ -29,7 +29,7 @@ import {
 } from "./utils/scrolling";
 
 import type { StoryNode } from "./types";
-import type { ModelId } from "../../server/apis/generation";
+import type { ModelId } from "../../shared/models";
 
 const DEFAULT_PARAMS = {
   temperature: 0.7,
@@ -53,28 +53,7 @@ const GamepadInterface = () => {
   // Create debounced scroll function
   const debouncedScroll = createDebouncedScroll(SCROLL_DEBOUNCE_DELAY);
 
-  // Helper function for menu navigation with scrolling
-  const handleMenuNavWithScroll = (
-    direction: "up" | "down",
-    currentIndex: number,
-    maxIndex: number,
-    setIndex: (newIndex: number) => void,
-  ) => {
-    const newIndex =
-      direction === "up"
-        ? Math.max(0, currentIndex - 1)
-        : Math.min(maxIndex, currentIndex + 1);
-
-    setIndex(newIndex);
-
-    // Use debounced scroll to avoid excessive calls
-    debouncedScroll(() => {
-      const menuContent = document.querySelector(".menu-content");
-      if (menuContent) {
-        scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
-      }
-    });
-  };
+  // (select menu navigation now handled in useMenuSystem)
 
   const {
     activeMenu,
@@ -166,42 +145,17 @@ const GamepadInterface = () => {
       }
 
       if (activeMenu === "select") {
-        // Custom handling for settings menu including theme
-        if (key === "ArrowUp") {
-          handleMenuNavWithScroll("up", selectedParam, 4, setSelectedParam);
-        } else if (key === "ArrowDown") {
-          handleMenuNavWithScroll("down", selectedParam, 4, setSelectedParam);
-        } else if (key === "ArrowLeft" || key === "ArrowRight") {
-          const direction = key === "ArrowRight" ? 1 : -1;
-
-          if (selectedParam === 3) {
-            // Theme parameter
-            const themes = ["matrix", "light", "system"] as const;
-            const currentIndex = themes.indexOf(theme);
-            const newIndex =
-              direction > 0
-                ? (currentIndex + 1) % themes.length
-                : (currentIndex - 1 + themes.length) % themes.length;
-            setTheme(themes[newIndex]);
-          } else if (selectedParam === 4) {
-            // Text Splitting parameter
-            setMenuParams((prev) => ({
-              ...prev,
-              textSplitting: !prev.textSplitting,
-            }));
-          } else {
-            // Regular menu parameters - delegate to existing handler
-            handleMenuNavigation(key, trees, {
-              onNewTree: handleNewTree,
-              onSelectTree: (key) => {
-                setCurrentTreeKey(key);
-                setActiveMenu(null);
-                setSelectedTreeIndex(0);
-              },
-              onDeleteTree: handleDeleteTree,
-            });
-          }
-        }
+        handleMenuNavigation(key, trees, {
+          onNewTree: handleNewTree,
+          onSelectTree: (key) => {
+            setCurrentTreeKey(key);
+            setActiveMenu(null);
+            setSelectedTreeIndex(0);
+          },
+          onDeleteTree: handleDeleteTree,
+          currentTheme: theme,
+          onThemeChange: setTheme,
+        });
       } else if (activeMenu && activeMenu !== "map") {
         handleMenuNavigation(key, trees, {
           onNewTree: handleNewTree,

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { MenuType } from "../types";
-import type { ModelId } from "../../../server/apis/generation";
+import type { ModelId } from "../../../shared/models";
 import { useModels } from "./useModels";
 import { scrollMenuItemIntoView } from "../utils/scrolling";
 
@@ -11,10 +11,15 @@ interface MenuParams {
   textSplitting: boolean;
 }
 
+type Theme = "matrix" | "light" | "system";
+
 interface MenuCallbacks {
   onNewTree?: () => void;
   onSelectTree?: (key: string) => void;
   onDeleteTree?: (key: string) => void;
+  // Settings menu (theme)
+  currentTheme?: Theme;
+  onThemeChange?: (theme: Theme) => void;
 }
 
 export function useMenuSystem(defaultParams: MenuParams) {
@@ -33,10 +38,24 @@ export function useMenuSystem(defaultParams: MenuParams) {
       if (activeMenu === "select") {
         switch (key) {
           case "ArrowUp":
-            setSelectedParam((prev) => Math.max(0, prev - 1));
+            setSelectedParam((prev) => {
+              const newIndex = Math.max(0, prev - 1);
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+              }
+              return newIndex;
+            });
             break;
           case "ArrowDown":
-            setSelectedParam((prev) => Math.min(4, prev + 1));
+            setSelectedParam((prev) => {
+              const newIndex = Math.min(4, prev + 1);
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+              }
+              return newIndex;
+            });
             break;
           case "ArrowLeft": {
             const param = [
@@ -70,6 +89,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   ),
                 }));
               }
+            } else if (param === "theme") {
+              const themes: Theme[] = ["matrix", "light", "system"];
+              const currentTheme = callbacks.currentTheme ?? "system";
+              const idx = themes.indexOf(currentTheme);
+              const nextTheme = themes[(idx - 1 + themes.length) % themes.length];
+              callbacks.onThemeChange?.(nextTheme);
             } else if (param === "textSplitting") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -110,6 +135,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   ),
                 }));
               }
+            } else if (param === "theme") {
+              const themes: Theme[] = ["matrix", "light", "system"];
+              const currentTheme = callbacks.currentTheme ?? "system";
+              const idx = themes.indexOf(currentTheme);
+              const nextTheme = themes[(idx + 1) % themes.length];
+              callbacks.onThemeChange?.(nextTheme);
             } else if (param === "textSplitting") {
               setMenuParams((prev) => ({
                 ...prev,
