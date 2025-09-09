@@ -243,9 +243,15 @@ pre code {
 }
 
 @keyframes cursor {
-    0% { opacity: 0; }
-    50% { opacity: 1; }
-    100% { opacity: 0; }
+    0% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 
 li,
@@ -1739,18 +1745,22 @@ progress::-moz-progress-bar {
 
 /* ===== MINIMAP STYLES ===== */
 
+/* Minimap styles */
 .minimap-container {
     display: flex;
     flex-direction: column;
     height: 100%;
     width: 100%;
+    min-height: 0; /* Allow container to shrink */
+    overflow: hidden; /* Prevent overflow */
 }
 
 .minimap-viewport {
     flex: 1;
     overflow: auto;
-    padding: 1rem;
+    padding: 0.5rem;
     scrollbar-width: none; /* Firefox */
+    min-height: 0; /* Prevent flex item from overflowing */
 }
 
 .minimap-viewport::-webkit-scrollbar {
@@ -1759,18 +1769,52 @@ progress::-moz-progress-bar {
 
 .minimap-minibuffer {
     border-top: 0.125rem solid var(--font-color);
-    padding: 0.5rem;
+    padding: 0.25rem 0.5rem;
     background: var(--background-color);
     text-align: center;
+    flex-shrink: 0; /* Prevent minibuffer from shrinking */
+    min-height: 2rem; /* Ensure minimum height */
+    z-index: 10; /* Ensure it stays on top */
 }
 
 .minimap-minibuffer-text {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     color: var(--font-color);
     opacity: 0.9;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding: 0 0.5rem; /* Add horizontal padding for edge cases */
+}
+
+/* Responsive styles for small screens */
+@media (max-height: 600px) {
+    .minimap-viewport {
+        padding: 0.5rem;
+    }
+
+    .minimap-minibuffer {
+        padding: 0.25rem 0.5rem;
+        min-height: 2rem;
+    }
+
+    .minimap-minibuffer-text {
+        font-size: 0.75rem;
+    }
+}
+
+/* For very small screens, ensure minibuffer is always visible */
+@media (max-height: 400px) {
+    .minimap-container {
+        position: relative;
+    }
+
+    .minimap-minibuffer {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
 }
 
 @keyframes minimap-pulse {
