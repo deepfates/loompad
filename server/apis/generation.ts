@@ -52,9 +52,9 @@ export async function generateText(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid model specified" });
     }
 
-    const stream = await openai.chat.completions.create({
+    const stream = await openai.completions.create({
       model,
-      messages: [{ role: "user", content: prompt }],
+      prompt: prompt,
       temperature: temperature ?? AVAILABLE_MODELS[model].defaultTemp,
       max_tokens: maxTokens ?? AVAILABLE_MODELS[model].maxTokens,
       stream: true,
@@ -67,7 +67,7 @@ export async function generateText(req: Request, res: Response) {
 
     // Stream the response
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || "";
+      const content = chunk.choices[0]?.text || "";
       if (content) {
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
       }
