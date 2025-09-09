@@ -22,8 +22,14 @@
       "server/*": ["../server/*"],
       "client/*": ["../client/*"],
       "shared/*": ["../shared/*"],
-      "config/*": ["../config/*"],
+      "config/*": ["../config/*"]
     }
   },
-  "include": ["../server/**/*", "../client/**/*", "../shared/**/*", "../config/**/*", "../*.ts"]
+  "include": [
+    "../server/**/*",
+    "../client/**/*",
+    "../shared/**/*",
+    "../config/**/*",
+    "../*.ts"
+  ]
 }
