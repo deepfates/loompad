@@ -211,8 +211,8 @@ export const StoryMinimap = ({
     // Calculate bounding box for both nodes
     const boundingWidth = maxX - minX;
     const boundingHeight = maxY - minY;
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
+    const centerX2 = (minX + maxX) / 2;
+    const centerY2 = (minY + maxY) / 2;
 
     let newScrollLeft = scrollLeft;
     let newScrollTop = scrollTop;
@@ -220,7 +220,7 @@ export const StoryMinimap = ({
     // Check if bounding box fits in viewport
     if (boundingWidth + margin * 2 <= viewportRect.width) {
       // Both nodes can fit, center them
-      const targetLeft = centerX - viewportRect.width / 2;
+      const targetLeft = centerX2 - viewportRect.width / 2;
       if (
         minX < scrollLeft + margin ||
         maxX > scrollLeft + viewportRect.width - margin
@@ -242,7 +242,7 @@ export const StoryMinimap = ({
 
     // Similar logic for vertical
     if (boundingHeight + margin * 2 <= viewportRect.height) {
-      const targetTop = centerY - viewportRect.height / 2;
+      const targetTop = centerY2 - viewportRect.height / 2;
       if (
         minY < scrollTop + margin ||
         maxY > scrollTop + viewportRect.height - margin

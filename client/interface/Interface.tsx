@@ -17,6 +17,7 @@ import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
+import ModeBar from "./components/ModeBar";
 import { splitTextToNodes } from "./utils/textSplitter";
 import {
   scrollToCurrentDepth,
@@ -136,9 +137,17 @@ const GamepadInterface = () => {
           // B button exits map and goes to edit mode
           setActiveMenu("edit");
           return;
-        } else if (key === "Escape") {
-          // START button from map goes to story list
+        } else if (key === "`") {
+          // SELECT from map opens story list
+          // Set selection to current story on open
+          const keys = Object.keys(trees);
+          const currentIndex = Math.max(0, keys.indexOf(currentTreeKey));
+          setSelectedTreeIndex(currentIndex + 1); // +1 for "+ New Story"
           setActiveMenu("start");
+          return;
+        } else if (key === "Escape") {
+          // START toggles map off back to reading
+          setActiveMenu(null);
           return;
         }
         // Let arrow keys and Enter fall through to story navigation
@@ -150,7 +159,6 @@ const GamepadInterface = () => {
           onSelectTree: (key) => {
             setCurrentTreeKey(key);
             setActiveMenu(null);
-            setSelectedTreeIndex(0);
           },
           onDeleteTree: handleDeleteTree,
           currentTheme: theme,
@@ -162,23 +170,34 @@ const GamepadInterface = () => {
           onSelectTree: (key) => {
             setCurrentTreeKey(key);
             setActiveMenu(null);
-            setSelectedTreeIndex(0);
           },
           onDeleteTree: handleDeleteTree,
         });
+        // Allow START to back out from Trees to Map
+        if (activeMenu === "start" && key === "Escape") {
+          setActiveMenu("map");
+          return;
+        }
       } else {
         await handleStoryNavigation(key);
       }
 
       // Handle menu activation/deactivation with zoom-out flow
       if (key === "`") {
-        setActiveMenu((prev) => (prev === "select" ? null : "select"));
+        // SELECT toggles Settings when not in map; keep last focused row
+        if (activeMenu !== "map") {
+          if (activeMenu === "select") {
+            setActiveMenu(null);
+          } else {
+            setActiveMenu("select");
+          }
+        }
       } else if (key === "Escape" && !activeMenu) {
-        setActiveMenu("map"); // First START press shows minimap
+        // START toggles minimap on when reading
+        setActiveMenu("map");
       } else if (key === "Escape" && activeMenu === "map") {
-        setActiveMenu("start"); // Second START press shows story list
-      } else if (key === "Escape" && activeMenu === "start") {
-        setActiveMenu(null); // Back to reading from story list
+        // START toggles minimap off when in map
+        setActiveMenu(null);
       } else if (key === "Backspace" && !activeMenu) {
         setActiveMenu("edit");
       }
@@ -227,27 +246,36 @@ const GamepadInterface = () => {
     };
   }, []);
 
+  // Helper: scroll a specific rendered node into view within the story container
+  const scrollNodeIntoView = useCallback((nodeId: string | undefined | null) => {
+    const container = storyTextRef.current;
+    if (!container || !nodeId) return;
+    const el = container.querySelector(
+      `[data-node-id="${nodeId}"]`,
+    ) as HTMLElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
+
   // Scroll to current depth when navigation changes
   useEffect(() => {
-    if (storyTextRef.current && !activeMenu) {
-      const container = storyTextRef.current;
+    if (!activeMenu) {
       const path = getCurrentPath();
-
-      debouncedScroll(() => {
-        scrollToCurrentDepth(container, path, currentDepth, true);
-      });
+      const current = path[currentDepth];
+      if (current) {
+        debouncedScroll(() => scrollNodeIntoView(current.id));
+      }
     }
-  }, [currentDepth, getCurrentPath, activeMenu, debouncedScroll]);
+  }, [currentDepth, getCurrentPath, debouncedScroll, activeMenu, scrollNodeIntoView]);
 
   // Scroll to selected sibling when left/right navigation changes
   useEffect(() => {
-    if (storyTextRef.current && !activeMenu) {
-      const container = storyTextRef.current;
+    if (!activeMenu) {
       const path = getCurrentPath();
-
-      debouncedScroll(() => {
-        scrollToSelectedSibling(container, path, currentDepth, true);
-      });
+      const next = path[currentDepth + 1];
+      if (next) {
+        debouncedScroll(() => scrollNodeIntoView(next.id));
+      }
     }
   }, [
     selectedOptions,
@@ -255,6 +283,7 @@ const GamepadInterface = () => {
     activeMenu,
     debouncedScroll,
     currentDepth,
+    scrollNodeIntoView,
   ]);
 
   // Scroll to end when new content is added (after text splitting or generation)
@@ -271,7 +300,9 @@ const GamepadInterface = () => {
         });
       }
     }
-  }, [storyTree, isAnyGenerating, getCurrentPath, activeMenu, debouncedScroll]);
+  }, [storyTree, isAnyGenerating, getCurrentPath, debouncedScroll]);
+
+  // Removed LOOM scroll preservation to keep behavior simple and reliable
 
   const renderStoryText = () => {
     const currentPath = getCurrentPath();
@@ -286,6 +317,7 @@ const GamepadInterface = () => {
           return (
             <span
               key={segment.id}
+              data-node-id={segment.id}
               style={{
                 color: isCurrentDepth
                   ? "var(--font-color)"
@@ -309,8 +341,21 @@ const GamepadInterface = () => {
       <div ref={containerRef} className={`container ${layout}`}>
         {/* Screen area */}
         <section className="terminal-screen" aria-label="Story Display">
+          {/* Consistent top mode bar */}
+          {activeMenu === null && (
+            <ModeBar title="LOOM" hint="START: MAP • SELECT: SETTINGS" />
+          )}
+          {activeMenu === "map" && (
+            <ModeBar title="MAP" hint="SELECT: STORIES • START: LOOM" />
+          )}
           {activeMenu === "select" ? (
-            <MenuScreen title="Settings" onClose={() => setActiveMenu(null)}>
+            <>
+              <ModeBar title="SETTINGS" hint="START: CLOSE" />
+              <MenuScreen
+                title=""
+                showCloseInstructions={false}
+                onClose={() => setActiveMenu(null)}
+              >
               <SettingsMenu
                 params={{ ...menuParams, theme }}
                 onParamChange={(param, value) => {
@@ -323,7 +368,8 @@ const GamepadInterface = () => {
                 selectedParam={selectedParam}
                 isLoading={isAnyGenerating}
               />
-            </MenuScreen>
+              </MenuScreen>
+            </>
           ) : activeMenu === "map" ? (
             <StoryMinimap
               tree={storyTree}
@@ -334,18 +380,22 @@ const GamepadInterface = () => {
               generatingInfo={generatingInfo}
             />
           ) : activeMenu === "start" ? (
-            <MenuScreen title="Trees" onClose={() => setActiveMenu(null)}>
+            <>
+              <ModeBar title="STORIES" hint="↵: SELECT • ⌫: DELETE • START: MAP" />
+              <MenuScreen
+                title=""
+                showCloseInstructions={false}
+                onClose={() => setActiveMenu(null)}
+              >
               <TreeListMenu
                 trees={trees}
                 selectedIndex={selectedTreeIndex}
                 onSelect={(key) => {
                   setCurrentTreeKey(key);
                   setActiveMenu(null);
-                  setSelectedTreeIndex(0);
                 }}
                 onNew={() => {
                   handleNewTree();
-                  setSelectedTreeIndex(0);
                 }}
                 onDelete={(key) => {
                   handleDeleteTree(key);
@@ -357,7 +407,8 @@ const GamepadInterface = () => {
                   }
                 }}
               />
-            </MenuScreen>
+              </MenuScreen>
+            </>
           ) : activeMenu === "edit" ? (
             <MenuScreen
               title=""
@@ -429,29 +480,30 @@ const GamepadInterface = () => {
                 onCancel={() => setActiveMenu(null)}
               />
             </MenuScreen>
-          ) : (
-            <>
-              {renderStoryText()}
-              <NavigationDots
-                options={getOptionsAtDepth(currentDepth)}
-                currentDepth={currentDepth}
-                selectedOptions={selectedOptions}
-                activeControls={activeControls}
-                inFlight={inFlight}
-                generatingInfo={generatingInfo}
-              />
-              {isOffline && (
-                <output className="offline-message">
-                  ⚡ Offline - Stories saved locally, generation unavailable
-                </output>
-              )}
-              {error && (
-                <output className="error-message">
-                  Generation error: {error.message}
-                </output>
-              )}
-            </>
-          )}
+          ) : null}
+
+          {/* Keep LOOM mounted; hide when a menu is active. Use display: contents to preserve flex context */}
+          <div style={{ display: activeMenu ? "none" : ("contents" as const) }}>
+            {renderStoryText()}
+            <NavigationDots
+              options={getOptionsAtDepth(currentDepth)}
+              currentDepth={currentDepth}
+              selectedOptions={selectedOptions}
+              activeControls={activeControls}
+              inFlight={inFlight}
+              generatingInfo={generatingInfo}
+            />
+            {isOffline && (
+              <output className="offline-message">
+                ⚡ Offline - Stories saved locally, generation unavailable
+              </output>
+            )}
+            {error && (
+              <output className="error-message">
+                Generation error: {error.message}
+              </output>
+            )}
+          </div>
         </section>
 
         {/* Controls */}
