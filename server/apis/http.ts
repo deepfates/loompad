@@ -6,13 +6,13 @@ import express, { Application } from "express";
 import { getMainProps } from "server/main_props";
 import { generateText, AVAILABLE_MODELS } from "./generation";
 
-// socket.io context can be used to push messages from api routes
 export function setup_routes(app: Application) {
-  app.use(cors());
-  app.use(express.json());
-  app.use(cookieParser());
-  app.use(nocache());
-  app.use(compression());
+  // Scope API middleware to /api to avoid affecting static/SSR caching
+  app.use("/api", cors());
+  app.use("/api", express.json());
+  app.use("/api", cookieParser());
+  app.use("/api", nocache());
+  app.use("/api", compression());
 
   app.get("/api/props", async (req, res) => {
     const top_level_state = await getMainProps(req);
