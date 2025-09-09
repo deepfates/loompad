@@ -21,15 +21,19 @@ export function render(url, context) {
     // Get the styles from styled-components
     const styledComponentsStyles = sheet.getStyleTags();
 
-    // Include Terminal CSS and your custom CSS
-    const externalStyles = `
+    // In development, inline terminal.css to avoid FOUC during SSR.
+    // In production, rely on Vite-built CSS referenced from index.html.
+    const externalStyles =
+      process.env.NODE_ENV !== "production"
+        ? `
       <style>
         ${fs.readFileSync(
           path.resolve(process.cwd(), "client/styles/terminal.css"),
           "utf8",
         )}
       </style>
-    `;
+    `
+        : "";
 
     return {
       body,
