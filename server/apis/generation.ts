@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import OpenAI from "openai";
 import { config } from "../config";
+import type { AvailableModels, ModelId } from "../../shared/models";
 
 // Initialize OpenAI client with OpenRouter base URL
 const openai = new OpenAI({
@@ -13,7 +14,7 @@ const openai = new OpenAI({
 });
 
 // Available models and their configs
-export const AVAILABLE_MODELS = {
+export const AVAILABLE_MODELS: AvailableModels = {
   "deepseek/deepseek-v3-base": {
     name: "DeepSeek V3",
     maxTokens: 1024,
@@ -40,8 +41,6 @@ export const AVAILABLE_MODELS = {
     defaultTemp: 0.7,
   },
 };
-
-export type ModelId = keyof typeof AVAILABLE_MODELS;
 
 interface GenerateRequest {
   prompt: string;

@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
-import type {
-  AVAILABLE_MODELS,
-  ModelId,
-} from "../../../server/apis/generation";
+import type { AvailableModels, ModelId } from "../../../shared/models";
 
 export function useModels() {
-  const [models, setModels] = useState<typeof AVAILABLE_MODELS | null>(null);
+  const [models, setModels] = useState<AvailableModels | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

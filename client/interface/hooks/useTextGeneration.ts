@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { ModelId } from "../../../server/apis/generation";
+import type { ModelId } from "../../../shared/models";
 
 interface GenerationOptions {
   model: ModelId;

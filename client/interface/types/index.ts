@@ -1,4 +1,4 @@
-import type { ModelId } from "../../../server/apis/generation";
+import type { ModelId } from "../../../shared/models";
 
 export interface StoryNode {
   id: string;

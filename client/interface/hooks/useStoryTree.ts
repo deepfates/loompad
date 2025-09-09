@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
 import { useLocalStorage } from "./useLocalStorage";
-import type { ModelId } from "../../../server/apis/generation";
+import type { ModelId } from "../../../shared/models";
 
 const INITIAL_STORY = {
   root: {

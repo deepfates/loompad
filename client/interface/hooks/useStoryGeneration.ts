@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTextGeneration } from "./useTextGeneration";
 import { splitTextToNodes } from "../utils/textSplitter";
 import type { StoryNode } from "../types";
-import type { ModelId } from "../../../server/apis/generation";
+import type { ModelId } from "../../../shared/models";
 
 interface GenerationParams {
   model: ModelId;
