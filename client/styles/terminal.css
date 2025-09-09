@@ -1567,6 +1567,27 @@ progress::-moz-progress-bar {
     opacity: 0.7;
 }
 
+/* Compact mode bar for non-menu modes (LOOM, MAP) */
+.mode-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    border-bottom: 0.0625rem solid var(--font-color);
+    margin-bottom: 0.5rem;
+}
+
+.mode-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.mode-hint {
+    font-size: 0.8rem;
+    opacity: 0.75;
+}
+
 .menu-content {
     flex: 1;
     overflow-y: auto;

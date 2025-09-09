@@ -39,7 +39,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
         switch (key) {
           case "ArrowUp":
             setSelectedParam((prev) => {
-              const newIndex = Math.max(0, prev - 1);
+              const count = 5; // number of settings items
+              const newIndex = (prev - 1 + count) % count;
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
                 scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
@@ -49,7 +50,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           case "ArrowDown":
             setSelectedParam((prev) => {
-              const newIndex = Math.min(4, prev + 1);
+              const count = 5;
+              const newIndex = (prev + 1) % count;
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
                 scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
@@ -71,10 +73,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 temperature: Math.max(0.1, prev.temperature - 0.1),
               }));
             } else if (param === "maxTokens") {
-              setMenuParams((prev) => ({
-                ...prev,
-                maxTokens: Math.max(10, prev.maxTokens - 10),
-              }));
+              setMenuParams((prev) => {
+                // Respect current model's maxTokens
+                const maxAllowed = models?.[prev.model]?.maxTokens ?? 1024;
+                const next = Math.max(10, prev.maxTokens - 10);
+                return { ...prev, maxTokens: Math.min(next, maxAllowed) };
+              });
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
               const currentIndex = modelIds.indexOf(menuParams.model);
@@ -117,10 +121,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 temperature: Math.min(2.0, prev.temperature + 0.1),
               }));
             } else if (param === "maxTokens") {
-              setMenuParams((prev) => ({
-                ...prev,
-                maxTokens: Math.min(500, prev.maxTokens + 10),
-              }));
+              setMenuParams((prev) => {
+                // Respect current model's maxTokens
+                const maxAllowed = models?.[prev.model]?.maxTokens ?? 1024;
+                const next = prev.maxTokens + 10;
+                return { ...prev, maxTokens: Math.min(maxAllowed, next) };
+              });
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
               const currentIndex = modelIds.indexOf(menuParams.model);
@@ -149,6 +155,42 @@ export function useMenuSystem(defaultParams: MenuParams) {
             }
             break;
           }
+          case "Enter": {
+            // Enter acts on cyclers/toggles in Settings
+            const param = [
+              "temperature",
+              "maxTokens",
+              "model",
+              "theme",
+              "textSplitting",
+            ][selectedParam];
+            if (param === "model" && models) {
+              const modelIds = Object.keys(models) as ModelId[];
+              const currentIndex = modelIds.indexOf(menuParams.model);
+              const newModel = modelIds[(currentIndex + 1) % modelIds.length];
+              setMenuParams((prev) => ({
+                ...prev,
+                model: newModel,
+                maxTokens: Math.min(prev.maxTokens, models[newModel].maxTokens),
+              }));
+            } else if (param === "theme") {
+              const themes: Theme[] = ["matrix", "light", "system"];
+              const currentTheme = callbacks.currentTheme ?? "system";
+              const idx = themes.indexOf(currentTheme);
+              const nextTheme = themes[(idx + 1) % themes.length];
+              callbacks.onThemeChange?.(nextTheme);
+            } else if (param === "textSplitting") {
+              setMenuParams((prev) => ({
+                ...prev,
+                textSplitting: !prev.textSplitting,
+              }));
+            }
+            break;
+          }
+          case "Escape":
+            // START closes settings
+            setActiveMenu(null);
+            break;
         }
       } else if (activeMenu === "start") {
         const totalItems = Object.keys(trees).length + 1; // +1 for New Story
@@ -156,7 +198,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
         switch (key) {
           case "ArrowUp":
             setSelectedTreeIndex((prev) => {
-              const newIndex = Math.max(0, prev - 1);
+              const newIndex = (prev - 1 + totalItems) % totalItems;
               // Scroll menu item into view
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
@@ -167,7 +209,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           case "ArrowDown":
             setSelectedTreeIndex((prev) => {
-              const newIndex = Math.min(totalItems - 1, prev + 1);
+              const newIndex = (prev + 1) % totalItems;
               // Scroll menu item into view
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
@@ -193,8 +235,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
         }
       }
 
-      // Global menu controls
-      if (key === "Escape" || key === "Enter") {
+      // Global menu controls (Enter closes non-settings menus)
+      if (key === "Enter" && activeMenu !== "select") {
         setActiveMenu(null);
       }
     },

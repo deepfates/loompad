@@ -12,6 +12,7 @@ export interface MenuScreenProps {
   onClose: () => void;
   children: React.ReactNode;
   showCloseInstructions?: boolean;
+  closeHelp?: string;
 }
 
 export interface MenuKnobProps {

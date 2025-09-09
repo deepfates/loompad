@@ -9,7 +9,8 @@ export const GamepadButton = ({
   onMouseUp,
 }: GamepadButtonProps) => (
   <button
-    className={`btn ${active ? "btn-primary" : "btn-ghost"} ${className} ${disabled ? "btn-disabled" : ""}`}
+    className={`btn ${active ? "btn-primary" : "btn-ghost"} ${className}`}
+    disabled={disabled}
     onMouseDown={disabled ? undefined : onMouseDown}
     onMouseUp={disabled ? undefined : onMouseUp}
     aria-pressed={active}
