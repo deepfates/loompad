@@ -3,12 +3,11 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import nocache from "nocache";
 import express, { Application } from "express";
-import { Server } from "socket.io";
 import { getMainProps } from "server/main_props";
 import { generateText, AVAILABLE_MODELS } from "./generation";
 
 // socket.io context can be used to push messages from api routes
-export function setup_routes(app: Application, io: Server) {
+export function setup_routes(app: Application) {
   app.use(cors());
   app.use(express.json());
   app.use(cookieParser());

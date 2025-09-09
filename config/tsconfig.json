@@ -25,5 +25,5 @@
       "config/*": ["../config/*"],
     }
   },
-  "include": ["../server/**/*", "../client/**/*", "../shared/**/*", "../credentials/**/*", "../config/**/*", "../*.ts"]
+  "include": ["../server/**/*", "../client/**/*", "../shared/**/*", "../config/**/*", "../*.ts"]
 }

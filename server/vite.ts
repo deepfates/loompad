@@ -3,13 +3,11 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import express from "express";
 import http from "http";
-import { Server as SocketIOServer } from "socket.io";
 import { createServer as createViteServer } from 'vite'
 
 // app specific imports
 import args from "server/args";
 import { setup_routes } from "server/apis/http";
-import { setup_sockets } from "server/apis/sockets";
 import { getMainProps } from "server/main_props";
 
 const port: number = args.port;
@@ -34,9 +32,7 @@ export async function createServer() {
   const app = express()
 
   const http_server = http.createServer(app);
-  const io = new SocketIOServer(http_server, {});
-  setup_sockets(io);
-  setup_routes(app, io);
+  setup_routes(app);
 
   let vite;
   if(mode === 'development') {
@@ -67,7 +63,7 @@ export async function createServer() {
     // remove leading slashes
     cleaned_url = cleaned_url.replace(/^\/+/, '')
 
-    const allowed_prefixes = ['client', 'shared', 'node_modules', 'socket.io'];
+    const allowed_prefixes = ['client', 'shared', 'node_modules'];
     if (cleaned_url == '' || allowed_prefixes.some(prefix => cleaned_url.startsWith(prefix))) {
       return next();
     } else {
