@@ -15,25 +15,10 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["assets/icon-*"],
-      manifest: {
-        name: "LoomPad",
-        short_name: "LoomPad",
-        description: "An infinite game of choose your own adventure",
-        start_url: "/",
-        display: "standalone",
-        background_color: "#000000",
-        theme_color: "#2a2a2a",
-        scope: "/",
-        icons: [
-          { src: "assets/icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "assets/icon-512.png", sizes: "512x512", type: "image/png" },
-          {
-            src: "assets/icon-512-maskable.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
+      manifest: false, // Use existing manifest.webmanifest file
+      injectRegister: "auto",
+      devOptions: {
+        enabled: false, // Disable PWA in development to avoid JSON parsing errors
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,woff2,ttf,woff}"],
