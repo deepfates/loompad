@@ -24,6 +24,7 @@ import {
   scrollToEndOfPath,
   scrollToSelectedSibling,
   scrollMenuItemIntoView,
+  scrollElementIntoViewIfNeeded,
   isAtBottom,
   createDebouncedScroll,
   SCROLL_DEBOUNCE_DELAY,
@@ -247,15 +248,19 @@ const GamepadInterface = () => {
   }, []);
 
   // Helper: scroll a specific rendered node into view within the story container
-  const scrollNodeIntoView = useCallback((nodeId: string | undefined | null) => {
-    const container = storyTextRef.current;
-    if (!container || !nodeId) return;
-    const el = container.querySelector(
-      `[data-node-id="${nodeId}"]`,
-    ) as HTMLElement | null;
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, []);
+  const scrollNodeIntoView = useCallback(
+    (nodeId: string | undefined | null) => {
+      const container = storyTextRef.current;
+      if (!container || !nodeId) return;
+      const el = container.querySelector(
+        `[data-node-id="${nodeId}"]`,
+      ) as HTMLElement | null;
+      if (!el) return;
+      // Use a small edge buffer, but only scroll when offscreen
+      scrollElementIntoViewIfNeeded(container, el, 8, "smooth");
+    },
+    [],
+  );
 
   // Scroll to current depth when navigation changes
   useEffect(() => {
@@ -266,7 +271,13 @@ const GamepadInterface = () => {
         debouncedScroll(() => scrollNodeIntoView(current.id));
       }
     }
-  }, [currentDepth, getCurrentPath, debouncedScroll, activeMenu, scrollNodeIntoView]);
+  }, [
+    currentDepth,
+    getCurrentPath,
+    debouncedScroll,
+    activeMenu,
+    scrollNodeIntoView,
+  ]);
 
   // Scroll to selected sibling when left/right navigation changes
   useEffect(() => {
@@ -356,18 +367,18 @@ const GamepadInterface = () => {
                 showCloseInstructions={false}
                 onClose={() => setActiveMenu(null)}
               >
-              <SettingsMenu
-                params={{ ...menuParams, theme }}
-                onParamChange={(param, value) => {
-                  if (param === "theme") {
-                    setTheme(value as "matrix" | "light" | "system");
-                  } else {
-                    setMenuParams((prev) => ({ ...prev, [param]: value }));
-                  }
-                }}
-                selectedParam={selectedParam}
-                isLoading={isAnyGenerating}
-              />
+                <SettingsMenu
+                  params={{ ...menuParams, theme }}
+                  onParamChange={(param, value) => {
+                    if (param === "theme") {
+                      setTheme(value as "matrix" | "light" | "system");
+                    } else {
+                      setMenuParams((prev) => ({ ...prev, [param]: value }));
+                    }
+                  }}
+                  selectedParam={selectedParam}
+                  isLoading={isAnyGenerating}
+                />
               </MenuScreen>
             </>
           ) : activeMenu === "map" ? (
@@ -381,32 +392,35 @@ const GamepadInterface = () => {
             />
           ) : activeMenu === "start" ? (
             <>
-              <ModeBar title="STORIES" hint="↵: SELECT • ⌫: DELETE • START: MAP" />
+              <ModeBar
+                title="STORIES"
+                hint="↵: SELECT • ⌫: DELETE • START: MAP"
+              />
               <MenuScreen
                 title=""
                 showCloseInstructions={false}
                 onClose={() => setActiveMenu(null)}
               >
-              <TreeListMenu
-                trees={trees}
-                selectedIndex={selectedTreeIndex}
-                onSelect={(key) => {
-                  setCurrentTreeKey(key);
-                  setActiveMenu(null);
-                }}
-                onNew={() => {
-                  handleNewTree();
-                }}
-                onDelete={(key) => {
-                  handleDeleteTree(key);
-                  // Adjust selected index if needed
-                  if (selectedTreeIndex > 0) {
-                    setSelectedTreeIndex((prev) =>
-                      Math.min(prev, Object.keys(trees).length - 1),
-                    );
-                  }
-                }}
-              />
+                <TreeListMenu
+                  trees={trees}
+                  selectedIndex={selectedTreeIndex}
+                  onSelect={(key) => {
+                    setCurrentTreeKey(key);
+                    setActiveMenu(null);
+                  }}
+                  onNew={() => {
+                    handleNewTree();
+                  }}
+                  onDelete={(key) => {
+                    handleDeleteTree(key);
+                    // Adjust selected index if needed
+                    if (selectedTreeIndex > 0) {
+                      setSelectedTreeIndex((prev) =>
+                        Math.min(prev, Object.keys(trees).length - 1),
+                      );
+                    }
+                  }}
+                />
               </MenuScreen>
             </>
           ) : activeMenu === "edit" ? (

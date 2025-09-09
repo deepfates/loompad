@@ -233,3 +233,70 @@ export function getMenuItemHeight(container: HTMLElement): number {
   }
   return DEFAULT_MENU_ITEM_HEIGHT; // Default fallback
 }
+
+/**
+ * Scroll a specific element inside a scrollable container into view
+ * only if it is currently outside the visible viewport of the container.
+ */
+export function scrollElementIntoViewIfNeeded(
+  container: HTMLElement,
+  el: HTMLElement,
+  padding: number = 16,
+  behavior: ScrollBehavior = "smooth",
+) {
+  if (!container || !el) return;
+
+  try {
+    // Prefer offsetTop traversal for robust relative positioning
+    const computeRelativeTop = (
+      node: HTMLElement,
+      stopAt: HTMLElement,
+    ): { top: number; reachedStop: boolean } => {
+      let top = 0;
+      let cur: HTMLElement | null = node;
+      while (cur && cur !== stopAt) {
+        top += cur.offsetTop;
+        cur = cur.offsetParent as HTMLElement | null;
+      }
+      return { top, reachedStop: cur === stopAt };
+    };
+
+    let { top: elementTop, reachedStop } = computeRelativeTop(el, container);
+    let elementBottom = elementTop + el.offsetHeight;
+
+    // Fallback to DOMRect if offsetParent chain didn't reach container (including null)
+    if (!reachedStop) {
+      const elRect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const scrollTop = container.scrollTop;
+      elementTop = scrollTop + (elRect.top - containerRect.top);
+      elementBottom = elementTop + elRect.height;
+    }
+
+    const scrollTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+
+    const viewportTop = scrollTop + padding;
+    const viewportBottom = scrollTop + containerHeight - padding;
+
+    let targetTop: number | null = null;
+
+    if (elementTop < viewportTop) {
+      // Need to scroll up
+      targetTop = elementTop - padding;
+    } else if (elementBottom > viewportBottom) {
+      // Need to scroll down
+      targetTop = elementBottom - containerHeight + padding;
+    }
+
+    if (targetTop != null) {
+      targetTop = Math.max(0, targetTop);
+      // Avoid micro-adjustments when already effectively in view
+      if (Math.abs(targetTop - scrollTop) > 1) {
+        container.scrollTo({ top: targetTop, behavior });
+      }
+    }
+  } catch (error) {
+    console.warn("Error in scrollElementIntoViewIfNeeded:", error);
+  }
+}
