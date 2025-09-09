@@ -6,8 +6,8 @@ interface Config {
 function validateConfig(): Config {
   const openRouterApiKey = process.env.OPENROUTER_API_KEY;
   if (!openRouterApiKey) {
-    // For development, use a placeholder key
-    if (process.env.NODE_ENV === "development") {
+    // Treat any non-production environment as development
+    if (process.env.NODE_ENV !== "production") {
       console.warn("⚠️ Using placeholder OpenRouter API key for development");
       return {
         openRouterApiKey: "sk-or-placeholder-key",
@@ -19,7 +19,7 @@ function validateConfig(): Config {
 
   return {
     openRouterApiKey,
-    isDevelopment: process.env.NODE_ENV === "development",
+    isDevelopment: process.env.NODE_ENV !== "production",
   };
 }
 
