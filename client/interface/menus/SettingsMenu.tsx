@@ -3,7 +3,7 @@ import { MenuKnob } from "../components/MenuKnob";
 import { MenuSelect } from "../components/MenuSelect";
 import { MenuToggle } from "../components/MenuToggle";
 import { useModels } from "../hooks/useModels";
-import type { ModelId } from "../../../server/apis/generation";
+import type { ModelId } from "../../../shared/models";
 
 export const SettingsMenu = ({
   params,
