@@ -15,28 +15,18 @@ const openai = new OpenAI({
 
 // Available models and their configs
 export const AVAILABLE_MODELS: AvailableModels = {
-  "deepseek/deepseek-v3-base": {
-    name: "DeepSeek V3",
-    maxTokens: 1024,
-    defaultTemp: 0.7,
-  },
-  "moonshotai/kimi-k2": {
-    name: "Kimi K2",
-    maxTokens: 1024,
-    defaultTemp: 0.7,
-  },
   "meta-llama/llama-3.1-405b": {
     name: "Llama 3.1 405B",
     maxTokens: 1024,
     defaultTemp: 0.7,
   },
-  "baidu/ernie-4.5-300b-a47b": {
-    name: "ERNIE 4.5 300B",
+  "deepseek/deepseek-v3.1-base": {
+    name: "DeepSeek V3.1",
     maxTokens: 1024,
     defaultTemp: 0.7,
   },
-  "thudm/glm-4-32b:free": {
-    name: "GLM 4.32B",
+  "moonshotai/kimi-k2": {
+    name: "Kimi K2 0711",
     maxTokens: 1024,
     defaultTemp: 0.7,
   },

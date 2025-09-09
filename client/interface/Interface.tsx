@@ -34,7 +34,7 @@ import type { ModelId } from "../../shared/models";
 const DEFAULT_PARAMS = {
   temperature: 0.7,
   maxTokens: 256,
-  model: "deepseek/deepseek-v3-base" as ModelId,
+  model: "meta-llama/llama-3.1-405b" as ModelId,
   textSplitting: true,
 };
 
