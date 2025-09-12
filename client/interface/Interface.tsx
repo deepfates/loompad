@@ -185,8 +185,11 @@ const GamepadInterface = () => {
 
       // Handle menu activation/deactivation with zoom-out flow
       if (key === "`") {
-        // SELECT toggles Settings when not in map; keep last focused row
-        if (activeMenu !== "map") {
+        // On Stories screen, SELECT returns to map
+        if (activeMenu === "start") {
+          setActiveMenu("map");
+        } else if (activeMenu !== "map") {
+          // Elsewhere, SELECT toggles Settings; keep last focused row
           if (activeMenu === "select") {
             setActiveMenu(null);
           } else {
@@ -362,7 +365,7 @@ const GamepadInterface = () => {
               select: { title: "SETTINGS", hint: "START: CLOSE" },
               start: {
                 title: "STORIES",
-                hint: "↵: SELECT • ⌫: DELETE • START: MAP",
+                hint: "↵: OPEN • ⌫: DELETE • START: MAP",
               },
               edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
             } as const;
@@ -374,9 +377,7 @@ const GamepadInterface = () => {
           })()}
           {activeMenu === "select" ? (
             <>
-              <MenuScreen
-                
-              >
+              <MenuScreen>
                 <SettingsMenu
                   params={{ ...menuParams, theme }}
                   onParamChange={(param, value) => {
@@ -402,9 +403,7 @@ const GamepadInterface = () => {
             />
           ) : activeMenu === "start" ? (
             <>
-              <MenuScreen
-                
-              >
+              <MenuScreen>
                 <TreeListMenu
                   trees={trees}
                   selectedIndex={selectedTreeIndex}
