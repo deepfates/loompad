@@ -41,7 +41,7 @@ export const SettingsMenu = ({
         selected={selectedParam === 1}
       />
       <MenuSelect
-        label={`Model${loadingModels ? " (Loading...)" : ""}`}
+        label={`Model${loadingModels && !models ? " (Loading...)" : ""}`}
         value={getModelName(params.model)}
         options={modelNames}
         onChange={(value) => {

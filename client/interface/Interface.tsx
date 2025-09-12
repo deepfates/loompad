@@ -319,7 +319,7 @@ const GamepadInterface = () => {
     const currentPath = getCurrentPath();
 
     return (
-      <div ref={storyTextRef} className="story-text">
+      <div ref={storyTextRef} className="story-text view-fade">
         {currentPath.map((segment, index) => {
           const isCurrentDepth = index === currentDepth;
           const isNextDepth = index === currentDepth + 1;

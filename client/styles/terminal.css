@@ -1574,17 +1574,39 @@ progress::-moz-progress-bar {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* Subtle fade-in without vertical motion to avoid perceived scroll */
     animation: menuFadeIn 0.2s ease-out;
 }
 
 @keyframes menuFadeIn {
     from {
         opacity: 0;
-        transform: translateY(-1rem);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+    }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .menu-screen {
+        animation: none;
+    }
+}
+
+/* Unified view fade-in for all modes (LOOM, MAP, MENUS) */
+.view-fade {
+    animation: viewFadeIn 0.2s ease-out;
+}
+
+@keyframes viewFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .view-fade {
+        animation: none;
     }
 }
 

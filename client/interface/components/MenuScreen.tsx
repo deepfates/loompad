@@ -1,5 +1,5 @@
 import { MenuScreenProps } from "../types";
 
 export const MenuScreen = ({ children }: MenuScreenProps) => (
-  <div className="menu-screen">{children}</div>
+  <div className="menu-screen view-fade">{children}</div>
 );

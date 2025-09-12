@@ -287,7 +287,7 @@ export const StoryMinimap = ({
   }, [selectedSibling?.id, highlightedNode.id, coords, rootOffset]);
 
   return (
-    <div className="minimap-container">
+    <div className="minimap-container view-fade">
       <div ref={viewportRef} className="minimap-viewport">
         <div style={{ width: svgWidth, minWidth: "100%" }}>
           <svg width={svgWidth} height={svgHeight}>
