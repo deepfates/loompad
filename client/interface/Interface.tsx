@@ -400,6 +400,7 @@ const GamepadInterface = () => {
               currentPath={getCurrentPath()}
               inFlight={inFlight}
               generatingInfo={generatingInfo}
+              isVisible={activeMenu === "map"}
             />
           ) : activeMenu === "start" ? (
             <>

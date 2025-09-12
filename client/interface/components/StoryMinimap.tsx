@@ -31,6 +31,10 @@ interface StoryMinimapProps {
    * Callback when user clicks a node (optional, for future use).
    */
   onSelectNode?: (path: StoryNode[]) => void;
+  /**
+   * Whether the minimap is currently visible.
+   */
+  isVisible?: boolean;
 }
 
 /**
@@ -127,11 +131,13 @@ export const StoryMinimap = ({
   inFlight,
   generatingInfo,
   onSelectNode,
+  isVisible,
 }: StoryMinimapProps) => {
   const { root } = tree;
   const coords = useCoords(root);
   const edges = useEdges(root);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const lastHighlightedNodeRef = useRef<string | null>(null);
 
   // Determine node that matches current reader position for highlight
   const highlightedNode = (() => {
@@ -177,6 +183,14 @@ export const StoryMinimap = ({
 
   // Track initial positioning so opening the map doesn't animate
   const hasPositionedRef = useRef(false);
+
+  // Reset lastHighlightedNodeRef when map becomes invisible
+  useEffect(() => {
+    if (!isVisible) {
+      lastHighlightedNodeRef.current = null;
+      hasPositionedRef.current = false;
+    }
+  }, [isVisible]);
 
   // Position viewport to keep highlighted/selected in view
   // Use layout effect so the map appears already positioned on open
@@ -267,23 +281,34 @@ export const StoryMinimap = ({
 
     // Apply scroll update
     if (newScrollLeft !== scrollLeft || newScrollTop !== scrollTop) {
+      const nodeChanged =
+        lastHighlightedNodeRef.current !== null &&
+        lastHighlightedNodeRef.current !== highlightedNode.id;
+
       if (!hasPositionedRef.current) {
         // First time: jump immediately so there's no visible scroll
         viewport.scrollLeft = newScrollLeft;
         viewport.scrollTop = newScrollTop;
         hasPositionedRef.current = true;
-      } else {
-        // Subsequent updates while in map: smooth scroll
+      } else if (nodeChanged) {
+        // Node changed since last map view: smooth scroll
         viewport.scrollTo({
           left: newScrollLeft,
           top: newScrollTop,
           behavior: "smooth",
         });
+      } else {
+        // Same node, just jump (e.g., reopening map without navigation)
+        viewport.scrollLeft = newScrollLeft;
+        viewport.scrollTop = newScrollTop;
       }
     } else if (!hasPositionedRef.current) {
       // Mark positioned even if no movement was required
       hasPositionedRef.current = true;
     }
+
+    // Update last highlighted node
+    lastHighlightedNodeRef.current = highlightedNode.id;
   }, [selectedSibling?.id, highlightedNode.id, coords, rootOffset]);
 
   return (
