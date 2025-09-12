@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useLayoutEffect } from "react";
 import { hierarchy, tree } from "d3-hierarchy";
 import type { StoryNode } from "../types";
 
@@ -175,8 +175,12 @@ export const StoryMinimap = ({
   const treeCenter = (minX + maxX) / 2;
   const rootOffset = centerX - treeCenter;
 
-  // Auto-scroll to keep both highlighted node and selected sibling in view
-  useEffect(() => {
+  // Track initial positioning so opening the map doesn't animate
+  const hasPositionedRef = useRef(false);
+
+  // Position viewport to keep highlighted/selected in view
+  // Use layout effect so the map appears already positioned on open
+  useLayoutEffect(() => {
     if (!viewportRef.current || !highlightedNode || !coords[highlightedNode.id])
       return;
 
@@ -261,13 +265,24 @@ export const StoryMinimap = ({
       }
     }
 
-    // Scroll to new position if needed
+    // Apply scroll update
     if (newScrollLeft !== scrollLeft || newScrollTop !== scrollTop) {
-      viewport.scrollTo({
-        left: newScrollLeft,
-        top: newScrollTop,
-        behavior: "smooth",
-      });
+      if (!hasPositionedRef.current) {
+        // First time: jump immediately so there's no visible scroll
+        viewport.scrollLeft = newScrollLeft;
+        viewport.scrollTop = newScrollTop;
+        hasPositionedRef.current = true;
+      } else {
+        // Subsequent updates while in map: smooth scroll
+        viewport.scrollTo({
+          left: newScrollLeft,
+          top: newScrollTop,
+          behavior: "smooth",
+        });
+      }
+    } else if (!hasPositionedRef.current) {
+      // Mark positioned even if no movement was required
+      hasPositionedRef.current = true;
     }
   }, [selectedSibling?.id, highlightedNode.id, coords, rootOffset]);
 
