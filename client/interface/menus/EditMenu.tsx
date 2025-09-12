@@ -69,12 +69,6 @@ export const EditMenu = ({ node, onSave, onCancel }: EditMenuProps) => {
 
   return (
     <div className="menu-content" onKeyDown={handleKeyDown}>
-      <div className="menu-header">
-        <h2>Edit Node</h2>
-        <div className="menu-close">
-          Press SELECT to cancel • Press START to save
-        </div>
-      </div>
       <textarea
         ref={textareaRef}
         className="edit-textarea"

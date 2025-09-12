@@ -8,11 +8,7 @@ export interface StoryNode {
 }
 
 export interface MenuScreenProps {
-  title: string;
-  onClose: () => void;
   children: React.ReactNode;
-  showCloseInstructions?: boolean;
-  closeHelp?: string;
 }
 
 export interface MenuKnobProps {

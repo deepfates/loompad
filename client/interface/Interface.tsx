@@ -30,7 +30,7 @@ import {
   SCROLL_DEBOUNCE_DELAY,
 } from "./utils/scrolling";
 
-import type { StoryNode } from "./types";
+import type { StoryNode, MenuType } from "./types";
 import type { ModelId } from "../../shared/models";
 
 const DEFAULT_PARAMS = {
@@ -352,20 +352,30 @@ const GamepadInterface = () => {
       <div ref={containerRef} className={`container ${layout}`}>
         {/* Screen area */}
         <section className="terminal-screen" aria-label="Story Display">
-          {/* Consistent top mode bar */}
-          {activeMenu === null && (
-            <ModeBar title="LOOM" hint="START: MAP • SELECT: SETTINGS" />
-          )}
-          {activeMenu === "map" && (
-            <ModeBar title="MAP" hint="SELECT: STORIES • START: LOOM" />
-          )}
+          {/* Unified top mode bar */}
+          {(() => {
+            const map: Record<MenuType, { title: string; hint: string }> & {
+              null: { title: string; hint: string };
+            } = {
+              null: { title: "LOOM", hint: "START: MAP • SELECT: SETTINGS" },
+              map: { title: "MAP", hint: "SELECT: STORIES • START: LOOM" },
+              select: { title: "SETTINGS", hint: "START: CLOSE" },
+              start: {
+                title: "STORIES",
+                hint: "↵: SELECT • ⌫: DELETE • START: MAP",
+              },
+              edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
+            } as const;
+            const key = activeMenu ?? null;
+            const entry = (map as any)[key];
+            return entry ? (
+              <ModeBar title={entry.title} hint={entry.hint} />
+            ) : null;
+          })()}
           {activeMenu === "select" ? (
             <>
-              <ModeBar title="SETTINGS" hint="START: CLOSE" />
               <MenuScreen
-                title=""
-                showCloseInstructions={false}
-                onClose={() => setActiveMenu(null)}
+                
               >
                 <SettingsMenu
                   params={{ ...menuParams, theme }}
@@ -392,14 +402,8 @@ const GamepadInterface = () => {
             />
           ) : activeMenu === "start" ? (
             <>
-              <ModeBar
-                title="STORIES"
-                hint="↵: SELECT • ⌫: DELETE • START: MAP"
-              />
               <MenuScreen
-                title=""
-                showCloseInstructions={false}
-                onClose={() => setActiveMenu(null)}
+                
               >
                 <TreeListMenu
                   trees={trees}
@@ -424,11 +428,7 @@ const GamepadInterface = () => {
               </MenuScreen>
             </>
           ) : activeMenu === "edit" ? (
-            <MenuScreen
-              title=""
-              onClose={() => setActiveMenu(null)}
-              showCloseInstructions={false}
-            >
+            <MenuScreen>
               <EditMenu
                 node={getCurrentPath()[currentDepth]}
                 onSave={(text) => {

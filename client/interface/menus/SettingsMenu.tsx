@@ -21,7 +21,7 @@ export const SettingsMenu = ({
   const currentModel = models?.[params.model];
 
   return (
-    <menu className="menu-content">
+    <div className="menu-content">
       <MenuKnob
         label="Temperature"
         value={params.temperature}
@@ -91,6 +91,6 @@ export const SettingsMenu = ({
         </output>
       )}
       {isLoading && <output className="loading-message">Generating...</output>}
-    </menu>
+    </div>
   );
 };
