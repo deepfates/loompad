@@ -26,8 +26,6 @@ export const TreeListMenu = ({
 
   return (
     <div className="menu-content">
-      <div className="menu-instructions">↵ to select • ⌫ to delete</div>
-
       <div
         className={`menu-item ${selectedIndex === 0 ? "selected" : ""}`}
         aria-selected={selectedIndex === 0}
