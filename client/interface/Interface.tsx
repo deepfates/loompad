@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState } from "react";
+import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
@@ -51,6 +51,7 @@ const EMPTY_STORY = {
 const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
   const { theme, setTheme } = useTheme();
+  const [lastMapNodeId, setLastMapNodeId] = useState<string | null>(null);
 
   // Create debounced scroll function
   const debouncedScroll = createDebouncedScroll(SCROLL_DEBOUNCE_DELAY);
@@ -87,6 +88,18 @@ const GamepadInterface = () => {
     setTrees,
     setStoryTree,
   } = useStoryTree(menuParams);
+
+  // Calculate current highlighted node for map
+  const highlightedNode = useMemo(() => {
+    let node = storyTree.root;
+    for (let depth = 0; depth < currentDepth; depth++) {
+      const idx = selectedOptions[depth];
+      const child = node.continuations?.[idx];
+      if (!child) break;
+      node = child;
+    }
+    return node;
+  }, [storyTree, currentDepth, selectedOptions]);
 
   const storyTextRef = useRef<HTMLDivElement>(null);
 
@@ -136,6 +149,7 @@ const GamepadInterface = () => {
         // In map mode, navigation and generation work normally
         if (key === "Backspace") {
           // B button exits map and goes to edit mode
+          setLastMapNodeId(highlightedNode.id);
           setActiveMenu("edit");
           return;
         } else if (key === "`") {
@@ -144,10 +158,12 @@ const GamepadInterface = () => {
           const keys = Object.keys(trees);
           const currentIndex = Math.max(0, keys.indexOf(currentTreeKey));
           setSelectedTreeIndex(currentIndex + 1); // +1 for "+ New Story"
+          setLastMapNodeId(highlightedNode.id);
           setActiveMenu("start");
           return;
         } else if (key === "Escape") {
           // START toggles map off back to reading
+          setLastMapNodeId(highlightedNode.id);
           setActiveMenu(null);
           return;
         }
@@ -201,6 +217,7 @@ const GamepadInterface = () => {
         setActiveMenu("map");
       } else if (key === "Escape" && activeMenu === "map") {
         // START toggles minimap off when in map
+        setLastMapNodeId(highlightedNode.id);
         setActiveMenu(null);
       } else if (key === "Backspace" && !activeMenu) {
         setActiveMenu("edit");
@@ -216,6 +233,7 @@ const GamepadInterface = () => {
       setCurrentTreeKey,
       setActiveMenu,
       setSelectedTreeIndex,
+      highlightedNode,
     ],
   );
 
@@ -401,6 +419,8 @@ const GamepadInterface = () => {
               inFlight={inFlight}
               generatingInfo={generatingInfo}
               isVisible={activeMenu === "map"}
+              lastMapNodeId={lastMapNodeId}
+              currentNodeId={highlightedNode.id}
             />
           ) : activeMenu === "start" ? (
             <>

@@ -35,6 +35,14 @@ interface StoryMinimapProps {
    * Whether the minimap is currently visible.
    */
   isVisible?: boolean;
+  /**
+   * The ID of the node that was highlighted when map was last opened.
+   */
+  lastMapNodeId: string | null;
+  /**
+   * The ID of the currently highlighted node.
+   */
+  currentNodeId: string;
 }
 
 /**
@@ -132,6 +140,8 @@ export const StoryMinimap = ({
   generatingInfo,
   onSelectNode,
   isVisible,
+  lastMapNodeId,
+  currentNodeId,
 }: StoryMinimapProps) => {
   const { root } = tree;
   const coords = useCoords(root);
@@ -183,11 +193,9 @@ export const StoryMinimap = ({
 
   // Track initial positioning so opening the map doesn't animate
   const hasPositionedRef = useRef(false);
-
-  // Reset lastHighlightedNodeRef when map becomes invisible
+  // Reset hasPositionedRef when map becomes invisible
   useEffect(() => {
     if (!isVisible) {
-      lastHighlightedNodeRef.current = null;
       hasPositionedRef.current = false;
     }
   }, [isVisible]);
@@ -195,121 +203,118 @@ export const StoryMinimap = ({
   // Position viewport to keep highlighted/selected in view
   // Use layout effect so the map appears already positioned on open
   useLayoutEffect(() => {
-    if (!viewportRef.current || !highlightedNode || !coords[highlightedNode.id])
+    if (
+      !viewportRef.current ||
+      !highlightedNode ||
+      !coords[highlightedNode.id]
+    ) {
       return;
+    }
 
     const viewport = viewportRef.current;
     const viewportRect = viewport.getBoundingClientRect();
-    const scrollLeft = viewport.scrollLeft;
-    const scrollTop = viewport.scrollTop;
-    const margin = 50;
 
-    // Get coordinates for both nodes
-    const highlightedCoord = coords[highlightedNode.id];
-    const highlightedX = highlightedCoord.x + rootOffset;
-    const highlightedY = highlightedCoord.y;
+    // A function to calculate the ideal scroll position to center a node (and its sibling)
+    const getTargetScrollPosition = (
+      node: StoryNode,
+      sibling: StoryNode | null,
+    ) => {
+      const nodeCoord = coords[node.id];
+      const nodeX = nodeCoord.x + rootOffset;
+      const nodeY = nodeCoord.y;
 
-    let minX = highlightedX;
-    let maxX = highlightedX;
-    let minY = highlightedY;
-    let maxY = highlightedY;
+      let minX = nodeX,
+        maxX = nodeX,
+        minY = nodeY,
+        maxY = nodeY;
 
-    // Include selected sibling if it exists
-    if (selectedSibling && coords[selectedSibling.id]) {
-      const siblingCoord = coords[selectedSibling.id];
-      const siblingX = siblingCoord.x + rootOffset;
-      const siblingY = siblingCoord.y;
+      if (sibling && coords[sibling.id]) {
+        const siblingCoord = coords[sibling.id];
+        const siblingX = siblingCoord.x + rootOffset;
+        const siblingY = siblingCoord.y;
+        minX = Math.min(minX, siblingX);
+        maxX = Math.max(maxX, siblingX);
+        minY = Math.min(minY, siblingY);
+        maxY = Math.max(maxY, siblingY);
+      }
 
-      minX = Math.min(minX, siblingX);
-      maxX = Math.max(maxX, siblingX);
-      minY = Math.min(minY, siblingY);
-      maxY = Math.max(maxY, siblingY);
-    }
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
 
-    // Calculate bounding box for both nodes
-    const boundingWidth = maxX - minX;
-    const boundingHeight = maxY - minY;
-    const centerX2 = (minX + maxX) / 2;
-    const centerY2 = (minY + maxY) / 2;
+      const targetLeft = centerX - viewportRect.width / 2;
+      const targetTop = centerY - viewportRect.height / 2;
 
-    let newScrollLeft = scrollLeft;
-    let newScrollTop = scrollTop;
+      return {
+        left: Math.max(0, targetLeft),
+        top: Math.max(0, targetTop),
+      };
+    };
 
-    // Check if bounding box fits in viewport
-    if (boundingWidth + margin * 2 <= viewportRect.width) {
-      // Both nodes can fit, center them
-      const targetLeft = centerX2 - viewportRect.width / 2;
-      if (
-        minX < scrollLeft + margin ||
-        maxX > scrollLeft + viewportRect.width - margin
-      ) {
-        newScrollLeft = Math.max(0, targetLeft);
+    const isFirstPositioning = !hasPositionedRef.current;
+    const nodeChangedSinceLastOpen =
+      lastMapNodeId !== null && lastMapNodeId !== highlightedNode.id;
+
+    // Calculate where we want to scroll TO
+    const newTarget = getTargetScrollPosition(highlightedNode, selectedSibling);
+
+    if (isFirstPositioning) {
+      hasPositionedRef.current = true; // Mark as positioned
+
+      if (nodeChangedSinceLastOpen && lastMapNodeId && coords[lastMapNodeId]) {
+        // This is the key: we just opened the map after navigating.
+        // We need to animate from the LAST position to the NEW one.
+        const lastNode = coords[lastMapNodeId].path.slice(-1)[0];
+
+        if (lastNode) {
+          // 1. Calculate the scroll position of the OLD node.
+          const oldTarget = getTargetScrollPosition(lastNode, null);
+
+          // 2. JUMP to the old position instantly. The user won't see this frame.
+          viewport.scrollLeft = oldTarget.left;
+          viewport.scrollTop = oldTarget.top;
+
+          // 3. In the NEXT frame, smoothly scroll to the new position.
+          requestAnimationFrame(() => {
+            viewport.scrollTo({
+              left: newTarget.left,
+              top: newTarget.top,
+              behavior: "smooth",
+            });
+          });
+        } else {
+          // Fallback: last node not found, just jump to new position.
+          viewport.scrollLeft = newTarget.left;
+          viewport.scrollTop = newTarget.top;
+        }
+      } else {
+        // It's the first time, but the node hasn't changed, or there's no history.
+        // Just jump to the correct position without animation.
+        viewport.scrollLeft = newTarget.left;
+        viewport.scrollTop = newTarget.top;
       }
     } else {
-      // Focus on the selected sibling if it exists, otherwise highlighted node
-      const focusX =
-        selectedSibling && coords[selectedSibling.id]
-          ? coords[selectedSibling.id].x + rootOffset
-          : highlightedX;
-      if (focusX < scrollLeft + margin) {
-        newScrollLeft = Math.max(0, focusX - margin);
-      } else if (focusX > scrollLeft + viewportRect.width - margin) {
-        newScrollLeft = focusX - viewportRect.width + margin;
-      }
-    }
-
-    // Similar logic for vertical
-    if (boundingHeight + margin * 2 <= viewportRect.height) {
-      const targetTop = centerY2 - viewportRect.height / 2;
+      // The map is already open, so any change should be smooth.
+      // This handles navigation within the map itself (if that feature is added)
+      // or other reactive changes.
       if (
-        minY < scrollTop + margin ||
-        maxY > scrollTop + viewportRect.height - margin
+        viewport.scrollLeft !== newTarget.left ||
+        viewport.scrollTop !== newTarget.top
       ) {
-        newScrollTop = Math.max(0, targetTop);
-      }
-    } else {
-      const focusY =
-        selectedSibling && coords[selectedSibling.id]
-          ? coords[selectedSibling.id].y
-          : highlightedY;
-      if (focusY < scrollTop + margin) {
-        newScrollTop = Math.max(0, focusY - margin);
-      } else if (focusY > scrollTop + viewportRect.height - margin) {
-        newScrollTop = focusY - viewportRect.height + margin;
-      }
-    }
-
-    // Apply scroll update
-    if (newScrollLeft !== scrollLeft || newScrollTop !== scrollTop) {
-      const nodeChanged =
-        lastHighlightedNodeRef.current !== null &&
-        lastHighlightedNodeRef.current !== highlightedNode.id;
-
-      if (!hasPositionedRef.current) {
-        // First time: jump immediately so there's no visible scroll
-        viewport.scrollLeft = newScrollLeft;
-        viewport.scrollTop = newScrollTop;
-        hasPositionedRef.current = true;
-      } else if (nodeChanged) {
-        // Node changed since last map view: smooth scroll
         viewport.scrollTo({
-          left: newScrollLeft,
-          top: newScrollTop,
+          left: newTarget.left,
+          top: newTarget.top,
           behavior: "smooth",
         });
-      } else {
-        // Same node, just jump (e.g., reopening map without navigation)
-        viewport.scrollLeft = newScrollLeft;
-        viewport.scrollTop = newScrollTop;
       }
-    } else if (!hasPositionedRef.current) {
-      // Mark positioned even if no movement was required
-      hasPositionedRef.current = true;
     }
-
-    // Update last highlighted node
-    lastHighlightedNodeRef.current = highlightedNode.id;
-  }, [selectedSibling?.id, highlightedNode.id, coords, rootOffset]);
+  }, [
+    highlightedNode.id,
+    selectedSibling?.id,
+    coords,
+    rootOffset,
+    isVisible,
+    lastMapNodeId,
+  ]);
 
   return (
     <div className="minimap-container view-fade">
