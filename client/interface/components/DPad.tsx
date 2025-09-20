@@ -11,16 +11,16 @@ export const DPad = ({
       <GamepadButton
         label="▴"
         active={activeDirection === "up"}
-        onMouseDown={() => onControlPress("ArrowUp")}
-        onMouseUp={() => onControlRelease("ArrowUp")}
+        onPressStart={() => onControlPress("ArrowUp")}
+        onPressEnd={() => onControlRelease("ArrowUp")}
       />
     </div>
     <div className="terminal-grid-cell left-arrow">
       <GamepadButton
         label="◂"
         active={activeDirection === "left"}
-        onMouseDown={() => onControlPress("ArrowLeft")}
-        onMouseUp={() => onControlRelease("ArrowLeft")}
+        onPressStart={() => onControlPress("ArrowLeft")}
+        onPressEnd={() => onControlRelease("ArrowLeft")}
       />
     </div>
     <div className="terminal-grid-cell">
@@ -30,16 +30,16 @@ export const DPad = ({
       <GamepadButton
         label="▸"
         active={activeDirection === "right"}
-        onMouseDown={() => onControlPress("ArrowRight")}
-        onMouseUp={() => onControlRelease("ArrowRight")}
+        onPressStart={() => onControlPress("ArrowRight")}
+        onPressEnd={() => onControlRelease("ArrowRight")}
       />
     </div>
     <div className="terminal-grid-cell down-arrow">
       <GamepadButton
         label="▾"
         active={activeDirection === "down"}
-        onMouseDown={() => onControlPress("ArrowDown")}
-        onMouseUp={() => onControlRelease("ArrowDown")}
+        onPressStart={() => onControlPress("ArrowDown")}
+        onPressEnd={() => onControlRelease("ArrowDown")}
       />
     </div>
   </div>

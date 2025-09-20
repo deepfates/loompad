@@ -175,24 +175,46 @@ const GamepadInterface = () => {
   );
 
   const handleControlAction = useCallback(
-    async (key: string) => {
+    async (keys: string[], latestKey: string) => {
+      if (!latestKey) {
+        return;
+      }
+
+      const keySet = new Set(keys);
+
+      if (keySet.size > 1) {
+        const comboKey = Array.from(keySet).sort().join("+");
+        switch (comboKey) {
+          case "Enter+`":
+            if (activeMenu && activeMenu !== "map") {
+              setActiveMenu(null);
+            }
+            await handleStoryNavigation("Enter");
+            return;
+          default:
+            break;
+        }
+      }
+
       if (activeMenu === "edit") {
         // Let EditMenu handle keyboard events, but also handle button clicks
-        if (key === "Escape" || key === "`") {
+        if (latestKey === "Escape" || latestKey === "`") {
           // Simulate keyboard event for the EditMenu
-          window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+          window.dispatchEvent(
+            new KeyboardEvent("keydown", { key: latestKey }),
+          );
         }
         return;
       }
 
       if (activeMenu === "map") {
         // In map mode, navigation and generation work normally
-        if (key === "Backspace") {
+        if (latestKey === "Backspace") {
           // B button exits map and goes to edit mode
           setLastMapNodeId(highlightedNode.id);
           setActiveMenu("edit");
           return;
-        } else if (key === "`") {
+        } else if (latestKey === "`") {
           // SELECT from map opens story list
           // Set selection to current story on open (reverse-chronological order)
           const currentIndex = Math.max(0, orderedKeys.indexOf(currentTreeKey));
@@ -200,7 +222,7 @@ const GamepadInterface = () => {
           setLastMapNodeId(highlightedNode.id);
           setActiveMenu("start");
           return;
-        } else if (key === "Escape") {
+        } else if (latestKey === "Escape") {
           // START toggles map off back to reading
           setLastMapNodeId(highlightedNode.id);
           setActiveMenu(null);
@@ -218,7 +240,7 @@ const GamepadInterface = () => {
       }
 
       if (activeMenu === "select") {
-        handleMenuNavigation(key, trees, {
+        handleMenuNavigation(latestKey, trees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
             touchStoryActive(key);
@@ -230,7 +252,7 @@ const GamepadInterface = () => {
           onThemeChange: setTheme,
         });
       } else if (activeMenu && activeMenu !== "map") {
-        handleMenuNavigation(key, trees, {
+        handleMenuNavigation(latestKey, trees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
             touchStoryActive(key);
@@ -240,16 +262,16 @@ const GamepadInterface = () => {
           onDeleteTree: handleDeleteTree,
         });
         // Allow START to back out from Trees to Map
-        if (activeMenu === "start" && key === "Escape") {
+        if (activeMenu === "start" && latestKey === "Escape") {
           setActiveMenu("map");
           return;
         }
       } else {
-        await handleStoryNavigation(key);
+        await handleStoryNavigation(latestKey);
       }
 
       // Handle menu activation/deactivation with zoom-out flow
-      if (key === "`") {
+      if (latestKey === "`") {
         // On Stories screen, SELECT returns to map
         if (activeMenu === "start") {
           setActiveMenu("map");
@@ -261,10 +283,10 @@ const GamepadInterface = () => {
             setActiveMenu("select");
           }
         }
-      } else if (key === "Escape" && !activeMenu) {
+      } else if (latestKey === "Escape" && !activeMenu) {
         // START toggles minimap on when reading
         setActiveMenu("map");
-      } else if (key === "Escape" && activeMenu === "map") {
+      } else if (latestKey === "Escape" && activeMenu === "map") {
         // START toggles minimap off when in map
         setLastMapNodeId(highlightedNode.id);
         setActiveMenu(null);
@@ -276,21 +298,28 @@ const GamepadInterface = () => {
             priority: 90,
           });
         });
-      } else if (key === "Backspace" && !activeMenu) {
+      } else if (latestKey === "Backspace" && !activeMenu) {
         setActiveMenu("edit");
       }
     },
     [
       activeMenu,
-      trees,
+      handleDeleteTree,
       handleMenuNavigation,
       handleNewTree,
-      handleDeleteTree,
       handleStoryNavigation,
-      setCurrentTreeKey,
-      setActiveMenu,
-      setSelectedTreeIndex,
       highlightedNode,
+      orderedKeys,
+      queueScroll,
+      setActiveMenu,
+      setCurrentTreeKey,
+      setLastMapNodeId,
+      setSelectedTreeIndex,
+      setTheme,
+      touchStoryActive,
+      theme,
+      trees,
+      currentTreeKey,
     ],
   );
 
@@ -636,14 +665,14 @@ const GamepadInterface = () => {
               <GamepadButton
                 label="⌫"
                 active={activeControls.b}
-                onMouseDown={() => handleControlPress("Backspace")}
-                onMouseUp={() => handleControlRelease("Backspace")}
+                onPressStart={() => handleControlPress("Backspace")}
+                onPressEnd={() => handleControlRelease("Backspace")}
               />
               <GamepadButton
                 label="↵"
                 active={activeControls.a}
-                onMouseDown={() => handleControlPress("Enter")}
-                onMouseUp={() => handleControlRelease("Enter")}
+                onPressStart={() => handleControlPress("Enter")}
+                onPressEnd={() => handleControlRelease("Enter")}
                 disabled={
                   isOffline ||
                   isGeneratingAt(getCurrentPath()[currentDepth]?.id)
@@ -656,14 +685,14 @@ const GamepadInterface = () => {
             <MenuButton
               label="SELECT"
               active={activeControls.select}
-              onMouseDown={() => handleControlPress("`")}
-              onMouseUp={() => handleControlRelease("`")}
+              onPressStart={() => handleControlPress("`")}
+              onPressEnd={() => handleControlRelease("`")}
             />
             <MenuButton
               label="START"
               active={activeControls.start}
-              onMouseDown={() => handleControlPress("Escape")}
-              onMouseUp={() => handleControlRelease("Escape")}
+              onPressStart={() => handleControlPress("Escape")}
+              onPressEnd={() => handleControlRelease("Escape")}
             />
           </div>
         </div>

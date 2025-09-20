@@ -1,8 +1,39 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ActiveControls } from "../types";
 
+const INITIAL_REPEAT_DELAY = 250;
+const REPEAT_INTERVAL = 80;
+
+const getNextDirection = (keys: string[]): ActiveControls["direction"] => {
+  for (let i = keys.length - 1; i >= 0; i -= 1) {
+    const key = keys[i];
+    if (key === "ArrowUp") return "up";
+    if (key === "ArrowRight") return "right";
+    if (key === "ArrowDown") return "down";
+    if (key === "ArrowLeft") return "left";
+  }
+  return null;
+};
+
+const buildActiveControls = (keys: string[]): ActiveControls => {
+  return {
+    direction: getNextDirection(keys),
+    a: keys.includes("Enter"),
+    b: keys.includes("Backspace"),
+    select: keys.includes("`"),
+    start: keys.includes("Escape"),
+  };
+};
+
+const areActiveControlsEqual = (a: ActiveControls, b: ActiveControls) =>
+  a.direction === b.direction &&
+  a.a === b.a &&
+  a.b === b.b &&
+  a.select === b.select &&
+  a.start === b.start;
+
 export function useKeyboardControls(
-  onAction?: (key: string) => Promise<void> | void
+  onAction?: (keys: string[], latestKey: string) => Promise<void> | void,
 ) {
   const [activeControls, setActiveControls] = useState<ActiveControls>({
     direction: null,
@@ -12,76 +43,132 @@ export function useKeyboardControls(
     start: false,
   });
 
-  const handleControlPress = useCallback(
-    async (key: string) => {
-      setActiveControls((prev) => {
-        switch (key) {
-          case "ArrowUp":
-            return { ...prev, direction: "up" };
-          case "ArrowRight":
-            return { ...prev, direction: "right" };
-          case "ArrowDown":
-            return { ...prev, direction: "down" };
-          case "ArrowLeft":
-            return { ...prev, direction: "left" };
-          case "Enter":
-            return { ...prev, a: true };
-          case "Backspace":
-            return { ...prev, b: true };
-          case "`":
-            return { ...prev, select: true };
-          case "Escape":
-            return { ...prev, start: true };
-          default:
-            return prev;
-        }
-      });
+  const pressedKeysRef = useRef<string[]>([]);
+  const repeatTimeoutRef = useRef<number | null>(null);
+  const repeatIntervalRef = useRef<number | null>(null);
 
-      if (onAction) {
-        await onAction(key);
-      }
-    },
-    [onAction]
-  );
+  const updateActiveControls = useCallback(() => {
+    const keys = pressedKeysRef.current;
+    const nextState = buildActiveControls(keys);
 
-  const handleControlRelease = useCallback((key: string) => {
     setActiveControls((prev) => {
-      switch (key) {
-        case "ArrowUp":
-        case "ArrowRight":
-        case "ArrowDown":
-        case "ArrowLeft":
-          return { ...prev, direction: null };
-        case "Enter":
-          return { ...prev, a: false };
-        case "Backspace":
-          return { ...prev, b: false };
-        case "`":
-          return { ...prev, select: false };
-        case "Escape":
-          return { ...prev, start: false };
-        default:
-          return prev;
+      if (areActiveControlsEqual(prev, nextState)) {
+        return prev;
       }
+      return nextState;
     });
   }, []);
 
+  const triggerAction = useCallback(() => {
+    if (!onAction) {
+      return Promise.resolve();
+    }
+
+    const keys = pressedKeysRef.current;
+    if (keys.length === 0) {
+      return Promise.resolve();
+    }
+
+    const latestKey = keys[keys.length - 1];
+    if (!latestKey) {
+      return Promise.resolve();
+    }
+
+    return Promise.resolve(onAction([...keys], latestKey));
+  }, [onAction]);
+
+  const stopRepeat = useCallback(() => {
+    if (repeatTimeoutRef.current !== null) {
+      window.clearTimeout(repeatTimeoutRef.current);
+      repeatTimeoutRef.current = null;
+    }
+    if (repeatIntervalRef.current !== null) {
+      window.clearInterval(repeatIntervalRef.current);
+      repeatIntervalRef.current = null;
+    }
+  }, []);
+
+  const startRepeat = useCallback(() => {
+    if (!onAction || pressedKeysRef.current.length === 0) {
+      return;
+    }
+
+    stopRepeat();
+
+    repeatTimeoutRef.current = window.setTimeout(() => {
+      void triggerAction();
+      repeatIntervalRef.current = window.setInterval(() => {
+        void triggerAction();
+      }, REPEAT_INTERVAL);
+    }, INITIAL_REPEAT_DELAY);
+  }, [onAction, stopRepeat, triggerAction]);
+
+  const handleControlPress = useCallback(
+    async (key: string) => {
+      if (pressedKeysRef.current.includes(key)) {
+        return;
+      }
+
+      pressedKeysRef.current = [...pressedKeysRef.current, key];
+      updateActiveControls();
+
+      await triggerAction();
+      startRepeat();
+    },
+    [startRepeat, triggerAction, updateActiveControls],
+  );
+
+  const handleControlRelease = useCallback(
+    (key: string) => {
+      const index = pressedKeysRef.current.indexOf(key);
+      if (index === -1) {
+        return;
+      }
+
+      pressedKeysRef.current = [
+        ...pressedKeysRef.current.slice(0, index),
+        ...pressedKeysRef.current.slice(index + 1),
+      ];
+
+      updateActiveControls();
+
+      if (pressedKeysRef.current.length === 0) {
+        stopRepeat();
+      }
+    },
+    [stopRepeat, updateActiveControls],
+  );
+
   useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      await handleControlPress(e.key);
+    const handleKeyDown = async (event: KeyboardEvent) => {
+      await handleControlPress(event.key);
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      handleControlRelease(e.key);
+    const handleKeyUp = (event: KeyboardEvent) => {
+      handleControlRelease(event.key);
+    };
+
+    const handleBlur = () => {
+      if (pressedKeysRef.current.length === 0) {
+        return;
+      }
+      pressedKeysRef.current = [];
+      updateActiveControls();
+      stopRepeat();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+      stopRepeat();
+      pressedKeysRef.current = [];
     };
-  }, [handleControlPress, handleControlRelease]);
+  }, [handleControlPress, handleControlRelease, stopRepeat, updateActiveControls]);
 
   return {
     activeControls,
