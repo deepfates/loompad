@@ -24,6 +24,14 @@ import { scrollElementIntoViewIfNeeded, isAtBottom } from "./utils/scrolling";
 
 import type { StoryNode, MenuType } from "./types";
 import type { ModelId } from "../../shared/models";
+import {
+  orderKeysReverseChronological,
+  getDefaultStoryKey,
+  getStoryMeta,
+  setStoryMeta,
+  touchStoryUpdated,
+  touchStoryActive,
+} from "./utils/storyMeta";
 
 const DEFAULT_PARAMS = {
   temperature: 0.7,
@@ -79,6 +87,36 @@ const GamepadInterface = () => {
     setSelectionByPath,
   } = useStoryTree(menuParams);
 
+  // Compute reverse-chronologically ordered trees for menus
+  const orderedKeys = useMemo(
+    () => orderKeysReverseChronological(trees),
+    [trees],
+  );
+  const orderedTrees = useMemo(() => {
+    const obj: { [key: string]: { root: StoryNode } } = {};
+    orderedKeys.forEach((k) => {
+      obj[k] = trees[k];
+    });
+    return obj;
+  }, [orderedKeys, trees]);
+
+  // On first load, default to the most recently active story (if any)
+  const hasAppliedDefault = useRef(false);
+
+  useEffect(() => {
+    if (hasAppliedDefault.current) return;
+    const keys = Object.keys(trees);
+    if (!keys.length) return;
+    const preferred = getDefaultStoryKey(trees) ?? orderedKeys[0];
+    if (preferred && currentTreeKey !== preferred) {
+      setCurrentTreeKey(preferred);
+    }
+    if (preferred) touchStoryActive(preferred);
+    hasAppliedDefault.current = true;
+  }, [trees, orderedKeys, currentTreeKey, setCurrentTreeKey]);
+
+  // Resume last working path on load for the selected story
+
   // Calculate current highlighted node for map
   const highlightedNode = useMemo(() => {
     let node = storyTree.root;
@@ -108,6 +146,7 @@ const GamepadInterface = () => {
       ...prev,
       [newKey]: EMPTY_STORY,
     }));
+    touchStoryActive(newKey);
     setCurrentTreeKey(newKey);
     setActiveMenu(null);
   }, [trees, setTrees, setCurrentTreeKey, setActiveMenu]);
@@ -120,12 +159,22 @@ const GamepadInterface = () => {
           delete newTrees[key];
           return newTrees;
         });
+        {
+          const meta = getStoryMeta();
+          if (meta[key]) {
+            delete meta[key];
+            setStoryMeta(meta);
+          }
+        }
 
         // If we deleted the current tree, switch to another one
         if (key === currentTreeKey) {
-          const remainingKeys = Object.keys(trees);
-          if (remainingKeys.length > 0) {
-            setCurrentTreeKey(remainingKeys[0]);
+          const remaining = orderKeysReverseChronological(trees).filter(
+            (k) => k !== key,
+          );
+          if (remaining.length > 0) {
+            setCurrentTreeKey(remaining[0]);
+            touchStoryActive(remaining[0]);
           }
         }
       }
@@ -153,9 +202,8 @@ const GamepadInterface = () => {
           return;
         } else if (key === "`") {
           // SELECT from map opens story list
-          // Set selection to current story on open
-          const keys = Object.keys(trees);
-          const currentIndex = Math.max(0, keys.indexOf(currentTreeKey));
+          // Set selection to current story on open (reverse-chronological order)
+          const currentIndex = Math.max(0, orderedKeys.indexOf(currentTreeKey));
           setSelectedTreeIndex(currentIndex + 1); // +1 for "+ New Story"
           setLastMapNodeId(highlightedNode.id);
           setActiveMenu("start");
@@ -178,9 +226,10 @@ const GamepadInterface = () => {
       }
 
       if (activeMenu === "select") {
-        handleMenuNavigation(key, trees, {
+        handleMenuNavigation(key, orderedTrees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
+            touchStoryActive(key);
             setCurrentTreeKey(key);
             setActiveMenu(null);
           },
@@ -189,9 +238,10 @@ const GamepadInterface = () => {
           onThemeChange: setTheme,
         });
       } else if (activeMenu && activeMenu !== "map") {
-        handleMenuNavigation(key, trees, {
+        handleMenuNavigation(key, orderedTrees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
+            touchStoryActive(key);
             setCurrentTreeKey(key);
             setActiveMenu(null);
           },
@@ -461,9 +511,10 @@ const GamepadInterface = () => {
             <>
               <MenuScreen>
                 <TreeListMenu
-                  trees={trees}
+                  trees={orderedTrees}
                   selectedIndex={selectedTreeIndex}
                   onSelect={(key) => {
+                    touchStoryActive(key);
                     setCurrentTreeKey(key);
                     setActiveMenu(null);
                   }}
@@ -475,7 +526,7 @@ const GamepadInterface = () => {
                     // Adjust selected index if needed
                     if (selectedTreeIndex > 0) {
                       setSelectedTreeIndex((prev) =>
-                        Math.min(prev, Object.keys(trees).length - 1),
+                        Math.min(prev, Object.keys(orderedTrees).length - 1),
                       );
                     }
                   }}
@@ -535,6 +586,8 @@ const GamepadInterface = () => {
                   }
 
                   setStoryTree(newTree);
+                  // Mark story as updated for reverse-chronological order
+                  touchStoryUpdated(currentTreeKey);
                   setActiveMenu(null);
 
                   // Align to end of updated content after text splitting
