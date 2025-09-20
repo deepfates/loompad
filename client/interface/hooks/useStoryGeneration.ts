@@ -3,11 +3,12 @@ import { useTextGeneration } from "./useTextGeneration";
 import { splitTextToNodes } from "../utils/textSplitter";
 import type { StoryNode } from "../types";
 import type { ModelId } from "../../../shared/models";
+import type { LengthMode } from "../../../shared/lengthPresets";
 
 interface GenerationParams {
   model: ModelId;
   temperature: number;
-  maxTokens: number;
+  lengthMode: LengthMode;
   textSplitting: boolean;
 }
 
@@ -40,7 +41,7 @@ export function useStoryGeneration() {
       {
         model: params.model,
         temperature: params.temperature,
-        maxTokens: params.maxTokens,
+        lengthMode: params.lengthMode,
       },
       (token) => {
         fullText += token;

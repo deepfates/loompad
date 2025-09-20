@@ -1,4 +1,5 @@
 import type { ModelId } from "../../../shared/models";
+import type { LengthMode } from "../../../shared/lengthPresets";
 
 export interface StoryNode {
   id: string;
@@ -39,7 +40,7 @@ export interface MenuToggleProps {
 export interface SettingsMenuProps {
   params: {
     temperature: number;
-    maxTokens: number;
+    lengthMode: LengthMode;
     model: ModelId;
     textSplitting: boolean;
     theme: "matrix" | "light" | "system";

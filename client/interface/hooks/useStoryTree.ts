@@ -3,6 +3,7 @@ import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
 import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../shared/models";
+import type { LengthMode } from "../../../shared/lengthPresets";
 import { touchStoryUpdated } from "../utils/storyMeta";
 
 const INITIAL_STORY = {
@@ -19,7 +20,7 @@ const DEFAULT_TREES = {
 
 interface StoryParams {
   temperature: number;
-  maxTokens: number;
+  lengthMode: LengthMode;
   model: ModelId;
   textSplitting: boolean;
 }

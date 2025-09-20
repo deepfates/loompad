@@ -2,6 +2,11 @@ import type { Request, Response } from "express";
 import OpenAI from "openai";
 import { config } from "../config";
 import type { AvailableModels, ModelId } from "../../shared/models";
+import {
+  DEFAULT_LENGTH_MODE,
+  LENGTH_PRESETS,
+  type LengthMode,
+} from "../../shared/lengthPresets";
 
 // Initialize OpenAI client with OpenRouter base URL
 const openai = new OpenAI({
@@ -37,11 +42,12 @@ interface GenerateRequest {
   model: ModelId;
   temperature?: number;
   maxTokens?: number;
+  lengthMode?: LengthMode;
 }
 
 export async function generateText(req: Request, res: Response) {
   try {
-    const { prompt, model, temperature, maxTokens } =
+    const { prompt, model, temperature, maxTokens, lengthMode } =
       req.body as GenerateRequest;
 
     if (!prompt || !model) {
@@ -52,11 +58,25 @@ export async function generateText(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid model specified" });
     }
 
+    const preset =
+      LENGTH_PRESETS[lengthMode ?? DEFAULT_LENGTH_MODE] ??
+      LENGTH_PRESETS[DEFAULT_LENGTH_MODE];
+
+    const modelMaxTokens = AVAILABLE_MODELS[model].maxTokens;
+    const fallbackMaxTokens = Math.min(preset.maxTokens, modelMaxTokens);
+    const maxTokensToUse = Math.min(
+      maxTokens ?? fallbackMaxTokens,
+      modelMaxTokens,
+    );
+
+    const stopSequences = preset.stop.filter((sequence) => sequence.length > 0);
+
     const stream = await openai.completions.create({
       model,
       prompt: prompt,
       temperature: temperature ?? AVAILABLE_MODELS[model].defaultTemp,
-      max_tokens: maxTokens ?? AVAILABLE_MODELS[model].maxTokens,
+      max_tokens: maxTokensToUse,
+      stop: stopSequences.length ? stopSequences : undefined,
       stream: true,
     });
 

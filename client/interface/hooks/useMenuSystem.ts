@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { MenuType } from "../types";
 import type { ModelId } from "../../../shared/models";
+import type { LengthMode } from "../../../shared/lengthPresets";
 import { useModels } from "./useModels";
 import { scrollMenuItemElIntoView } from "../utils/scrolling";
 import {
@@ -10,7 +11,7 @@ import {
 
 interface MenuParams {
   temperature: number;
-  maxTokens: number;
+  lengthMode: LengthMode;
   model: ModelId;
   textSplitting: boolean;
 }
@@ -34,6 +35,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const [selectedTreeIndex, setSelectedTreeIndex] = useState(0);
   const [menuParams, setMenuParams] = useState<MenuParams>(defaultParams);
   const { models } = useModels();
+  const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
 
   const handleMenuNavigation = useCallback(
     (
@@ -78,7 +80,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
           case "ArrowLeft": {
             const param = [
               "temperature",
-              "maxTokens",
+              "lengthMode",
               "model",
               "theme",
               "textSplitting",
@@ -88,12 +90,14 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 temperature: Math.max(0.1, prev.temperature - 0.1),
               }));
-            } else if (param === "maxTokens") {
+            } else if (param === "lengthMode") {
               setMenuParams((prev) => {
-                // Respect current model's maxTokens
-                const maxAllowed = models?.[prev.model]?.maxTokens ?? 1024;
-                const next = Math.max(10, prev.maxTokens - 10);
-                return { ...prev, maxTokens: Math.min(next, maxAllowed) };
+                const index = lengthModes.indexOf(prev.lengthMode);
+                const nextIndex = (index - 1 + lengthModes.length) % lengthModes.length;
+                return {
+                  ...prev,
+                  lengthMode: lengthModes[nextIndex],
+                };
               });
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
@@ -103,10 +107,6 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 setMenuParams((prev) => ({
                   ...prev,
                   model: newModel,
-                  maxTokens: Math.min(
-                    prev.maxTokens,
-                    models[newModel].maxTokens,
-                  ),
                 }));
               }
             } else if (param === "theme") {
@@ -127,7 +127,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
           case "ArrowRight": {
             const param = [
               "temperature",
-              "maxTokens",
+              "lengthMode",
               "model",
               "theme",
               "textSplitting",
@@ -137,12 +137,14 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 temperature: Math.min(2.0, prev.temperature + 0.1),
               }));
-            } else if (param === "maxTokens") {
+            } else if (param === "lengthMode") {
               setMenuParams((prev) => {
-                // Respect current model's maxTokens
-                const maxAllowed = models?.[prev.model]?.maxTokens ?? 1024;
-                const next = prev.maxTokens + 10;
-                return { ...prev, maxTokens: Math.min(maxAllowed, next) };
+                const index = lengthModes.indexOf(prev.lengthMode);
+                const nextIndex = (index + 1) % lengthModes.length;
+                return {
+                  ...prev,
+                  lengthMode: lengthModes[nextIndex],
+                };
               });
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
@@ -152,10 +154,6 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 setMenuParams((prev) => ({
                   ...prev,
                   model: newModel,
-                  maxTokens: Math.min(
-                    prev.maxTokens,
-                    models[newModel].maxTokens,
-                  ),
                 }));
               }
             } else if (param === "theme") {
@@ -176,7 +174,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             // Enter acts on cyclers/toggles in Settings
             const param = [
               "temperature",
-              "maxTokens",
+              "lengthMode",
               "model",
               "theme",
               "textSplitting",
@@ -188,7 +186,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
               setMenuParams((prev) => ({
                 ...prev,
                 model: newModel,
-                maxTokens: Math.min(prev.maxTokens, models[newModel].maxTokens),
+              }));
+            } else if (param === "lengthMode") {
+              setMenuParams((prev) => ({
+                ...prev,
+                lengthMode:
+                  lengthModes[(lengthModes.indexOf(prev.lengthMode) + 1) % lengthModes.length],
               }));
             } else if (param === "theme") {
               const themes: Theme[] = ["matrix", "light", "system"];
