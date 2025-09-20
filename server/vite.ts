@@ -98,6 +98,7 @@ export async function createServer() {
 
     const skip_prefixes = [
       "/client",
+      "/shared",
       "/node_modules",
       "/@vite",
       "/@react-refresh",
