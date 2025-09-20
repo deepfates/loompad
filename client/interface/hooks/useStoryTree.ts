@@ -204,6 +204,67 @@ export function useStoryTree(params: StoryParams) {
     [storyTree],
   );
 
+  const createSiblingNode = useCallback(
+    (pathIds: string[], depth: number, newNode: StoryNode): StoryNode | null => {
+      if (depth <= 0) {
+        console.error("Cannot create sibling for root node");
+        return null;
+      }
+
+      const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
+
+      let parent = newTree.root;
+      for (let i = 1; i < depth; i++) {
+        const targetId = pathIds[i];
+        if (!targetId) {
+          console.error("Missing path information when creating sibling", {
+            depth,
+            pathIds,
+          });
+          return null;
+        }
+
+        const idx =
+          parent.continuations?.findIndex((node) => node.id === targetId) ?? -1;
+        if (idx === -1 || !parent.continuations) {
+          console.error("Failed to locate parent while creating sibling", {
+            depth,
+            targetId,
+            available: parent.continuations?.map((node) => node.id),
+          });
+          return null;
+        }
+
+        parent = parent.continuations[idx];
+      }
+
+      if (!parent.continuations) {
+        parent.continuations = [];
+      }
+
+      parent.continuations.push(newNode);
+      const newIndex = parent.continuations.length - 1;
+      parent.lastSelectedIndex = newIndex;
+
+      setStoryTree(newTree);
+      setTrees((prev) => ({
+        ...prev,
+        [currentTreeKey]: newTree,
+      }));
+      touchStoryUpdated(currentTreeKey);
+
+      setSelectedOptions((prev) => {
+        const next = [...prev];
+        next[depth] = newIndex;
+        return next.slice(0, depth + 1);
+      });
+      setCurrentDepth(depth);
+
+      return parent.continuations[newIndex];
+    },
+    [storyTree, currentTreeKey, setTrees],
+  );
+
   const handleStoryNavigation = useCallback(
     async (key: string) => {
       // Allow arrow/backspace navigation during generation, but prevent new
@@ -388,5 +449,6 @@ export function useStoryTree(params: StoryParams) {
     getOptionsAtDepth,
     setTrees,
     setStoryTree,
+    createSiblingNode,
   };
 }
