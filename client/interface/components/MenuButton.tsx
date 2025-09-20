@@ -41,7 +41,13 @@ export const MenuButton = ({
     isPressedRef.current = false;
 
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+      if (event.currentTarget.releasePointerCapture) {
+        try {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        } catch {
+          // Ignore unsupported pointer capture release
+        }
+      }
     }
 
     void onPressEnd();

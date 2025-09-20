@@ -40,6 +40,9 @@ const DEFAULT_PARAMS = {
   textSplitting: true,
 };
 
+const buildComboKey = (keys: Iterable<string>) => JSON.stringify([...keys].sort());
+const SELECT_ENTER_COMBO = buildComboKey(["Enter", "`"]);
+
 const EMPTY_STORY = {
   root: {
     id: "root",
@@ -183,9 +186,9 @@ const GamepadInterface = () => {
       const keySet = new Set(keys);
 
       if (keySet.size > 1) {
-        const comboKey = Array.from(keySet).sort().join("+");
+        const comboKey = buildComboKey(keySet);
         switch (comboKey) {
-          case "Enter+`":
+          case SELECT_ENTER_COMBO:
             if (activeMenu && activeMenu !== "map") {
               setActiveMenu(null);
             }

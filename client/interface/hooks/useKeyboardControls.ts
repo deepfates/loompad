@@ -96,8 +96,18 @@ export function useKeyboardControls(
     stopRepeat();
 
     repeatTimeoutRef.current = window.setTimeout(() => {
+      if (pressedKeysRef.current.length === 0) {
+        stopRepeat();
+        return;
+      }
+
       void triggerAction();
       repeatIntervalRef.current = window.setInterval(() => {
+        if (pressedKeysRef.current.length === 0) {
+          stopRepeat();
+          return;
+        }
+
         void triggerAction();
       }, REPEAT_INTERVAL);
     }, INITIAL_REPEAT_DELAY);
