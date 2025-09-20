@@ -169,7 +169,6 @@ export function useScrollSync({
         return;
       }
 
-      // Leap-and-settle disabled: fall through to single smooth scroll
 
       // Mid-range distance: a single smooth scroll feels right
       container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
