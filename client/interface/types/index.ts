@@ -62,8 +62,8 @@ export interface GamepadButtonProps {
   className?: string;
   active?: boolean;
   disabled?: boolean;
-  onMouseDown: () => void;
-  onMouseUp: () => void;
+  onPressStart: () => void | Promise<void>;
+  onPressEnd: () => void | Promise<void>;
 }
 
 export interface DPadProps {
@@ -75,8 +75,8 @@ export interface DPadProps {
 export interface MenuButtonProps {
   label: string;
   active: boolean;
-  onMouseDown: () => void;
-  onMouseUp: () => void;
+  onPressStart: () => void | Promise<void>;
+  onPressEnd: () => void | Promise<void>;
 }
 
 export type InFlight = Set<string>;
