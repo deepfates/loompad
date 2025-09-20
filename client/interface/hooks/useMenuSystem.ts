@@ -3,6 +3,10 @@ import { MenuType } from "../types";
 import type { ModelId } from "../../../shared/models";
 import { useModels } from "./useModels";
 import { scrollMenuItemElIntoView } from "../utils/scrolling";
+import {
+  orderKeysReverseChronological,
+  touchStoryActive,
+} from "../utils/storyMeta";
 
 interface MenuParams {
   temperature: number;
@@ -21,6 +25,8 @@ interface MenuCallbacks {
   currentTheme?: Theme;
   onThemeChange?: (theme: Theme) => void;
 }
+
+// Story ordering and active tracking handled by utils/storyMeta
 
 export function useMenuSystem(defaultParams: MenuParams) {
   const [activeMenu, setActiveMenu] = useState<MenuType>(null);
@@ -204,7 +210,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
         }
       } else if (activeMenu === "start") {
-        const totalItems = Object.keys(trees).length + 1; // +1 for New Story
+        const orderedKeys = orderKeysReverseChronological(trees);
+        const totalItems = orderedKeys.length + 1; // +1 for New Story
 
         switch (key) {
           case "ArrowUp":
@@ -243,13 +250,14 @@ export function useMenuSystem(defaultParams: MenuParams) {
             if (selectedTreeIndex === 0) {
               callbacks.onNewTree?.();
             } else {
-              const treeKey = Object.keys(trees)[selectedTreeIndex - 1];
+              const treeKey = orderedKeys[selectedTreeIndex - 1];
+              touchStoryActive(treeKey);
               callbacks.onSelectTree?.(treeKey);
             }
             break;
           case "Backspace": // B button
-            if (selectedTreeIndex > 0 && Object.keys(trees).length > 1) {
-              const treeKey = Object.keys(trees)[selectedTreeIndex - 1];
+            if (selectedTreeIndex > 0 && orderedKeys.length > 1) {
+              const treeKey = orderedKeys[selectedTreeIndex - 1];
               callbacks.onDeleteTree?.(treeKey);
             }
             break;

@@ -3,6 +3,7 @@ import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
 import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../shared/models";
+import { touchStoryUpdated } from "../utils/storyMeta";
 
 const INITIAL_STORY = {
   root: {
@@ -309,6 +310,8 @@ export function useStoryTree(params: StoryParams) {
               ...prev,
               [currentTreeKey]: updatedTree,
             }));
+            // Mark story as updated for reverse-chronological ordering
+            touchStoryUpdated(currentTreeKey);
           } catch (e) {
             console.error("Generation failed:", e);
           } finally {

@@ -1,4 +1,5 @@
 import { TreeListProps } from "../types";
+import { sortTreeEntriesByRecency } from "../utils/storyMeta";
 
 export const TreeListMenu = ({
   trees,
@@ -7,7 +8,7 @@ export const TreeListMenu = ({
   onDelete,
   onNew,
 }: TreeListProps) => {
-  const treeEntries = Object.entries(trees);
+  const treeEntries = sortTreeEntriesByRecency(trees);
   const totalItems = treeEntries.length + 1; // +1 for "New Story" option
 
   const handleSelect = (index: number) => {
