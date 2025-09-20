@@ -92,13 +92,7 @@ const GamepadInterface = () => {
     () => orderKeysReverseChronological(trees),
     [trees],
   );
-  const orderedTrees = useMemo(() => {
-    const obj: { [key: string]: { root: StoryNode } } = {};
-    orderedKeys.forEach((k) => {
-      obj[k] = trees[k];
-    });
-    return obj;
-  }, [orderedKeys, trees]);
+  // Use orderedKeys directly where needed; no reordered trees object required
 
   // On first load, default to the most recently active story (if any)
   const hasAppliedDefault = useRef(false);
@@ -224,7 +218,7 @@ const GamepadInterface = () => {
       }
 
       if (activeMenu === "select") {
-        handleMenuNavigation(key, orderedTrees, {
+        handleMenuNavigation(key, trees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
             touchStoryActive(key);
@@ -236,7 +230,7 @@ const GamepadInterface = () => {
           onThemeChange: setTheme,
         });
       } else if (activeMenu && activeMenu !== "map") {
-        handleMenuNavigation(key, orderedTrees, {
+        handleMenuNavigation(key, trees, {
           onNewTree: handleNewTree,
           onSelectTree: (key) => {
             touchStoryActive(key);
@@ -509,7 +503,7 @@ const GamepadInterface = () => {
             <>
               <MenuScreen>
                 <TreeListMenu
-                  trees={orderedTrees}
+                  trees={trees}
                   selectedIndex={selectedTreeIndex}
                   onSelect={(key) => {
                     touchStoryActive(key);
@@ -524,7 +518,7 @@ const GamepadInterface = () => {
                     // Adjust selected index if needed
                     if (selectedTreeIndex > 0) {
                       setSelectedTreeIndex((prev) =>
-                        Math.min(prev, Object.keys(orderedTrees).length - 1),
+                        Math.min(prev, Object.keys(trees).length - 1),
                       );
                     }
                   }}
