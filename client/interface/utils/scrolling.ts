@@ -204,10 +204,6 @@ export function getElementTargetTop(
   return scrollTop;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
 /**
  * Element-based menu scrolling with leap-and-settle for long distances.
  * Ensures the selected .menu-item is fully visible, including wrap-around cases.

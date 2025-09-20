@@ -41,10 +41,6 @@ export function useScrollSync({
 }: UseScrollSyncOptions) {
   // Tuning constants (can be tweaked for feel)
   const SMALL_THRESHOLD = 150; // px, use standard smooth when below
-  const BIG_THRESHOLD = 2000; // px, trigger leap-and-settle when above
-  const LEAP_FRACTION = 0; // how much of the distance we leap instantly
-  const LAST_PHASE_MIN = 120; // px, min distance for the final smooth settle
-  const LAST_PHASE_MAX = 480; // px, max distance for the final smooth settle
   const MANUAL_SUPPRESS_MS = 2000; // ms, manual scroll guard window for generation
 
   const reducedMotionRef = useRef<boolean>(
@@ -174,17 +170,7 @@ export function useScrollSync({
       container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
       setProgrammaticWindow();
     },
-    [
-      BIG_THRESHOLD,
-      LAST_PHASE_MAX,
-      LAST_PHASE_MIN,
-      MANUAL_SUPPRESS_MS,
-      SMALL_THRESHOLD,
-      containerRef,
-      padding,
-      cancel,
-      setProgrammaticWindow,
-    ],
+    [containerRef, padding, cancel, setProgrammaticWindow],
   );
 
   return { queueScroll, cancel };
