@@ -50,6 +50,10 @@ interface StoryMinimapProps {
  */
 const LANE_WIDTH = 30;
 const ROW_HEIGHT = 50;
+// Vertical spacing adapts to the amount of text in each node so the minimap
+// conveys relative length at a glance.
+const MIN_CONNECTOR_LENGTH = ROW_HEIGHT * 0.7;
+const MAX_CONNECTOR_LENGTH = ROW_HEIGHT * 3;
 const NODE_RADIUS = 5;
 
 /**
@@ -59,7 +63,15 @@ function useCoords(root: StoryNode) {
   return useMemo(() => {
     const coords: Record<
       string,
-      { x: number; y: number; lane: number; depth: number; path: StoryNode[] }
+      {
+        x: number;
+        y: number;
+        lane: number;
+        depth: number;
+        path: StoryNode[];
+        length: number;
+        connectorLength: number;
+      }
     > = {};
 
     // Handle empty tree
@@ -75,20 +87,56 @@ function useCoords(root: StoryNode) {
 
     treeLayout(rootHierarchy);
 
-    // Build path for each node and convert to coords
-    const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
+    const descendants = rootHierarchy.descendants();
+    const logLengths = descendants.map((node) => Math.log((node.data.text || "").length + 1));
+    const minLogLength = Math.min(...logLengths);
+    const maxLogLength = Math.max(...logLengths);
+    const logRange = maxLogLength - minLogLength || 1;
+
+    const getConnectorLength = (textLength: number) => {
+      const logLength = Math.log(textLength + 1);
+      const normalized =
+        maxLogLength === minLogLength
+          ? 0.5
+          : (logLength - minLogLength) / logRange;
+
+      return (
+        MIN_CONNECTOR_LENGTH +
+        normalized * (MAX_CONNECTOR_LENGTH - MIN_CONNECTOR_LENGTH)
+      );
+    };
+
+    const buildPath = (
+      node: any,
+      path: StoryNode[] = [],
+      parentY = 0,
+    ): StoryNode[] => {
       const currentPath = [...path, node.data];
+      const textLength = (node.data.text || "").length;
+      const connectorLength = getConnectorLength(textLength);
+      const parentConnectorLength =
+        node.parent && coords[node.parent.data.id]
+          ? coords[node.parent.data.id].connectorLength
+          : node.parent
+            ? getConnectorLength((node.parent.data.text || "").length)
+            : 0;
+      const y = node.parent ? parentY + parentConnectorLength : 0;
+
       coords[node.data.id] = {
         x: node.x || 0,
-        y: node.y || 0,
+        y,
         lane: Math.round((node.x || 0) / LANE_WIDTH),
         depth: node.depth || 0,
         path: currentPath,
+        length: textLength,
+        connectorLength,
       };
 
       // Recursively process children
       if (node.children) {
-        node.children.forEach((child: any) => buildPath(child, currentPath));
+        node.children.forEach((child: any) =>
+          buildPath(child, currentPath, y),
+        );
       }
 
       return currentPath;
@@ -176,15 +224,16 @@ export const StoryMinimap = ({
   }
 
   // Bounds for <svg> viewBox - ensure it's wide enough for scrolling
-  const xCoords = Object.values(coords).map((c) => c.x);
+  const coordValues = Object.values(coords);
+  const xCoords = coordValues.map((c) => c.x);
   const minX = Math.min(...xCoords);
   const maxX = Math.max(...xCoords);
-  const maxDepth = Math.max(...Object.values(coords).map((c) => c.depth));
+  const maxY = Math.max(...coordValues.map((c) => c.y));
 
   // Add padding around the tree
   const padding = LANE_WIDTH * 2;
   const svgWidth = Math.max(600, maxX - minX + padding * 2); // Ensure minimum width
-  const svgHeight = (maxDepth + 1) * ROW_HEIGHT + ROW_HEIGHT;
+  const svgHeight = Math.max(maxY + MAX_CONNECTOR_LENGTH, ROW_HEIGHT * 4);
 
   // Center the tree horizontally - offset all x coords so tree is centered
   const centerX = svgWidth / 2;
@@ -330,20 +379,40 @@ export const StoryMinimap = ({
               const bx = b.x + rootOffset;
 
               let path;
-              if (a.lane === b.lane) {
-                // Straight line for same lane
+              const verticalGap = Math.max(0, b.y - a.y);
+
+              if (a.lane === b.lane || verticalGap < 8) {
+                // Straight line for same lane or very small spacing
                 path = `M${ax},${a.y} L${bx},${b.y}`;
               } else {
-                // Squircle-style branch: curve early then straight down
-                const branchPoint = a.y + 15; // Fork happens 15px below parent
-                const curveRadius = 8; // Radius of the rounded corner
+                // Smooth curve whose depth reflects the spacing between nodes
+                const horizontalGap = Math.abs(bx - ax);
+                const baseVerticalControl = Math.min(
+                  Math.max(verticalGap * 0.45, 18),
+                  verticalGap - 8,
+                );
+                const controlYOffset1 = Math.min(
+                  baseVerticalControl,
+                  verticalGap / 2,
+                );
+                const controlYOffset2 = Math.min(
+                  baseVerticalControl * 0.75,
+                  verticalGap / 2,
+                );
+                const controlXShift = Math.min(
+                  Math.max(horizontalGap * 0.35, 10),
+                  60,
+                );
+                const controlX1 = bx > ax ? ax + controlXShift : ax - controlXShift;
+                const controlX2 = bx > ax ? bx - controlXShift : bx + controlXShift;
+                const controlY1 = a.y + controlYOffset1;
+                const controlY2 = b.y - controlYOffset2;
 
-                if (bx > ax) {
-                  // Branching to the right
-                  path = `M${ax},${a.y} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax + curveRadius},${branchPoint} L${bx - curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${b.y}`;
+                if (controlY2 <= controlY1) {
+                  const midpoint = a.y + verticalGap / 2;
+                  path = `M${ax},${a.y} C${controlX1},${midpoint} ${controlX2},${midpoint} ${bx},${b.y}`;
                 } else {
-                  // Branching to the left
-                  path = `M${ax},${a.y} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax - curveRadius},${branchPoint} L${bx + curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${b.y}`;
+                  path = `M${ax},${a.y} C${controlX1},${controlY1} ${controlX2},${controlY2} ${bx},${b.y}`;
                 }
               }
 
