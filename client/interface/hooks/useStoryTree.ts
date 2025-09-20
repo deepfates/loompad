@@ -362,6 +362,25 @@ export function useStoryTree(params: StoryParams) {
       setCurrentDepth(0);
       setSelectedOptions([0]);
     },
+    // Set selection state (currentDepth and selectedOptions) from a provided path.
+    // Matches path IDs against current storyTree to compute indices.
+    setSelectionByPath: (path: StoryNode[]) => {
+      if (!path || path.length === 0) return;
+      const indices: number[] = [];
+      let current = storyTree.root;
+      for (let i = 1; i < path.length; i++) {
+        const target = path[i];
+        const idx =
+          current.continuations?.findIndex((n) => n.id === target.id) ?? -1;
+        if (idx < 0) break;
+        indices.push(idx);
+        current = current.continuations![idx];
+      }
+      // Depth equals number of traversed indices
+      setCurrentDepth(indices.length);
+      // Keep at least one element for downstream logic
+      setSelectedOptions(indices.length ? indices : [0]);
+    },
     getCurrentPath,
     getOptionsAtDepth,
     setTrees,

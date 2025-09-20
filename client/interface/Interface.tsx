@@ -4,6 +4,7 @@ import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
 import { useStoryTree } from "./hooks/useStoryTree";
 import { useOfflineStatus } from "./hooks/useOfflineStatus";
+import { useScrollSync } from "./hooks/useScrollSync";
 
 import { DPad } from "./components/DPad";
 import { GamepadButton } from "./components/GamepadButton";
@@ -19,16 +20,7 @@ import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ModeBar from "./components/ModeBar";
 import { splitTextToNodes } from "./utils/textSplitter";
-import {
-  scrollToCurrentDepth,
-  scrollToEndOfPath,
-  scrollToSelectedSibling,
-  scrollMenuItemIntoView,
-  scrollElementIntoViewIfNeeded,
-  isAtBottom,
-  createDebouncedScroll,
-  SCROLL_DEBOUNCE_DELAY,
-} from "./utils/scrolling";
+import { scrollElementIntoViewIfNeeded, isAtBottom } from "./utils/scrolling";
 
 import type { StoryNode, MenuType } from "./types";
 import type { ModelId } from "../../shared/models";
@@ -52,9 +44,6 @@ const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
   const { theme, setTheme } = useTheme();
   const [lastMapNodeId, setLastMapNodeId] = useState<string | null>(null);
-
-  // Create debounced scroll function
-  const debouncedScroll = createDebouncedScroll(SCROLL_DEBOUNCE_DELAY);
 
   // (select menu navigation now handled in useMenuSystem)
 
@@ -87,6 +76,7 @@ const GamepadInterface = () => {
     getOptionsAtDepth,
     setTrees,
     setStoryTree,
+    setSelectionByPath,
   } = useStoryTree(menuParams);
 
   // Calculate current highlighted node for map
@@ -102,6 +92,15 @@ const GamepadInterface = () => {
   }, [storyTree, currentDepth, selectedOptions]);
 
   const storyTextRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const { queueScroll, cancel } = useScrollSync({
+    containerRef: storyTextRef,
+    prefersReducedMotion,
+    padding: 8,
+  });
 
   const handleNewTree = useCallback(() => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;
@@ -165,6 +164,14 @@ const GamepadInterface = () => {
           // START toggles map off back to reading
           setLastMapNodeId(highlightedNode.id);
           setActiveMenu(null);
+          // Align LOOM on reveal
+          requestAnimationFrame(() => {
+            queueScroll({
+              nodeId: highlightedNode.id,
+              reason: "mode-exit-map",
+              priority: 90,
+            });
+          });
           return;
         }
         // Let arrow keys and Enter fall through to story navigation
@@ -219,6 +226,14 @@ const GamepadInterface = () => {
         // START toggles minimap off when in map
         setLastMapNodeId(highlightedNode.id);
         setActiveMenu(null);
+        // Align LOOM on reveal
+        requestAnimationFrame(() => {
+          queueScroll({
+            nodeId: highlightedNode.id,
+            reason: "mode-exit-map",
+            priority: 90,
+          });
+        });
       } else if (key === "Backspace" && !activeMenu) {
         setActiveMenu("edit");
       }
@@ -289,16 +304,14 @@ const GamepadInterface = () => {
       const path = getCurrentPath();
       const current = path[currentDepth];
       if (current) {
-        debouncedScroll(() => scrollNodeIntoView(current.id));
+        queueScroll({
+          nodeId: current.id,
+          reason: "nav-up-down",
+          priority: 100,
+        });
       }
     }
-  }, [
-    currentDepth,
-    getCurrentPath,
-    debouncedScroll,
-    activeMenu,
-    scrollNodeIntoView,
-  ]);
+  }, [currentDepth, getCurrentPath, activeMenu, scrollNodeIntoView]);
 
   // Scroll to selected sibling when left/right navigation changes
   useEffect(() => {
@@ -306,14 +319,17 @@ const GamepadInterface = () => {
       const path = getCurrentPath();
       const next = path[currentDepth + 1];
       if (next) {
-        debouncedScroll(() => scrollNodeIntoView(next.id));
+        queueScroll({
+          nodeId: next.id,
+          reason: "nav-left-right",
+          priority: 100,
+        });
       }
     }
   }, [
     selectedOptions,
     getCurrentPath,
     activeMenu,
-    debouncedScroll,
     currentDepth,
     scrollNodeIntoView,
   ]);
@@ -327,12 +343,17 @@ const GamepadInterface = () => {
 
       // If user was at bottom or near end, scroll to show new content
       if (wasAtBottom) {
-        debouncedScroll(() => {
-          scrollToEndOfPath(container, path, true);
-        });
+        const last = path[path.length - 1];
+        if (last) {
+          queueScroll({
+            nodeId: last.id,
+            reason: "generation",
+            priority: 50,
+          });
+        }
       }
     }
-  }, [storyTree, isAnyGenerating, getCurrentPath, debouncedScroll]);
+  }, [storyTree, isAnyGenerating, getCurrentPath]);
 
   // Removed LOOM scroll preservation to keep behavior simple and reliable
 
@@ -418,6 +439,20 @@ const GamepadInterface = () => {
               currentPath={getCurrentPath()}
               inFlight={inFlight}
               generatingInfo={generatingInfo}
+              onSelectNode={(path) => {
+                setSelectionByPath(path);
+                setActiveMenu(null);
+                requestAnimationFrame(() => {
+                  const last = path[path.length - 1];
+                  if (last) {
+                    queueScroll({
+                      nodeId: last.id,
+                      reason: "map-select",
+                      priority: 90,
+                    });
+                  }
+                });
+              }}
               isVisible={activeMenu === "map"}
               lastMapNodeId={lastMapNodeId}
               currentNodeId={highlightedNode.id}
@@ -502,14 +537,18 @@ const GamepadInterface = () => {
                   setStoryTree(newTree);
                   setActiveMenu(null);
 
-                  // Scroll to the end of the updated content after text splitting
-                  setTimeout(() => {
-                    if (storyTextRef.current) {
-                      const container = storyTextRef.current;
-                      const path = getCurrentPath();
-                      scrollToEndOfPath(container, path, true);
+                  // Align to end of updated content after text splitting
+                  requestAnimationFrame(() => {
+                    const path = getCurrentPath();
+                    const last = path[path.length - 1];
+                    if (last) {
+                      queueScroll({
+                        nodeId: last.id,
+                        reason: "edit-save",
+                        priority: 60,
+                      });
                     }
-                  }, 100);
+                  });
                 }}
                 onCancel={() => setActiveMenu(null)}
               />
