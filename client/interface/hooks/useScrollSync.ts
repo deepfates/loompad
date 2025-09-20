@@ -137,6 +137,11 @@ export function useScrollSync({
         effectiveAlign,
       );
 
+      if (targetTop == null) {
+        // Already in view (within padding) or unable to compute a target
+        return;
+      }
+
       // No need to adjust if already aligned effectively
       const currentTop = container.scrollTop;
       if (Math.abs(targetTop - currentTop) <= 1) {

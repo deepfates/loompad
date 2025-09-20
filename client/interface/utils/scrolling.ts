@@ -108,13 +108,16 @@ export function scrollElementIntoViewIfNeeded(
       el.offsetHeight >= container.clientHeight ? "top" : "nearest",
     );
 
+    if (targetTop == null) {
+      // Already in view (within padding) or unable to compute a target
+      return;
+    }
+
     const scrollTop = container.scrollTop;
-    if (targetTop != null) {
-      const clamped = Math.max(0, targetTop);
-      // Avoid micro-adjustments when already effectively in view
-      if (Math.abs(clamped - scrollTop) > 1) {
-        container.scrollTo({ top: clamped, behavior });
-      }
+    const clamped = Math.max(0, targetTop);
+    // Avoid micro-adjustments when already effectively in view
+    if (Math.abs(clamped - scrollTop) > 1) {
+      container.scrollTo({ top: clamped, behavior });
     }
   } catch (error) {
     console.warn("Error in scrollElementIntoViewIfNeeded:", error);
@@ -156,7 +159,7 @@ export function getElementTargetTop(
   el: HTMLElement,
   padding: number = 16,
   mode: "nearest" | "top" = "nearest",
-): number {
+): number | null {
   // Prefer offsetTop traversal for robust relative positioning
   const computeRelativeTop = (
     node: HTMLElement,
@@ -201,7 +204,7 @@ export function getElementTargetTop(
     return Math.max(0, elementBottom - containerHeight + padding);
   }
   // Already in view (within padding)
-  return scrollTop;
+  return null;
 }
 
 /**
@@ -229,9 +232,12 @@ export function scrollMenuItemElIntoView(
       el.offsetHeight >= container.clientHeight ? "top" : "nearest",
     );
 
+    if (targetTop == null) {
+      // Already fully in view; nothing to do
+      return;
+    }
+
     const currentTop = container.scrollTop;
-    // No movement needed (already aligned/in view)
-    if (Math.abs(targetTop - currentTop) <= 1) return;
 
     if (reduced) {
       container.scrollTop = Math.max(0, targetTop);
