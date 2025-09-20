@@ -1,10 +1,5 @@
-import type { StoryNode } from "../types";
-
 // Constants for scroll configuration
 const SCROLL_PADDING = 80;
-const MIN_MENU_ITEM_HEIGHT = 40;
-const DEFAULT_MENU_ITEM_HEIGHT = 60;
-export const SCROLL_DEBOUNCE_DELAY = 150;
 
 /**
  * Scrolls to a specific text position in a story container
@@ -55,135 +50,22 @@ export function scrollToTextPosition(
 /**
  * Scrolls to focus on the current story depth (highlighted text)
  */
-export function scrollToCurrentDepth(
-  container: HTMLElement,
-  path: StoryNode[],
-  currentDepth: number,
-  smooth: boolean = true,
-) {
-  if (!container || !path || currentDepth < 0) return;
-
-  // Calculate the position to scroll to the current depth
-  let position = 0;
-  for (let i = 0; i < Math.min(currentDepth, path.length); i++) {
-    if (path[i]?.text) {
-      position += path[i].text.length;
-    }
-  }
-
-  scrollToTextPosition(container, position, smooth);
-}
 
 /**
  * Scrolls to focus on the selected sibling content (for left/right navigation)
  */
-export function scrollToSelectedSibling(
-  container: HTMLElement,
-  path: StoryNode[],
-  currentDepth: number,
-  smooth: boolean = true,
-) {
-  if (!container || !path || currentDepth < 0 || currentDepth >= path.length)
-    return;
-
-  // Calculate position to the end of the selected sibling
-  let position = 0;
-  for (let i = 0; i <= currentDepth; i++) {
-    if (path[i]?.text) {
-      position += path[i].text.length;
-    }
-  }
-
-  scrollToTextPosition(container, position, smooth);
-}
 
 /**
  * Scrolls to the end of the last node in the path (for new content)
  */
-export function scrollToEndOfPath(
-  container: HTMLElement,
-  path: StoryNode[],
-  smooth: boolean = true,
-) {
-  if (!container || !path || path.length === 0) return;
-
-  const totalLength = path.reduce((sum, node) => {
-    return sum + (node?.text?.length || 0);
-  }, 0);
-  scrollToTextPosition(container, totalLength, smooth);
-}
 
 /**
  * Scrolls a menu item into view if it's outside the viewport
  */
-export function scrollMenuItemIntoView(
-  container: HTMLElement,
-  selectedIndex: number,
-  itemHeight: number = 60,
-  padding: number = 20,
-) {
-  if (!container || selectedIndex < 0) return;
-
-  try {
-    const containerHeight = container.clientHeight;
-    const scrollTop = container.scrollTop;
-
-    const itemTop = selectedIndex * itemHeight;
-    const itemBottom = itemTop + itemHeight;
-
-    const viewportTop = scrollTop + padding;
-    const viewportBottom = scrollTop + containerHeight - padding;
-
-    let targetScroll = scrollTop;
-
-    // Item is above viewport
-    if (itemTop < viewportTop) {
-      targetScroll = Math.max(0, itemTop - padding);
-    }
-    // Item is below viewport
-    else if (itemBottom > viewportBottom) {
-      targetScroll = itemBottom - containerHeight + padding;
-    }
-
-    if (targetScroll !== scrollTop && container.scrollTo) {
-      container.scrollTo({
-        top: targetScroll,
-        behavior: "smooth",
-      });
-    }
-  } catch (error) {
-    console.warn("Error in scrollMenuItemIntoView:", error);
-  }
-}
 
 /**
  * Auto-scrolls to keep content visible when new text is added
  */
-export function autoScrollOnNewContent(
-  container: HTMLElement,
-  wasAtBottom: boolean = false,
-  threshold: number = 100,
-) {
-  // If user was at the bottom, stay at bottom
-  if (wasAtBottom) {
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: "smooth",
-    });
-    return;
-  }
-
-  // If user is near the bottom, scroll to show new content
-  const { scrollTop, scrollHeight, clientHeight } = container;
-  const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-
-  if (distanceFromBottom < threshold) {
-    container.scrollTo({
-      top: scrollHeight - clientHeight,
-      behavior: "smooth",
-    });
-  }
-}
 
 /**
  * Checks if the user is currently at the bottom of a scrollable container
@@ -199,44 +81,15 @@ export function isAtBottom(
 /**
  * Debounced scroll function to prevent excessive scroll calls
  */
-export function createDebouncedScroll(delay: number = SCROLL_DEBOUNCE_DELAY) {
-  let timeoutId: number | null = null;
-
-  return (fn: () => void) => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-
-    timeoutId = window.setTimeout(() => {
-      fn();
-      timeoutId = null;
-    }, delay);
-  };
-}
 
 /**
  * Gets the estimated item height for menu scrolling
  */
-export function getMenuItemHeight(container: HTMLElement): number {
-  if (!container) return 60;
-
-  try {
-    const firstItem = container.querySelector(".menu-item");
-    if (firstItem) {
-      const styles = getComputedStyle(firstItem);
-      const height = firstItem.getBoundingClientRect().height;
-      const marginBottom = parseFloat(styles.marginBottom) || 0;
-      return Math.max(MIN_MENU_ITEM_HEIGHT, height + marginBottom); // Minimum height
-    }
-  } catch (error) {
-    console.warn("Error getting menu item height:", error);
-  }
-  return DEFAULT_MENU_ITEM_HEIGHT; // Default fallback
-}
 
 /**
  * Scroll a specific element inside a scrollable container into view
  * only if it is currently outside the visible viewport of the container.
+ * - Tall elements (>= container height) are aligned to top with padding to avoid oscillation.
  */
 export function scrollElementIntoViewIfNeeded(
   container: HTMLElement,
@@ -247,56 +100,154 @@ export function scrollElementIntoViewIfNeeded(
   if (!container || !el) return;
 
   try {
-    // Prefer offsetTop traversal for robust relative positioning
-    const computeRelativeTop = (
-      node: HTMLElement,
-      stopAt: HTMLElement,
-    ): { top: number; reachedStop: boolean } => {
-      let top = 0;
-      let cur: HTMLElement | null = node;
-      while (cur && cur !== stopAt) {
-        top += cur.offsetTop;
-        cur = cur.offsetParent as HTMLElement | null;
-      }
-      return { top, reachedStop: cur === stopAt };
-    };
-
-    let { top: elementTop, reachedStop } = computeRelativeTop(el, container);
-    let elementBottom = elementTop + el.offsetHeight;
-
-    // Fallback to DOMRect if offsetParent chain didn't reach container (including null)
-    if (!reachedStop) {
-      const elRect = el.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const scrollTop = container.scrollTop;
-      elementTop = scrollTop + (elRect.top - containerRect.top);
-      elementBottom = elementTop + elRect.height;
-    }
+    const targetTop = getElementTargetTop(
+      container,
+      el,
+      padding,
+      // If the element is taller than the viewport, force top alignment; else use nearest
+      el.offsetHeight >= container.clientHeight ? "top" : "nearest",
+    );
 
     const scrollTop = container.scrollTop;
-    const containerHeight = container.clientHeight;
-
-    const viewportTop = scrollTop + padding;
-    const viewportBottom = scrollTop + containerHeight - padding;
-
-    let targetTop: number | null = null;
-
-    if (elementTop < viewportTop) {
-      // Need to scroll up
-      targetTop = elementTop - padding;
-    } else if (elementBottom > viewportBottom) {
-      // Need to scroll down
-      targetTop = elementBottom - containerHeight + padding;
-    }
-
     if (targetTop != null) {
-      targetTop = Math.max(0, targetTop);
+      const clamped = Math.max(0, targetTop);
       // Avoid micro-adjustments when already effectively in view
-      if (Math.abs(targetTop - scrollTop) > 1) {
-        container.scrollTo({ top: targetTop, behavior });
+      if (Math.abs(clamped - scrollTop) > 1) {
+        container.scrollTo({ top: clamped, behavior });
       }
     }
   } catch (error) {
     console.warn("Error in scrollElementIntoViewIfNeeded:", error);
+  }
+}
+
+/**
+ * Returns true if user prefers reduced motion.
+ */
+export function getPrefersReducedMotion(): boolean {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function"
+    ) {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+    if (
+      typeof globalThis !== "undefined" &&
+      typeof (globalThis as any).matchMedia === "function"
+    ) {
+      return (globalThis as any).matchMedia("(prefers-reduced-motion: reduce)")
+        .matches;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+/**
+ * Compute the ideal target scrollTop so that element is visible within container.
+ * Mode:
+ * - 'top'     => align element top to viewport with padding
+ * - 'nearest' => scroll just enough to bring into view with padding
+ */
+export function getElementTargetTop(
+  container: HTMLElement,
+  el: HTMLElement,
+  padding: number = 16,
+  mode: "nearest" | "top" = "nearest",
+): number {
+  // Prefer offsetTop traversal for robust relative positioning
+  const computeRelativeTop = (
+    node: HTMLElement,
+    stopAt: HTMLElement,
+  ): { top: number; reachedStop: boolean } => {
+    let top = 0;
+    let cur: HTMLElement | null = node;
+    while (cur && cur !== stopAt) {
+      top += cur.offsetTop;
+      cur = cur.offsetParent as HTMLElement | null;
+    }
+    return { top, reachedStop: cur === stopAt };
+  };
+
+  let { top: elementTop, reachedStop } = computeRelativeTop(el, container);
+  let elementBottom = elementTop + el.offsetHeight;
+
+  // Fallback to DOMRect if offsetParent chain didn't reach container (including null)
+  if (!reachedStop) {
+    const elRect = el.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const scrollTop = container.scrollTop;
+    elementTop = scrollTop + (elRect.top - containerRect.top);
+    elementBottom = elementTop + elRect.height;
+  }
+
+  const scrollTop = container.scrollTop;
+  const containerHeight = container.clientHeight;
+
+  if (mode === "top") {
+    return Math.max(0, elementTop - padding);
+  }
+
+  const viewportTop = scrollTop + padding;
+  const viewportBottom = scrollTop + containerHeight - padding;
+
+  if (elementTop < viewportTop) {
+    // Need to scroll up
+    return Math.max(0, elementTop - padding);
+  } else if (elementBottom > viewportBottom) {
+    // Need to scroll down
+    return Math.max(0, elementBottom - containerHeight + padding);
+  }
+  // Already in view (within padding)
+  return scrollTop;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Element-based menu scrolling with leap-and-settle for long distances.
+ * Ensures the selected .menu-item is fully visible, including wrap-around cases.
+ */
+export function scrollMenuItemElIntoView(
+  container: HTMLElement,
+  el: HTMLElement,
+  options?: {
+    padding?: number;
+  },
+) {
+  if (!container || !el) return;
+
+  const padding = options?.padding ?? 12;
+  const reduced = getPrefersReducedMotion();
+
+  try {
+    // Determine if scrolling is needed and compute precise target
+    const targetTop = getElementTargetTop(
+      container,
+      el,
+      padding,
+      el.offsetHeight >= container.clientHeight ? "top" : "nearest",
+    );
+
+    const currentTop = container.scrollTop;
+    // No movement needed (already aligned/in view)
+    if (Math.abs(targetTop - currentTop) <= 1) return;
+
+    if (reduced) {
+      container.scrollTop = Math.max(0, targetTop);
+      return;
+    }
+
+    // Always use native smooth scrolling for menus (no leap-and-settle)
+    container.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: "smooth",
+    });
+  } catch (error) {
+    console.warn("Error in scrollMenuItemElIntoView:", error);
   }
 }

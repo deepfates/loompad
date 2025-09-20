@@ -29,6 +29,7 @@ export const TreeListMenu = ({
       <div
         className={`menu-item ${selectedIndex === 0 ? "selected" : ""}`}
         aria-selected={selectedIndex === 0}
+        data-index={0}
       >
         <div className="menu-item-label">+ New Story</div>
       </div>
@@ -40,6 +41,7 @@ export const TreeListMenu = ({
             selectedIndex === index + 1 ? "selected" : ""
           }`}
           aria-selected={selectedIndex === index + 1}
+          data-index={index + 1}
         >
           <div className="menu-item-label">{key}</div>
           <div className="menu-item-preview">

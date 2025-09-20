@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { MenuType } from "../types";
 import type { ModelId } from "../../../shared/models";
 import { useModels } from "./useModels";
-import { scrollMenuItemIntoView } from "../utils/scrolling";
+import { scrollMenuItemElIntoView } from "../utils/scrolling";
 
 interface MenuParams {
   temperature: number;
@@ -43,7 +43,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
               const newIndex = (prev - 1 + count) % count;
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
-                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+                const container = menuContent as HTMLElement;
+                const items = container.querySelectorAll(".menu-item");
+                const el = items[newIndex] as HTMLElement | null;
+                if (el) {
+                  scrollMenuItemElIntoView(container, el);
+                }
               }
               return newIndex;
             });
@@ -54,7 +59,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
               const newIndex = (prev + 1) % count;
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
-                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+                const container = menuContent as HTMLElement;
+                const items = container.querySelectorAll(".menu-item");
+                const el = items[newIndex] as HTMLElement | null;
+                if (el) {
+                  scrollMenuItemElIntoView(container, el);
+                }
               }
               return newIndex;
             });
@@ -97,7 +107,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
               const themes: Theme[] = ["matrix", "light", "system"];
               const currentTheme = callbacks.currentTheme ?? "system";
               const idx = themes.indexOf(currentTheme);
-              const nextTheme = themes[(idx - 1 + themes.length) % themes.length];
+              const nextTheme =
+                themes[(idx - 1 + themes.length) % themes.length];
               callbacks.onThemeChange?.(nextTheme);
             } else if (param === "textSplitting") {
               setMenuParams((prev) => ({
@@ -202,7 +213,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
               // Scroll menu item into view
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
-                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+                const container = menuContent as HTMLElement;
+                const items = container.querySelectorAll(".menu-item");
+                const el = items[newIndex] as HTMLElement | null;
+                if (el) {
+                  scrollMenuItemElIntoView(container, el);
+                }
               }
               return newIndex;
             });
@@ -213,7 +229,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
               // Scroll menu item into view
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
-                scrollMenuItemIntoView(menuContent as HTMLElement, newIndex);
+                const container = menuContent as HTMLElement;
+                const items = container.querySelectorAll(".menu-item");
+                const el = items[newIndex] as HTMLElement | null;
+                if (el) {
+                  scrollMenuItemElIntoView(container, el);
+                }
               }
               return newIndex;
             });
@@ -246,7 +267,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
       selectedTreeIndex,
       menuParams,
       models,
-      scrollMenuItemIntoView,
+      scrollMenuItemElIntoView,
     ],
   );
 
