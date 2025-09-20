@@ -119,7 +119,7 @@ export function useKeyboardControls(
         return;
       }
 
-      pressedKeysRef.current = [...pressedKeysRef.current, key];
+      pressedKeysRef.current.push(key);
       updateActiveControls();
 
       await triggerAction();
@@ -135,10 +135,7 @@ export function useKeyboardControls(
         return;
       }
 
-      pressedKeysRef.current = [
-        ...pressedKeysRef.current.slice(0, index),
-        ...pressedKeysRef.current.slice(index + 1),
-      ];
+      pressedKeysRef.current.splice(index, 1);
 
       updateActiveControls();
 
@@ -162,7 +159,7 @@ export function useKeyboardControls(
       if (pressedKeysRef.current.length === 0) {
         return;
       }
-      pressedKeysRef.current = [];
+      pressedKeysRef.current.length = 0;
       updateActiveControls();
       stopRepeat();
     };
@@ -176,7 +173,7 @@ export function useKeyboardControls(
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
       stopRepeat();
-      pressedKeysRef.current = [];
+      pressedKeysRef.current.length = 0;
     };
   }, [handleControlPress, handleControlRelease, stopRepeat, updateActiveControls]);
 
