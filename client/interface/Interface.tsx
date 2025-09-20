@@ -115,8 +115,6 @@ const GamepadInterface = () => {
     hasAppliedDefault.current = true;
   }, [trees, orderedKeys, currentTreeKey, setCurrentTreeKey]);
 
-  // Resume last working path on load for the selected story
-
   // Calculate current highlighted node for map
   const highlightedNode = useMemo(() => {
     let node = storyTree.root;
