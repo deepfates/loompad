@@ -113,19 +113,6 @@ export function touchStoryActive(key: string): StoryMeta {
 }
 
 /**
- * Set the last working path (array of StoryNode IDs) for a story.
- * Does not modify lastActiveAt unless you use touchActiveWithPath.
- */
-
-/**
- * Get the last working path (array of StoryNode IDs) for a story, if any.
- */
-
-/**
- * Mark story as active and record the last working path in a single call.
- */
-
-/**
  * Mark a story as "updated" (e.g., generation/edit saved).
  * Updates updatedAt. Optionally also update lastActiveAt if desired.
  */
