@@ -82,10 +82,9 @@ export function ensureMetaForTrees(
 
   // Create defaults for new keys
   const seen = new Set<string>();
-  const createdAt = nowISO();
   for (const key of keys) {
     seen.add(key);
-    getOrInitMeta(meta, key, createdAt);
+    getOrInitMeta(meta, key, nowISO());
   }
 
   // Prune meta for deleted keys
