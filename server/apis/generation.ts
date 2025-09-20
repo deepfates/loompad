@@ -69,7 +69,7 @@ export async function generateText(req: Request, res: Response) {
       modelMaxTokens,
     );
 
-    const stopSequences = preset.stop.filter((sequence) => sequence.length > 0);
+    const stopSequences = preset.stop.filter((sequence) => sequence.trim().length > 0);
 
     const stream = await openai.completions.create({
       model,
