@@ -321,8 +321,9 @@ const GamepadInterface = () => {
       if (next) {
         queueScroll({
           nodeId: next.id,
+          align: "top",
           reason: "nav-left-right",
-          priority: 100,
+          priority: 110,
         });
       }
     }
