@@ -14,17 +14,17 @@ export const LENGTH_PRESETS: Record<LengthMode, LengthPreset> = {
   },
   sentence: {
     label: "Sentence",
-    stop: [".\n", "?\n", "!\n", ".\"", "?\"", "!\"", "\n\n"],
+    stop: [".", "?", "!", "\n"],
     maxTokens: 120,
   },
   paragraph: {
     label: "Paragraph",
-    stop: ["\n\n"],
+    stop: ["\n\n", "---"],
     maxTokens: 400,
   },
   page: {
     label: "Page",
-    stop: ["\n\n\n\n"],
+    stop: ["\n\n\n\n", "---"],
     maxTokens: 900,
   },
 };
