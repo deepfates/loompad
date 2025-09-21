@@ -50,9 +50,9 @@ interface GenerateRequest {
 function getBoundaryRegex(mode: LengthMode): RegExp | null {
   switch (mode) {
     case "word":
-      // First non-space run followed by a single whitespace (space/tab/newline).
-      // We match the word and the following whitespace so we can emit both.
-      return /\S+(?:\r?\n|\s)+/;
+      // First non-space run followed by a single whitespace (space/tab/newline), or end of input.
+      // We match the word and the following whitespace so we can emit both, and also match the last word.
+      return /\S+(?:(?=\s)|$)/;
     case "sentence":
       // ., ?, ! possibly followed by closing quotes/brackets; include them, not trailing space
       return /[.?!](?:['"”’»)\]\}]+)?(?=\s|$)/;
