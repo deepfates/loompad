@@ -129,6 +129,8 @@ function normalizeJoin(prev: JoinState, segment: string): string {
   return segment;
 }
 
+export const __test = { getBoundaryRegex, findBoundaryCutoff, normalizeJoin };
+
 export async function generateText(req: Request, res: Response) {
   try {
     const { prompt, model, temperature, maxTokens, lengthMode } =

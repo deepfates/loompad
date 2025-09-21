@@ -8,7 +8,8 @@
     "prebuild": "node scripts/build-icons.cjs",
     "build": "vite build --outDir=dist/server --ssr server/ssr.tsx  --config config/vite.config.ts && vite build --outDir=dist/client --config config/vite.config.ts",
     "prod": "bun run.ts --mode=production",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "test": "bun test"
   },
   "dependencies": {
     "@types/express": "^4.17.21",
