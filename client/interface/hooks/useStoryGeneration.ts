@@ -15,9 +15,13 @@ interface GenerationParams {
 
 export const createPrompt = (path: StoryNode[], depth: number) => {
   // Validate that depth is within bounds
+  if (path.length === 0) {
+    throw new Error(`Invalid depth: ${depth}. Path is empty (length 0).`);
+  }
   if (!Number.isInteger(depth) || depth < 0 || depth >= path.length) {
+    const maxIndex = path.length - 1;
     throw new Error(
-      `Invalid depth: ${depth}. Must be an integer between 0 and path.length - 1 (${path.length - 1}).`,
+      `Invalid depth: ${depth}. Must be an integer between 0 and ${maxIndex}.`,
     );
   }
 

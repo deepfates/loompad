@@ -64,7 +64,7 @@ describe("boundary regexes", () => {
     const s2 = "Intro\n\n\n\n\nChapter 1";
     const m2 = rx.exec(s2);
     expect(m2).toBeTruthy();
-    // Should still only match the leading triple (greedy inside the group is fine as long as boundary exists)
+    // Should match three or more consecutive blank lines (greedy inside the group is fine as long as boundary exists)
     expect(m2?.[0]).toMatch(/^\n(\n|\r\n){2,}$/);
 
     const s3 = "X\n***\nY";

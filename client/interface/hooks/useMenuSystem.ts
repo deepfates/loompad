@@ -36,6 +36,11 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const [menuParams, setMenuParams] = useState<MenuParams>(defaultParams);
   const { models } = useModels();
   const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
+  const cycleLengthMode = (current: LengthMode, delta: number): LengthMode => {
+    const index = lengthModes.indexOf(current);
+    const nextIndex = (index + delta + lengthModes.length) % lengthModes.length;
+    return lengthModes[nextIndex];
+  };
 
   const handleMenuNavigation = useCallback(
     (
@@ -91,14 +96,10 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 temperature: Math.max(0.1, prev.temperature - 0.1),
               }));
             } else if (param === "lengthMode") {
-              setMenuParams((prev) => {
-                const index = lengthModes.indexOf(prev.lengthMode);
-                const nextIndex = (index - 1 + lengthModes.length) % lengthModes.length;
-                return {
-                  ...prev,
-                  lengthMode: lengthModes[nextIndex],
-                };
-              });
+              setMenuParams((prev) => ({
+                ...prev,
+                lengthMode: cycleLengthMode(prev.lengthMode, -1),
+              }));
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
               const currentIndex = modelIds.indexOf(menuParams.model);
@@ -138,14 +139,10 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 temperature: Math.min(2.0, prev.temperature + 0.1),
               }));
             } else if (param === "lengthMode") {
-              setMenuParams((prev) => {
-                const index = lengthModes.indexOf(prev.lengthMode);
-                const nextIndex = (index + 1) % lengthModes.length;
-                return {
-                  ...prev,
-                  lengthMode: lengthModes[nextIndex],
-                };
-              });
+              setMenuParams((prev) => ({
+                ...prev,
+                lengthMode: cycleLengthMode(prev.lengthMode, +1),
+              }));
             } else if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
               const currentIndex = modelIds.indexOf(menuParams.model);
@@ -190,8 +187,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             } else if (param === "lengthMode") {
               setMenuParams((prev) => ({
                 ...prev,
-                lengthMode:
-                  lengthModes[(lengthModes.indexOf(prev.lengthMode) + 1) % lengthModes.length],
+                lengthMode: cycleLengthMode(prev.lengthMode, +1),
               }));
             } else if (param === "theme") {
               const themes: Theme[] = ["matrix", "light", "system"];

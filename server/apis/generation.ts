@@ -81,6 +81,19 @@ function getBoundaryRegex(mode: LengthMode): RegExp | null {
 }
 
 const OVERLAP = 32;
+
+// Ensure global search, cache global RegExp instances
+const getGlobalRegex = (() => {
+  const cache = new WeakMap<RegExp, RegExp>();
+  return (rx: RegExp): RegExp => {
+    if (rx.flags.includes("g")) return rx;
+    const cached = cache.get(rx);
+    if (cached) return cached;
+    const globalRx = new RegExp(rx.source, rx.flags + "g");
+    cache.set(rx, globalRx);
+    return globalRx;
+  };
+})();
 // Find the first boundary whose end is beyond sentIndex (seam-aware with overlap)
 function findBoundaryCutoff(
   accumulated: string,
@@ -90,9 +103,8 @@ function findBoundaryCutoff(
   const start = Math.max(0, sentIndex - OVERLAP);
   const search = accumulated.slice(start);
 
-  // Ensure global search
-  const flags = rx.flags.includes("g") ? rx.flags : rx.flags + "g";
-  const globalRx = new RegExp(rx.source, flags);
+  // Ensure global search (use cached global RegExp)
+  const globalRx = getGlobalRegex(rx);
 
   let m: RegExpExecArray | null;
   while ((m = globalRx.exec(search)) !== null) {
@@ -116,7 +128,8 @@ type JoinState = {
 // - Avoid duplicate space/newline when split across chunk seams.
 // - Never remove the only separator between two words.
 function normalizeJoin(prev: JoinState, segment: string): string {
-  if (!segment) return segment;
+  if (segment == null) return "";
+  if (segment.length === 0) return segment;
 
   // If nothing emitted yet, we allow leading whitespace — but if it's all whitespace,
   // the caller should avoid finishing on it without content. We don't strip here.
