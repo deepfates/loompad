@@ -19,11 +19,13 @@ const argv = yargs(hideBin(process.argv))
     })
     .argv;
 
-console.log('Running with args:');
-for (const [key, value] of Object.entries(argv)) {
-    if (key !== '_' && key !== '$0') {
-        console.log(`  --${key} ${value}`);
+if (process.env.DEBUG_ARGS) {
+    console.log('Running with args:');
+    for (const [key, value] of Object.entries(argv)) {
+        if (key !== '_' && key !== '$0') {
+            console.log(`  --${key} ${value}`);
+        }
     }
 }
 
-export default argv as Record<string, any>;
+export default argv as { port: number; mode: "development" | "production"; ssr: boolean; _: (string | number)[]; $0: string; };

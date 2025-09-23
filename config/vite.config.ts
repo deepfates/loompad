@@ -3,7 +3,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-console.log("Loading vite config from config/vite.config.ts...");
+if (process.env.NODE_ENV !== "production") {
+  console.log("Loading vite config from config/vite.config.ts...");
+}
 
 // this file is needed for React hot reloads
 const mode = "production";

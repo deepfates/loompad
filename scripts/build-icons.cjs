@@ -2,6 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 
+const debugLog = (...args) => {
+  if (process.env.DEBUG_ICONS) console.log(...args);
+};
 // Simple SVG-based icon generator for PWA - Game Boy style
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 
@@ -55,7 +58,7 @@ if (!fs.existsSync(assetsDir)) {
   fs.mkdirSync(assetsDir, { recursive: true });
 }
 
-console.log("🎮 Generating Game Boy style D-pad icons...");
+debugLog("🎮 Generating Game Boy style D-pad icons...");
 
 // Generate SVGs
 sizes.forEach((size) => {
@@ -69,7 +72,7 @@ const maskableSVG = generateSVG(512, true);
 fs.writeFileSync(path.join(assetsDir, "icon-512-maskable.svg"), maskableSVG);
 
 // Convert SVGs to PNGs using sharp-cli
-console.log("📸 Converting to PNG...");
+debugLog("📸 Converting to PNG...");
 
 try {
   // Check if sharp-cli is available
@@ -82,9 +85,9 @@ try {
         `sharp -i ${path.join(assetsDir, `icon-${size}.svg`)} -o ${path.join(assetsDir, `icon-${size}.png`)} resize ${size} ${size}`,
         { cwd: assetsDir },
       );
-      console.log(`  ✅ icon-${size}.png`);
+      debugLog(`  ✅ icon-${size}.png`);
     } catch (error) {
-      console.log(`  ❌ Failed to generate icon-${size}.png`);
+      debugLog(`  ❌ Failed to generate icon-${size}.png`);
     }
   });
 
@@ -94,14 +97,14 @@ try {
       `sharp -i ${path.join(assetsDir, "icon-512-maskable.svg")} -o ${path.join(assetsDir, "icon-512-maskable.png")} resize 512 512`,
       { cwd: assetsDir },
     );
-    console.log("  ✅ icon-512-maskable.png");
+    debugLog("  ✅ icon-512-maskable.png");
   } catch (error) {
-    console.log("  ❌ Failed to generate icon-512-maskable.png");
+    debugLog("  ❌ Failed to generate icon-512-maskable.png");
   }
 } catch (error) {
-  console.log("⚠️  sharp-cli not found, PNG conversion skipped");
-  console.log("   Install with: npm install -g sharp-cli");
-  console.log("   SVG files generated successfully");
+  debugLog("⚠️  sharp-cli not found, PNG conversion skipped");
+  debugLog("   Install with: npm install -g sharp-cli");
+  debugLog("   SVG files generated successfully");
 }
 
-console.log("🎯 Icon generation complete!");
+debugLog("🎯 Icon generation complete!");

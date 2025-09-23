@@ -1,10 +1,12 @@
 import { useState, useCallback } from "react";
 import type { ModelId } from "../../../shared/models";
+import type { LengthMode } from "../../../shared/lengthPresets";
 
 interface GenerationOptions {
   model: ModelId;
   temperature?: number;
   maxTokens?: number;
+  lengthMode?: LengthMode;
 }
 
 interface GenerationError {
@@ -56,7 +58,7 @@ export function useTextGeneration() {
         const decoder = new TextDecoder();
         let buffer = "";
 
-        while (true) {
+        for (;;) {
           const { value, done } = await reader.read();
 
           if (done) break;

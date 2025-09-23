@@ -132,8 +132,7 @@ function useCoords(root: StoryNode) {
       }
     });
 
-    treeLayout(rootHierarchy);
-
+    const rootPoint = treeLayout(rootHierarchy);
     // Build coords from flextree's calculated positions
     const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
       const currentPath = [...path, node.data];
@@ -152,6 +151,7 @@ function useCoords(root: StoryNode) {
 
       // Recursively process children
       if (node.children) {
+
         node.children.forEach((child: any) =>
           buildPath(child, currentPath),
         );
@@ -160,7 +160,7 @@ function useCoords(root: StoryNode) {
       return currentPath;
     };
 
-    buildPath(rootHierarchy);
+    buildPath(rootPoint);
 
     return coords;
   }, [root]);
@@ -236,10 +236,7 @@ export const StoryMinimap = ({
     );
   })();
 
-  // Handle empty tree
-  if (Object.keys(coords).length === 0) {
-    return <div>Empty tree</div>;
-  }
+  // Handle empty tree by rendering an empty viewport; dimensions below are guarded
 
   // Bounds for <svg> viewBox - ensure it's wide enough for scrolling
   const coordValues = Object.values(coords);
@@ -247,6 +244,7 @@ export const StoryMinimap = ({
   const minX = Math.min(...xCoords);
   const maxX = Math.max(...xCoords);
   const maxY = Math.max(...coordValues.map((c) => c.y));
+
 
   // Add padding around the tree
   const padding = LANE_WIDTH * 2;
@@ -492,6 +490,7 @@ export const StoryMinimap = ({
                                 ? "var(--surface-color)"  // Already read or on breadcrumb trail
                                 : "var(--background-color)"  // Unvisited - empty
                     }
+                    stroke="var(--font-color)"
                     strokeWidth={
                       isHighlighted || isSelected ? 1.5 : 0.8
                     }

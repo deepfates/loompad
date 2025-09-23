@@ -24,6 +24,7 @@ import { scrollElementIntoViewIfNeeded, isAtBottom } from "./utils/scrolling";
 
 import type { StoryNode, MenuType } from "./types";
 import type { ModelId } from "../../shared/models";
+import { DEFAULT_LENGTH_MODE } from "../../shared/lengthPresets";
 import {
   orderKeysReverseChronological,
   getDefaultStoryKey,
@@ -35,7 +36,7 @@ import {
 
 const DEFAULT_PARAMS = {
   temperature: 0.7,
-  maxTokens: 256,
+  lengthMode: DEFAULT_LENGTH_MODE,
   model: "meta-llama/llama-3.1-405b" as ModelId,
   textSplitting: true,
 };
@@ -451,8 +452,8 @@ const GamepadInterface = () => {
               },
               edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
             } as const;
-            const key = activeMenu ?? null;
-            const entry = (map as any)[key];
+            const key = (activeMenu ?? "null") as keyof typeof map;
+            const entry = map[key];
             return entry ? (
               <ModeBar title={entry.title} hint={entry.hint} />
             ) : null;

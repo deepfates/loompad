@@ -129,18 +129,16 @@ export function scrollElementIntoViewIfNeeded(
  */
 export function getPrefersReducedMotion(): boolean {
   try {
-    if (
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function"
-    ) {
+    const hasMatchMedia = (
+      o: any,
+    ): o is { matchMedia: (q: string) => MediaQueryList } =>
+      typeof o?.matchMedia === "function";
+
+    if (typeof window !== "undefined" && hasMatchMedia(window)) {
       return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     }
-    if (
-      typeof globalThis !== "undefined" &&
-      typeof (globalThis as any).matchMedia === "function"
-    ) {
-      return (globalThis as any).matchMedia("(prefers-reduced-motion: reduce)")
-        .matches;
+    if (typeof globalThis !== "undefined" && hasMatchMedia(globalThis)) {
+      return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
     }
   } catch {
     // ignore
@@ -174,7 +172,9 @@ export function getElementTargetTop(
     return { top, reachedStop: cur === stopAt };
   };
 
-  let { top: elementTop, reachedStop } = computeRelativeTop(el, container);
+  const _rel = computeRelativeTop(el, container);
+  let elementTop = _rel.top;
+  const reachedStop = _rel.reachedStop;
   let elementBottom = elementTop + el.offsetHeight;
 
   // Fallback to DOMRect if offsetParent chain didn't reach container (including null)

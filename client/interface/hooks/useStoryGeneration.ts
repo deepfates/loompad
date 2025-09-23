@@ -1,22 +1,34 @@
 import { useState } from "react";
 import { useTextGeneration } from "./useTextGeneration";
 import { splitTextToNodes } from "../utils/textSplitter";
+import { joinSegments } from "../utils/join";
 import type { StoryNode } from "../types";
 import type { ModelId } from "../../../shared/models";
+import type { LengthMode } from "../../../shared/lengthPresets";
 
 interface GenerationParams {
   model: ModelId;
   temperature: number;
-  maxTokens: number;
+  lengthMode: LengthMode;
   textSplitting: boolean;
 }
 
-const createPrompt = (path: StoryNode[], depth: number) => {
+export const createPrompt = (path: StoryNode[], depth: number) => {
+  // Validate that depth is within bounds
+  if (path.length === 0) {
+    throw new Error(`Invalid depth: ${depth}. Path is empty (length 0).`);
+  }
+  if (!Number.isInteger(depth) || depth < 0 || depth >= path.length) {
+    const maxIndex = path.length - 1;
+    throw new Error(
+      `Invalid depth: ${depth}. Must be an integer between 0 and ${maxIndex}.`,
+    );
+  }
+
   // Get the story context from the current path
-  const context = path
-    .slice(0, depth + 1)
-    .map((node) => node.text)
-    .join("");
+  const context = joinSegments(
+    path.slice(0, depth + 1).map((node) => node.text),
+  );
 
   return context;
 };
@@ -40,7 +52,7 @@ export function useStoryGeneration() {
       {
         model: params.model,
         temperature: params.temperature,
-        maxTokens: params.maxTokens,
+        lengthMode: params.lengthMode,
       },
       (token) => {
         fullText += token;

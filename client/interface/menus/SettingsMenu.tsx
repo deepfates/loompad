@@ -4,6 +4,10 @@ import { MenuSelect } from "../components/MenuSelect";
 import { MenuToggle } from "../components/MenuToggle";
 import { useModels } from "../hooks/useModels";
 import type { ModelId } from "../../../shared/models";
+import {
+  LENGTH_PRESETS,
+  type LengthMode,
+} from "../../../shared/lengthPresets";
 
 export const SettingsMenu = ({
   params,
@@ -17,8 +21,11 @@ export const SettingsMenu = ({
   const modelOptions = models ? (Object.keys(models) as ModelId[]) : [];
   const modelNames = modelOptions.map(getModelName);
 
-  // Get current model config
-  const currentModel = models?.[params.model];
+  const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
+  const lengthModeLabels = lengthModes.map(
+    (mode) => LENGTH_PRESETS[mode].label,
+  );
+  const currentLengthLabel = LENGTH_PRESETS[params.lengthMode].label;
 
   return (
     <div className="menu-content">
@@ -31,13 +38,16 @@ export const SettingsMenu = ({
         onChange={(value) => onParamChange("temperature", value)}
         selected={selectedParam === 0}
       />
-      <MenuKnob
-        label="Max Tokens"
-        value={params.maxTokens}
-        min={10}
-        max={currentModel?.maxTokens ?? 1024}
-        step={10}
-        onChange={(value) => onParamChange("maxTokens", value)}
+      <MenuSelect
+        label="Length"
+        value={currentLengthLabel}
+        options={lengthModeLabels}
+        onChange={(value) => {
+          const index = lengthModeLabels.indexOf(value);
+          if (index >= 0) {
+            onParamChange("lengthMode", lengthModes[index]);
+          }
+        }}
         selected={selectedParam === 1}
       />
       <MenuSelect
@@ -49,11 +59,6 @@ export const SettingsMenu = ({
           const modelId = modelOptions.find((id) => getModelName(id) === value);
           if (modelId) {
             onParamChange("model", modelId);
-            // Update maxTokens to model default if current value exceeds max
-            const maxTokens = models[modelId].maxTokens;
-            if (params.maxTokens > maxTokens) {
-              onParamChange("maxTokens", maxTokens);
-            }
           }
         }}
         selected={selectedParam === 2}

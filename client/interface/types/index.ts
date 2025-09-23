@@ -1,4 +1,6 @@
 import type { ModelId } from "../../../shared/models";
+import type { LengthMode } from "../../../shared/lengthPresets";
+import type { Theme } from "../components/ThemeToggle";
 
 export interface StoryNode {
   id: string;
@@ -39,10 +41,10 @@ export interface MenuToggleProps {
 export interface SettingsMenuProps {
   params: {
     temperature: number;
-    maxTokens: number;
+    lengthMode: LengthMode;
     model: ModelId;
     textSplitting: boolean;
-    theme: "matrix" | "light" | "system";
+    theme: Theme;
   };
   onParamChange: (param: string, value: number | string | boolean) => void;
   selectedParam: number;
