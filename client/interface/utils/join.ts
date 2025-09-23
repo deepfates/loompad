@@ -10,6 +10,13 @@
  * prompts or concatenated client text remain consistent with streamed output.
  */
 
+import {
+  LEADING_NEWLINES_RE,
+  LEADING_SPACES_TABS_RE,
+  ENDING_NEWLINE_RE,
+  ENDING_WHITESPACE_RE,
+} from "../../../shared/textSeams";
+
 /**
  * Returns a version of `next` with duplicated leading whitespace at the seam removed,
  * based on how `prev` ends.
@@ -22,17 +29,17 @@
 export function normalizeNextForSeam(prev: string, next: string): string {
   if (!next) return next;
 
-  const prevEndedWithNewline = /\r?\n$/.test(prev);
-  const prevEndedWithWhitespace = /\s$/.test(prev);
+  const prevEndedWithNewline = ENDING_NEWLINE_RE.test(prev);
+  const prevEndedWithWhitespace = ENDING_WHITESPACE_RE.test(prev);
 
   if (prevEndedWithNewline) {
     // Remove one or more leading CRLF/LF
-    return next.replace(/^(?:\r?\n)+/, "");
+    return next.replace(LEADING_NEWLINES_RE, "");
   }
 
   if (prevEndedWithWhitespace) {
     // Remove leading spaces/tabs only (preserve any leading newline)
-    return next.replace(/^[ \t]+/, "");
+    return next.replace(LEADING_SPACES_TABS_RE, "");
   }
 
   return next;

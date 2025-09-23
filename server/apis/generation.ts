@@ -7,6 +7,13 @@ import {
   LENGTH_PRESETS,
   type LengthMode,
 } from "../../shared/lengthPresets";
+import {
+  LEADING_NEWLINES_RE,
+  LEADING_SPACES_TABS_RE,
+  ENDING_NEWLINE_RE,
+  ENDING_WHITESPACE_RE,
+  NON_WHITESPACE_RE,
+} from "../../shared/textSeams";
 
 // Initialize OpenAI client with OpenRouter base URL
 const openai = new OpenAI({
@@ -112,14 +119,14 @@ function normalizeJoin(prev: JoinState, segment: string): string {
   // drop duplicated leading newlines in the new segment (preserve only the previous one).
   if (prev.endedWithNewline) {
     // Remove one or more leading CRLF/LF
-    segment = segment.replace(/^(?:\r?\n)+/, "");
+    segment = segment.replace(LEADING_NEWLINES_RE, "");
   }
 
   // If previous ended with whitespace (space or tab) and next starts with spaces/tabs,
   // compress the leading spaces/tabs in the new segment to a single space.
   // If next starts with a newline, keep it (newline is stronger).
   if (prev.endedWithWhitespace && !prev.endedWithNewline) {
-    segment = segment.replace(/^[ \t]+/, "");
+    segment = segment.replace(LEADING_SPACES_TABS_RE, "");
   }
 
   // If previous emission ended with non-whitespace and next starts with non-whitespace,
@@ -148,7 +155,8 @@ export async function generateText(req: Request, res: Response) {
 
     const modelMaxTokens = AVAILABLE_MODELS[model].maxTokens;
     const maxTokensToUse = Math.min(
-      Math.min(preset.maxTokens, modelMaxTokens),
+      preset.maxTokens,
+      modelMaxTokens,
       maxTokens ?? preset.maxTokens,
     );
 
@@ -222,7 +230,7 @@ export async function generateText(req: Request, res: Response) {
         wordModeBuffer += delta;
 
         // If this token contains non-whitespace, we've found our word
-        if (/\S/.test(delta)) {
+        if (NON_WHITESPACE_RE.test(delta)) {
           // Emit the accumulated buffer
           let toSend = wordModeBuffer;
 
@@ -231,8 +239,8 @@ export async function generateText(req: Request, res: Response) {
           if (toSend) {
             res.write(`data: ${JSON.stringify({ content: toSend })}\n\n`);
             joinState.hasEmittedAny = true;
-            joinState.endedWithNewline = /\r?\n$/.test(toSend);
-            joinState.endedWithWhitespace = /\s$/.test(toSend);
+            joinState.endedWithNewline = ENDING_NEWLINE_RE.test(toSend);
+            joinState.endedWithWhitespace = ENDING_WHITESPACE_RE.test(toSend);
 
             // Abort and end - we've emitted one word
             abortController.abort();
@@ -257,13 +265,13 @@ export async function generateText(req: Request, res: Response) {
           toSend = normalizeJoin(joinState, toSend);
 
           // Only prevent empty result; do not strip valid whitespace if we've already emitted words
-          const containsNonWs = /\S/.test(toSend);
+          const containsNonWs = NON_WHITESPACE_RE.test(toSend);
           if (toSend && (containsNonWs || hasEmittedNonWhitespace)) {
             res.write(`data: ${JSON.stringify({ content: toSend })}\n\n`);
             joinState.hasEmittedAny = true;
-            if (/\S/.test(toSend)) hasEmittedNonWhitespace = true;
-            joinState.endedWithNewline = /\r?\n$/.test(toSend);
-            joinState.endedWithWhitespace = /\s$/.test(toSend);
+            if (NON_WHITESPACE_RE.test(toSend)) hasEmittedNonWhitespace = true;
+            joinState.endedWithNewline = ENDING_NEWLINE_RE.test(toSend);
+            joinState.endedWithWhitespace = ENDING_WHITESPACE_RE.test(toSend);
           }
 
           // Abort upstream and end stream
@@ -277,7 +285,7 @@ export async function generateText(req: Request, res: Response) {
       let segment = accumulated.slice(sentIndex);
       if (segment) {
         // Avoid emitting purely leading whitespace when nothing has been emitted at all and no non-ws yet
-        if (!joinState.hasEmittedAny && !/\S/.test(segment)) {
+        if (!joinState.hasEmittedAny && !NON_WHITESPACE_RE.test(segment)) {
           // Buffer until we see content; don't emit whitespace-only lead
           continue;
         }
@@ -289,9 +297,9 @@ export async function generateText(req: Request, res: Response) {
         if (segment) {
           res.write(`data: ${JSON.stringify({ content: segment })}\n\n`);
           joinState.hasEmittedAny = true;
-          if (/\S/.test(segment)) hasEmittedNonWhitespace = true;
-          joinState.endedWithNewline = /\r?\n$/.test(segment);
-          joinState.endedWithWhitespace = /\s$/.test(segment);
+          if (NON_WHITESPACE_RE.test(segment)) hasEmittedNonWhitespace = true;
+          joinState.endedWithNewline = ENDING_NEWLINE_RE.test(segment);
+          joinState.endedWithWhitespace = ENDING_WHITESPACE_RE.test(segment);
           sentIndex = accumulated.length;
         }
       }
