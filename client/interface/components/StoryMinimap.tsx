@@ -1,7 +1,18 @@
 import { useMemo, useRef, useEffect, useLayoutEffect } from "react";
-import { hierarchy, tree } from "d3-hierarchy";
+import { hierarchy } from "d3-hierarchy";
+import { flextree } from "d3-flextree";
 import type { StoryNode } from "../types";
 
+/**
+ * VISUAL DESIGN:
+ * The minimap uses a gameboy/e-paper aesthetic with nodes as vertical "pages" of varying heights.
+ * - Node height represents text length (taller = more text)
+ * - Nodes are compact rectangles with crisp borders, like pages or circuit components
+ * - Uses theme colors (--font-color, --primary-color) for intuitive connection with text view
+ * - Visual hierarchy: Current node (solid) > Selected (primary) > Ancestors (diagonal pattern) > Path (dots) > Others (faint)
+ * - Connectors are simple "wires" with squircle-style branches (strong shoulders, then straight down)
+ * - Layout uses d3-flextree for variable node heights while preventing path crossings
+ */
 interface StoryMinimapProps {
   /**
    * The root of the story tree to render.
@@ -49,12 +60,14 @@ interface StoryMinimapProps {
  * Size constants – tweak for aesthetics.
  */
 const LANE_WIDTH = 30;
-const ROW_HEIGHT = 50;
-// Vertical spacing adapts to the amount of text in each node so the minimap
+const ROW_HEIGHT = 40;
+// Node heights adapt to the amount of text so the minimap
 // conveys relative length at a glance.
-const MIN_CONNECTOR_LENGTH = ROW_HEIGHT * 0.7;
-const MAX_CONNECTOR_LENGTH = ROW_HEIGHT * 3;
-const NODE_RADIUS = 5;
+const MIN_NODE_HEIGHT = 15;
+const MAX_NODE_HEIGHT = 60;
+const CONNECTOR_LENGTH = 12; // Fixed short connector between nodes
+const NODE_WIDTH = 14; // Width of the pill-shaped nodes - compact
+const NODE_RADIUS = 2; // Border radius for the pill shape - crisp corners
 
 /**
  * Tidy tree layout using d3-hierarchy - no overlaps, optimal spacing
@@ -70,7 +83,7 @@ function useCoords(root: StoryNode) {
         depth: number;
         path: StoryNode[];
         length: number;
-        connectorLength: number;
+        nodeHeight: number;
       }
     > = {};
 
@@ -80,20 +93,14 @@ function useCoords(root: StoryNode) {
     // Create hierarchy from StoryNode tree
     const rootHierarchy = hierarchy(root, (d) => d.continuations);
 
-    // Apply tidy tree layout with proper size
-    const treeLayout = tree<StoryNode>()
-      .separation(() => 1) // 1 lane between siblings
-      .nodeSize([LANE_WIDTH, ROW_HEIGHT]); // Fixed node size instead of canvas size
-
-    treeLayout(rootHierarchy);
-
+    // Calculate connector lengths based on text
     const descendants = rootHierarchy.descendants();
     const logLengths = descendants.map((node) => Math.log((node.data.text || "").length + 1));
     const minLogLength = logLengths.length === 0 ? 0 : Math.min(...logLengths);
     const maxLogLength = logLengths.length === 0 ? 0 : Math.max(...logLengths);
     const logRange = maxLogLength - minLogLength || 1;
 
-    const getConnectorLength = (textLength: number) => {
+    const getNodeHeight = (textLength: number) => {
       const logLength = Math.log(textLength + 1);
       const normalized =
         maxLogLength === minLogLength
@@ -101,50 +108,47 @@ function useCoords(root: StoryNode) {
           : (logLength - minLogLength) / logRange;
 
       return (
-        MIN_CONNECTOR_LENGTH +
-        normalized * (MAX_CONNECTOR_LENGTH - MIN_CONNECTOR_LENGTH)
+        MIN_NODE_HEIGHT +
+        normalized * (MAX_NODE_HEIGHT - MIN_NODE_HEIGHT)
       );
     };
 
-    const getParentConnectorLength = (
-      node: any,
-      coords: Record<string, any>,
-      getConnectorLength: (length: number) => number
-    ): number => {
-      if (!node.parent) return 0;
-
-      if (coords[node.parent.data.id]) {
-        return coords[node.parent.data.id].connectorLength;
+    // Apply flextree layout with variable node sizes
+    const treeLayout = flextree<StoryNode>({
+      spacing: (a, b) => {
+        // Tighter spacing for compact layout
+        return a.parent === b.parent ? NODE_WIDTH * 1.2 : NODE_WIDTH * 0.8;
+      },
+      nodeSize: (node) => {
+        const textLength = (node.data.text || "").length;
+        const nodeHeight = getNodeHeight(textLength);
+        // Total height is node height plus connector to next level
+        return [NODE_WIDTH, nodeHeight + CONNECTOR_LENGTH];
       }
+    });
 
-      return getConnectorLength((node.parent.data.text || "").length);
-    };
+    treeLayout(rootHierarchy);
 
-    const buildPath = (
-      node: any,
-      path: StoryNode[] = [],
-      parentY = 0,
-    ): StoryNode[] => {
+    // Build coords from flextree's calculated positions
+    const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
       const currentPath = [...path, node.data];
       const textLength = (node.data.text || "").length;
-      const connectorLength = getConnectorLength(textLength);
-      const parentConnectorLength = getParentConnectorLength(node, coords, getConnectorLength);
-      const y = node.parent ? parentY + parentConnectorLength : 0;
+      const nodeHeight = getNodeHeight(textLength);
 
       coords[node.data.id] = {
         x: node.x || 0,
-        y,
+        y: node.y || 0,  // Use flextree's calculated Y position
         lane: Math.round((node.x || 0) / LANE_WIDTH),
         depth: node.depth || 0,
         path: currentPath,
         length: textLength,
-        connectorLength,
+        nodeHeight,
       };
 
       // Recursively process children
       if (node.children) {
         node.children.forEach((child: any) =>
-          buildPath(child, currentPath, y),
+          buildPath(child, currentPath),
         );
       }
 
@@ -242,7 +246,7 @@ export const StoryMinimap = ({
   // Add padding around the tree
   const padding = LANE_WIDTH * 2;
   const svgWidth = Math.max(600, maxX - minX + padding * 2); // Ensure minimum width
-  const svgHeight = Math.max(maxY + MAX_CONNECTOR_LENGTH, ROW_HEIGHT * 4);
+  const svgHeight = Math.max(maxY + MAX_NODE_HEIGHT, ROW_HEIGHT * 4);
 
   // Center the tree horizontally - offset all x coords so tree is centered
   const centerX = svgWidth / 2;
@@ -379,55 +383,51 @@ export const StoryMinimap = ({
       <div ref={viewportRef} className="minimap-viewport">
         <div style={{ width: svgWidth, minWidth: "100%" }}>
           <svg width={svgWidth} height={svgHeight}>
+            {/* Define patterns for different node states - gameboy/e-paper style */}
+            <defs>
+              {/* Diagonal lines pattern for ancestor nodes */}
+              <pattern id="ancestorPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                <path d="M0,4 l4,-4 M-1,1 l2,-2 M3,5 l2,-2" stroke="var(--font-color)" strokeWidth="0.5" opacity="0.2"/>
+              </pattern>
+              {/* Dots pattern for favorite path */}
+              <pattern id="favoritePattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                <circle cx="2" cy="2" r="0.5" fill="var(--font-color)" opacity="0.15"/>
+              </pattern>
+            </defs>
             {/* Render edges first so they sit behind nodes */}
             {edges.map(({ from, to, key }) => {
               const a = coords[from.id];
               const b = coords[to.id];
 
+              // Check if this edge is part of the ancestor path
+              const isAncestorEdge = highlightedNode &&
+                currentPath.some(node => node.id === from.id) &&
+                currentPath.some(node => node.id === to.id);
+
               const ax = a.x + rootOffset;
               const bx = b.x + rootOffset;
 
+              // Start connector at bottom edge of parent pill (accounting for border radius)
+              const startY = a.y + a.nodeHeight - NODE_RADIUS/2;
+              // End connector at top edge of child pill (accounting for border radius)
+              const endY = b.y + NODE_RADIUS/2;
+
               let path;
-              const verticalGap = Math.max(0, b.y - a.y);
 
-              if (a.lane === b.lane || verticalGap < 8) {
-                // Straight line for same lane or very small spacing
-                path = `M${ax},${a.y} L${bx},${b.y}`;
+              if (a.lane === b.lane) {
+                // Straight line for same lane
+                path = `M${ax},${startY} L${bx},${endY}`;
               } else {
-                // Smooth curve whose depth reflects the spacing between nodes
-                const horizontalGap = Math.abs(bx - ax);
+                // Squircle-style branch: curve early then straight down
+                const branchPoint = startY + 6; // Fork happens just below parent node
+                const curveRadius = 4; // Radius of the rounded corner - tighter
 
-                // Curve control constants
-                const VERTICAL_CONTROL_FACTOR = 0.45; // Controls vertical curve depth
-                const CONTROL_OFFSET_RATIO = 0.75; // Ratio for second control point
-                const HORIZONTAL_CONTROL_FACTOR = 0.35; // Controls horizontal curve offset
-
-                const baseVerticalControl = Math.min(
-                  Math.max(verticalGap * VERTICAL_CONTROL_FACTOR, 18),
-                  verticalGap - 8,
-                );
-                const controlYOffset1 = Math.min(
-                  baseVerticalControl,
-                  verticalGap / 2,
-                );
-                const controlYOffset2 = Math.min(
-                  baseVerticalControl * CONTROL_OFFSET_RATIO,
-                  verticalGap / 2,
-                );
-                const controlXShift = Math.min(
-                  Math.max(horizontalGap * HORIZONTAL_CONTROL_FACTOR, 10),
-                  60,
-                );
-                const controlX1 = bx > ax ? ax + controlXShift : ax - controlXShift;
-                const controlX2 = bx > ax ? bx - controlXShift : bx + controlXShift;
-                const controlY1 = a.y + controlYOffset1;
-                const controlY2 = b.y - controlYOffset2;
-
-                if (controlY2 <= controlY1) {
-                  const midpoint = a.y + verticalGap / 2;
-                  path = `M${ax},${a.y} C${controlX1},${midpoint} ${controlX2},${midpoint} ${bx},${b.y}`;
+                if (bx > ax) {
+                  // Branching to the right
+                  path = `M${ax},${startY} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax + curveRadius},${branchPoint} L${bx - curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${endY}`;
                 } else {
-                  path = `M${ax},${a.y} C${controlX1},${controlY1} ${controlX2},${controlY2} ${bx},${b.y}`;
+                  // Branching to the left
+                  path = `M${ax},${startY} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax - curveRadius},${branchPoint} L${bx + curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${endY}`;
                 }
               }
 
@@ -435,10 +435,11 @@ export const StoryMinimap = ({
                 <path
                   key={key}
                   d={path}
-                  stroke="var(--secondary-color)"
-                  strokeWidth={2}
+                  stroke="var(--font-color)"
+                  strokeWidth={isAncestorEdge ? 1.5 : 1}
                   fill="none"
-                  strokeLinecap="round"
+                  strokeLinecap="square"
+                  opacity={isAncestorEdge ? 0.5 : 0.2}
                 />
               );
             })}
@@ -452,6 +453,10 @@ export const StoryMinimap = ({
               const isOnFavoritePath = currentPath.some(
                 (pathNode) => pathNode.id === id,
               );
+              // Check if this node is an ancestor of the highlighted node
+              const isAncestor = highlightedNode && c.path.some(
+                (pathNode) => highlightedNode.id !== id && pathNode.id === highlightedNode.id
+              );
 
               return (
                 <g
@@ -459,24 +464,43 @@ export const StoryMinimap = ({
                   onClick={() => onSelectNode?.(c.path)}
                   style={{ cursor: "pointer" }}
                 >
-                  <circle
-                    className={`minimap-dot ${isGenerating ? "generating" : ""}`}
-                    cx={c.x + rootOffset}
-                    cy={c.y}
-                    r={NODE_RADIUS}
+                  {/* Draw node as an elongated pill/capsule shape */}
+                  <rect
+                    className={`minimap-node ${isGenerating ? "generating" : ""}`}
+                    x={c.x + rootOffset - NODE_WIDTH / 2}
+                    y={c.y}
+                    width={NODE_WIDTH}
+                    height={c.nodeHeight}
+                    rx={NODE_RADIUS}
+                    ry={NODE_RADIUS}
                     fill={
-                      isGenerating
-                        ? "var(--secondary-color)"
-                        : isHighlighted
-                          ? "var(--font-color)"
-                          : isSelected
-                            ? "var(--primary-color)"
+                      isHighlighted
+                        ? "var(--font-color)"
+                        : isSelected
+                          ? "var(--primary-color)"
+                          : isAncestor
+                            ? "url(#ancestorPattern)"
                             : isOnFavoritePath
-                              ? "rgba(128, 128, 128, 0.4)"
-                              : "var(--background-color)"
+                              ? "url(#favoritePattern)"
+                              : isGenerating
+                                ? "var(--background-color)"
+                                : "none"
                     }
-                    stroke="var(--secondary-color)"
-                    strokeWidth={isHighlighted || isSelected ? 2 : 1}
+                    stroke="var(--font-color)"
+                    strokeWidth={
+                      isHighlighted ? 1.5 : 1
+                    }
+                    opacity={
+                      isHighlighted
+                        ? 1
+                        : isSelected
+                          ? 0.8
+                          : isAncestor
+                            ? 0.5
+                            : isOnFavoritePath
+                              ? 0.3
+                              : 0.15
+                    }
                   />
                 </g>
               );
