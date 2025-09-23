@@ -21,7 +21,8 @@ const BOUNDARY_PATTERNS: BoundaryPattern[] = [
   },
   {
     name: "underline_heading",
-    regex: /^.+\n[=-]{3,}$/gm,
+    // eslint-disable-next-line no-useless-escape
+    regex: /^.+\n[=\-]{3,}$/gm,
     priority: 95,
   },
   {

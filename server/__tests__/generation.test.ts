@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import { __test } from "../apis/generation.ts";
+import { getBoundaryRegex, findBoundaryCutoff, normalizeJoin } from "../apis/generation.helpers.ts";
 
-const { getBoundaryRegex, findBoundaryCutoff, normalizeJoin } = __test;
+
 
 describe("boundary regexes", () => {
   it("word mode: matches first non-space run plus trailing whitespace (including multiples and CRLF)", () => {
