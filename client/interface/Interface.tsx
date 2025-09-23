@@ -452,8 +452,8 @@ const GamepadInterface = () => {
               },
               edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
             } as const;
-            const key = activeMenu ?? null;
-            const entry = (map as any)[key];
+            const key = (activeMenu ?? "null") as keyof typeof map;
+            const entry = map[key];
             return entry ? (
               <ModeBar title={entry.title} hint={entry.hint} />
             ) : null;
