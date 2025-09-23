@@ -483,28 +483,25 @@ export const StoryMinimap = ({
                     ry={NODE_RADIUS}
                     fill={
                       isHighlighted
-                        ? "var(--font-color)"  // Current - white/bright text color in dark mode
+                        ? "var(--surface-color)"  // Current - white/bright text color in dark mode
                         : isSelected
                           ? "var(--primary-color)"  // Next option - blue/primary
-                          : isAncestor
-                              ? "var(--secondary-color)"  // Already read - green/secondary in dark mode
-                              : isOnFavoritePath
-                                ? "var(--surface-color)"  // Breadcrumb trail - subtle
-                                : isGenerating
-                                  ? "var(--accent-weak)"  // Generating
-                                  : "var(--background-color)"  // Unvisited - empty
+                          : isGenerating
+                              ? "var(--primary-color)"  // Generating - pulsing blue
+                              : isAncestor || isOnFavoritePath
+                                ? "var(--surface-color)"  // Already read or on breadcrumb trail
+                                : "var(--background-color)"  // Unvisited - empty
                     }
                     stroke={
                       isHighlighted
                         ? "var(--font-color)"
-                        : isSelected
-                          ? "var(--primary-color)"
-                          : isAncestor
-                            ? "var(--secondary-color)"
-                            : isOnFavoritePath
-                              ? "var(--border-color)"
-                              : "var(--border-color)"
+                        : isSelected || isAncestor || isOnFavoritePath
+                          ? "var(--secondary-color)"
+                          : isGenerating
+                            ? "var(--font-color)"
+                            : "var(--background-color)"
                     }
+                    stroke="var(--font-color)"
                     strokeWidth={
                       isHighlighted || isSelected ? 1.5 : 0.8
                     }
@@ -513,13 +510,13 @@ export const StoryMinimap = ({
                         ? 1  // Current - full brightness
                         : isSelected
                           ? 0.9  // Next - prominent but not current
-                        : isAncestor
-                            ? 0.6  // Already read - visible but less prominent
-                            : isOnFavoritePath
-                              ? 0.5  // Path - semi-visible
-                              : isGenerating
-                                ? 0.7  // Generating - active
-                                : 0.3  // Unvisited - barely visible
+                        : isGenerating
+                            ? 1  // Generating - full brightness with pulse animation
+                            : isAncestor
+                              ? 0.4  // Already read - visible but less prominent
+                              : isOnFavoritePath
+                                ? 0.4  // Path - semi-visible
+                                : 0.2  // Unvisited - barely visible
                     }
                   />
                 </g>

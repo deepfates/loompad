@@ -1876,6 +1876,7 @@ progress::-moz-progress-bar {
     }
 }
 
-.minimap-dot.generating {
+.minimap-dot.generating,
+.minimap-node.generating {
     animation: minimap-pulse 1s infinite;
 }
