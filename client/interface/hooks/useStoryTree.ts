@@ -6,10 +6,10 @@ import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import { touchStoryUpdated } from "../utils/storyMeta";
 
-const INITIAL_STORY = {
+export const INITIAL_STORY = {
   root: {
     id: "root",
-    text: "Once upon a time...",
+    text: "Once upon a time, in Absalom,",
     continuations: [],
   },
 };

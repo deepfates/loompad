@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
-import { useStoryTree } from "./hooks/useStoryTree";
+import { useStoryTree, INITIAL_STORY } from "./hooks/useStoryTree";
 import { useOfflineStatus } from "./hooks/useOfflineStatus";
 import { useScrollSync } from "./hooks/useScrollSync";
 
@@ -41,15 +41,7 @@ const DEFAULT_PARAMS = {
   textSplitting: true,
 };
 
-const EMPTY_STORY = {
-  root: {
-    id: "root",
-    text: "Once upon a time...",
-    continuations: [],
-  },
-};
-
-const GamepadInterface = () => {
+export const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
   const { theme, setTheme } = useTheme();
   const [lastMapNodeId, setLastMapNodeId] = useState<string | null>(null);
@@ -137,7 +129,7 @@ const GamepadInterface = () => {
     const newKey = `Story ${Object.keys(trees).length + 1}`;
     setTrees((prev) => ({
       ...prev,
-      [newKey]: EMPTY_STORY,
+      [newKey]: INITIAL_STORY,
     }));
     touchStoryActive(newKey);
     setCurrentTreeKey(newKey);
