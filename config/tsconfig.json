@@ -18,6 +18,7 @@
     "baseUrl": "./",
     "rootDir": "../",
     "outDir": "../dist",
+    "typeRoots": ["../node_modules/@types", "../config/types"],
     "paths": {
       "server/*": ["../server/*"],
       "client/*": ["../client/*"],

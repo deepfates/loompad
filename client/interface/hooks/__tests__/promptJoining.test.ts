@@ -1,28 +1,13 @@
 import { describe, it, expect } from "bun:test";
 import type { StoryNode } from "../../types";
+import { joinSegments, normalizeNextForSeam, joinPair } from "../../utils/join";
 
 // Extract the createPrompt logic for testing
 const createPrompt = (path: StoryNode[], depth: number) => {
-  // Get the story context from the current path
-  const context = path
-    .slice(0, depth + 1)
-    .map((node) => node.text)
-    .reduce((acc, text, index) => {
-      if (index === 0) return text;
-
-      // Normalize whitespace at boundaries:
-      // If both have whitespace at the boundary, collapse to single space
-      const prevEndsWithSpace = /\s$/.test(acc);
-      const currStartsWithSpace = /^\s/.test(text);
-
-      if (prevEndsWithSpace && currStartsWithSpace) {
-        // Trim the duplicate whitespace from the current text
-        return acc + text.trimStart();
-      } else {
-        // Normal concatenation - preserve all whitespace
-        return acc + text;
-      }
-    }, "");
+  // Get the story context from the current path using shared seam-normalizing join
+  const context = joinSegments(
+    path.slice(0, depth + 1).map((node) => node.text),
+  );
 
   return context;
 };
@@ -113,5 +98,30 @@ describe("prompt concatenation", () => {
     ];
     const prompt = createPrompt(path, 1);
     expect(prompt).toBe("Once upon");
+  });
+});
+
+describe("join seam normalization utility", () => {
+  it("normalizeNextForSeam drops duplicated boundary spaces/tabs", () => {
+    expect(normalizeNextForSeam("Hello ", " world")).toBe("world");
+    expect(normalizeNextForSeam("Hello\t", "   world")).toBe("world");
+  });
+
+  it("normalizeNextForSeam drops duplicated leading newlines (CRLF and LF)", () => {
+    expect(normalizeNextForSeam("Line 1\n", "\nLine 2")).toBe("Line 2");
+    expect(normalizeNextForSeam("Line 1\r\n", "\r\n\r\nLine 2")).toBe("Line 2");
+  });
+
+  it("joinSegments normalizes seams without inventing separators", () => {
+    expect(joinSegments(["Hello", " world"])).toBe("Hello world");
+    expect(joinSegments(["Hello ", " world"])).toBe("Hello world");
+    expect(joinSegments(["Hello", "world"])).toBe("Helloworld");
+    expect(joinSegments(["Line 1\n\n", "\nLine 2"])).toBe("Line 1\n\nLine 2");
+  });
+
+  it("joinPair equals prev + normalizeNextForSeam(prev, next)", () => {
+    const prev = "Hello ";
+    const next = " world";
+    expect(joinPair(prev, next)).toBe(prev + normalizeNextForSeam(prev, next));
   });
 });

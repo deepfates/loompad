@@ -50,9 +50,8 @@ interface GenerateRequest {
 function getBoundaryRegex(mode: LengthMode): RegExp | null {
   switch (mode) {
     case "word":
-      // First non-space run followed by a single whitespace (space/tab/newline), or end of input.
-      // We match the word and the following whitespace so we can emit both, and also match the last word.
-      return /\S+(?:(?=\s)|$)/;
+      // Word mode uses token-aware logic in the stream loop; no regex boundary.
+      return null;
     case "sentence":
       // ., ?, ! possibly followed by closing quotes/brackets; include them, not trailing space
       return /[.?!](?:['""'»)\]\}]+)?(?=\s|$)/;
@@ -67,13 +66,13 @@ function getBoundaryRegex(mode: LengthMode): RegExp | null {
   }
 }
 
+const OVERLAP = 32;
 // Find the first boundary whose end is beyond sentIndex (seam-aware with overlap)
 function findBoundaryCutoff(
   accumulated: string,
   sentIndex: number,
   rx: RegExp,
 ): number | null {
-  const OVERLAP = 32;
   const start = Math.max(0, sentIndex - OVERLAP);
   const search = accumulated.slice(start);
 
@@ -211,7 +210,6 @@ export async function generateText(req: Request, res: Response) {
 
     // Track if we've seen any non-whitespace in word mode
     let wordModeBuffer = "";
-    let hasSeenNonWhitespace = false;
 
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.text ?? "";
@@ -225,8 +223,6 @@ export async function generateText(req: Request, res: Response) {
 
         // If this token contains non-whitespace, we've found our word
         if (/\S/.test(delta)) {
-          hasSeenNonWhitespace = true;
-
           // Emit the accumulated buffer
           let toSend = wordModeBuffer;
 

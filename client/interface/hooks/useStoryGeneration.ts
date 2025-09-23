@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTextGeneration } from "./useTextGeneration";
 import { splitTextToNodes } from "../utils/textSplitter";
+import { joinSegments } from "../utils/join";
 import type { StoryNode } from "../types";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
@@ -14,25 +15,9 @@ interface GenerationParams {
 
 const createPrompt = (path: StoryNode[], depth: number) => {
   // Get the story context from the current path
-  const context = path
-    .slice(0, depth + 1)
-    .map((node) => node.text)
-    .reduce((acc, text, index) => {
-      if (index === 0) return text;
-
-      // Normalize whitespace at boundaries:
-      // If both have whitespace at the boundary, collapse to single space
-      const prevEndsWithSpace = /\s$/.test(acc);
-      const currStartsWithSpace = /^\s/.test(text);
-
-      if (prevEndsWithSpace && currStartsWithSpace) {
-        // Trim the duplicate whitespace from the current text
-        return acc + text.trimStart();
-      } else {
-        // Normal concatenation - preserve all whitespace
-        return acc + text;
-      }
-    }, "");
+  const context = joinSegments(
+    path.slice(0, depth + 1).map((node) => node.text),
+  );
 
   return context;
 };
