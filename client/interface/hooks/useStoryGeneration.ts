@@ -14,6 +14,13 @@ interface GenerationParams {
 }
 
 export const createPrompt = (path: StoryNode[], depth: number) => {
+  // Validate that depth is within bounds
+  if (!Number.isInteger(depth) || depth < 0 || depth >= path.length) {
+    throw new Error(
+      `Invalid depth: ${depth}. Must be an integer between 0 and path.length - 1 (${path.length - 1}).`,
+    );
+  }
+
   // Get the story context from the current path
   const context = joinSegments(
     path.slice(0, depth + 1).map((node) => node.text),
