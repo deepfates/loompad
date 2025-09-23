@@ -496,7 +496,7 @@ export const StoryMinimap = ({
                       isHighlighted
                         ? "var(--font-color)"
                         : isSelected || isAncestor || isOnFavoritePath
-                          ? "var(--secondary-color)"
+                          ? "var(--primary-color)"
                           : isGenerating
                             ? "var(--font-color)"
                             : "var(--background-color)"
@@ -513,10 +513,10 @@ export const StoryMinimap = ({
                         : isGenerating
                             ? 1  // Generating - full brightness with pulse animation
                             : isAncestor
-                              ? 0.4  // Already read - visible but less prominent
+                              ? 0.6 // Already read - visible but less prominent
                               : isOnFavoritePath
-                                ? 0.4  // Path - semi-visible
-                                : 0.2  // Unvisited - barely visible
+                                ? 0.5  // Path - semi-visible
+                                : 0.4  // Unvisited - barely visible
                     }
                   />
                 </g>
