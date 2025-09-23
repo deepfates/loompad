@@ -501,7 +501,6 @@ export const StoryMinimap = ({
                             ? "var(--font-color)"
                             : "var(--background-color)"
                     }
-                    stroke="var(--font-color)"
                     strokeWidth={
                       isHighlighted || isSelected ? 1.5 : 0.8
                     }
