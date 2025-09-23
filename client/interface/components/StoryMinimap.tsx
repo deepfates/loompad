@@ -492,17 +492,6 @@ export const StoryMinimap = ({
                                 ? "var(--surface-color)"  // Already read or on breadcrumb trail
                                 : "var(--background-color)"  // Unvisited - empty
                     }
-                    
-                    stroke={
-                      isHighlighted
-                        ? "var(--font-color)"
-                        : isSelected || isAncestor || isOnFavoritePath
-                          ? "var(--primary-color)"
-                          : isGenerating
-                            ? "var(--font-color)"
-                            : "var(--background-color)"
-                    }
-                    stroke="var(--font-color)"
                     strokeWidth={
                       isHighlighted || isSelected ? 1.5 : 0.8
                     }
