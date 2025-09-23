@@ -388,7 +388,20 @@ export const StoryMinimap = ({
       <div ref={viewportRef} className="minimap-viewport">
         <div style={{ width: svgWidth, minWidth: "100%" }}>
           <svg width={svgWidth} height={svgHeight}>
-            {/* Terminal/typewriter aesthetic - monochromatic with varying intensities */}
+            {/* Define patterns for different node states */}
+            <defs>
+              {/* Subtle stripe pattern for ancestors - they've been read */}
+              <pattern id="ancestorPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                <rect width="4" height="4" fill="var(--surface-color)" />
+                <line x1="0" y1="0" x2="0" y2="4" stroke="var(--border-color)" strokeWidth="0.5" opacity="0.3"/>
+                <line x1="2" y1="0" x2="2" y2="4" stroke="var(--border-color)" strokeWidth="0.5" opacity="0.3"/>
+              </pattern>
+              {/* Dots for favorite path - breadcrumb trail */}
+              <pattern id="pathPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                <rect width="4" height="4" fill="var(--surface-color)" />
+                <circle cx="2" cy="2" r="0.4" fill="var(--secondary-color)"/>
+              </pattern>
+            </defs>
             {/* Render edges first so they sit behind nodes */}
             {edges.map(({ from, to, key }) => {
               const a = coords[from.id];
@@ -430,11 +443,11 @@ export const StoryMinimap = ({
                 <path
                   key={key}
                   d={path}
-                  stroke="var(--font-color)"
-                  strokeWidth={isAncestorEdge ? 1.5 : 1}
+                  stroke={isAncestorEdge ? "var(--secondary-color)" : "var(--border-color)"}
+                  strokeWidth={isAncestorEdge ? 1.2 : 0.8}
                   fill="none"
                   strokeLinecap="square"
-                  strokeOpacity={isAncestorEdge ? 0.4 : 0.15}
+                  opacity={isAncestorEdge ? 0.8 : 0.4}
                 />
               );
             })}
@@ -470,40 +483,43 @@ export const StoryMinimap = ({
                     ry={NODE_RADIUS}
                     fill={
                       isHighlighted
-                        ? "var(--font-color)"
-                        : isSelected || isAncestor || isOnFavoritePath
-                          ? "var(--font-color)"
-                          : isGenerating
-                            ? "var(--font-color)"
-                            : "var(--background-color)"
-                    }
-                    stroke="var(--font-color)"
-                    strokeWidth={
-                      isHighlighted ? 1.5 : 0.75
-                    }
-                    fillOpacity={
-                      isHighlighted
-                        ? 0.7  // Current - like terminal cursor block
+                        ? "var(--primary-color)"  // Current - bright primary
                         : isSelected
-                          ? 0.25  // Next - medium intensity
-                        : isAncestor
-                            ? 0.12  // Path taken - faint trace
-                            : isOnFavoritePath
-                              ? 0.06  // Future path - very faint
-                              : isGenerating
-                                ? 0.04  // Generating - barely visible pulse
-                                : 0  // Others - just outline
-                    }
-                    strokeOpacity={
-                      isHighlighted
-                        ? 0.9
-                        : isSelected
-                          ? 0.6
+                          ? "var(--font-color)"  // Next option - readable
                           : isAncestor
-                            ? 0.4
+                              ? "var(--surface-color)"  // Already read - subtle fill
+                              : isOnFavoritePath
+                                ? "var(--surface-color)"  // Breadcrumb trail - subtle
+                                : isGenerating
+                                  ? "var(--accent-weak)"  // Generating
+                                  : "var(--background-color)"  // Unvisited - empty
+                    }
+                    stroke={
+                      isHighlighted
+                        ? "var(--primary-color)"
+                        : isSelected
+                          ? "var(--font-color)"
+                          : isAncestor
+                            ? "var(--border-color)"
                             : isOnFavoritePath
-                              ? 0.25
-                              : 0.15
+                              ? "var(--secondary-color)"
+                              : "var(--border-color)"
+                    }
+                    strokeWidth={
+                      isHighlighted || isSelected ? 1.5 : 0.8
+                    }
+                    opacity={
+                      isHighlighted
+                        ? 1  // Current - full brightness
+                        : isSelected
+                          ? 0.85  // Next - prominent but not current
+                        : isAncestor
+                            ? 0.4  // Already read - faded into background
+                            : isOnFavoritePath
+                              ? 0.6  // Path - visible but not prominent
+                              : isGenerating
+                                ? 0.7  // Generating - active
+                                : 0.3  // Unvisited - barely visible
                     }
                   />
                 </g>
