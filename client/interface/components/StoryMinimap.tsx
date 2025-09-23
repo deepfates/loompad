@@ -458,9 +458,11 @@ export const StoryMinimap = ({
                 (pathNode) => pathNode.id === id,
               );
               // Check if this node is an ancestor of the highlighted node
-              const isAncestor = coords[highlightedNode.id] &&
+              const highlightedCoords = coords[highlightedNode.id];
+              const isAncestor =
+                highlightedCoords &&
                 id !== highlightedNode.id &&
-                coords[highlightedNode.id].path.some((pathNode: StoryNode) => pathNode.id === id);
+                highlightedCoords.path.some((pathNode: StoryNode) => pathNode.id === id);
 
               return (
                 <g
