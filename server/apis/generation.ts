@@ -230,10 +230,7 @@ export async function generateText(req: Request, res: Response) {
           // Emit the accumulated buffer
           let toSend = wordModeBuffer;
 
-          // Trim leading whitespace on first emission to avoid double spaces
-          if (!joinState.hasEmittedAny) {
-            toSend = toSend.trimStart();
-          }
+          // Don't trim - we need the whitespace to separate words
 
           if (toSend) {
             res.write(`data: ${JSON.stringify({ content: toSend })}\n\n`);
