@@ -389,7 +389,10 @@ export const StoryMinimap = ({
           <svg width={svgWidth} height={svgHeight}>
             {/* Define patterns for different node states - gameboy/e-paper style */}
             <defs>
-              {/* Diagonal lines pattern for ancestor nodes */}
+              {/* Diagonal lines pattern for ancestor nodes
+                  Creates a 45-degree diagonal hatching effect:
+                  - M0,4 l4,-4: Main diagonal from bottom-left to top-right
+                  - M-1,1 l2,-2 & M3,5 l2,-2: Offset diagonals for seamless tiling */}
               <pattern id="ancestorPattern" patternUnits="userSpaceOnUse" width="4" height="4">
                 <path d="M0,4 l4,-4 M-1,1 l2,-2 M3,5 l2,-2" stroke="var(--font-color)" strokeWidth="0.5" opacity="0.2"/>
               </pattern>
