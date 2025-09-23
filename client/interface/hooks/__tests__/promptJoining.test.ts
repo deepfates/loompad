@@ -1,16 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import type { StoryNode } from "../../types";
 import { joinSegments, normalizeNextForSeam, joinPair } from "../../utils/join";
-
-// Extract the createPrompt logic for testing
-const createPrompt = (path: StoryNode[], depth: number) => {
-  // Get the story context from the current path using shared seam-normalizing join
-  const context = joinSegments(
-    path.slice(0, depth + 1).map((node) => node.text),
-  );
-
-  return context;
-};
+import { createPrompt } from "../useStoryGeneration";
 
 describe("prompt concatenation", () => {
   it("preserves single spaces between nodes", () => {

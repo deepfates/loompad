@@ -13,7 +13,7 @@ interface GenerationParams {
   textSplitting: boolean;
 }
 
-const createPrompt = (path: StoryNode[], depth: number) => {
+export const createPrompt = (path: StoryNode[], depth: number) => {
   // Get the story context from the current path
   const context = joinSegments(
     path.slice(0, depth + 1).map((node) => node.text),

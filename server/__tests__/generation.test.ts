@@ -11,35 +11,6 @@ describe("boundary regexes", () => {
 
     // Skip regex-based tests for word mode since it uses token-aware logic
     return;
-    // Leading spaces should be ignored; first match starts at 'H'
-    const s1 = "  Hello  world";
-    const m1 = rx.exec(s1);
-    expect(m1).toBeTruthy();
-    expect(m1?.[0]).toBe("Hello  ");
-
-    // CRLF after a word should be included in the match
-    const s2 = "Hello\r\nworld";
-    const m2 = rx.exec(s2);
-    expect(m2).toBeTruthy();
-    expect(m2?.[0]).toBe("Hello\r\n");
-
-    // Multiple tabs/spaces are included
-    const s3 = "foo\t\t bar";
-    const m3 = rx.exec(s3);
-    expect(m3).toBeTruthy();
-    expect(m3?.[0]).toBe("foo\t\t ");
-
-    // Test that numbers with spaces work correctly
-    const s4 = "In 1995 the";
-    const m4 = rx.exec(s4);
-    expect(m4).toBeTruthy();
-    expect(m4?.[0]).toBe("In ");
-
-    // Test token-like patterns (leading space in middle of text)
-    const s5 = " world is";
-    const m5 = rx.exec(s5);
-    expect(m5).toBeTruthy();
-    expect(m5?.[0]).toBe("world ");
   });
 
   it("sentence mode: includes terminal punctuation and optional closing quotes/brackets, not trailing space", () => {
