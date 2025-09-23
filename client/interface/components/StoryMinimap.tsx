@@ -95,13 +95,18 @@ function useCoords(root: StoryNode) {
 
     // Calculate connector lengths based on text
     const descendants = rootHierarchy.descendants();
-    const logLengths = descendants.map((node) => Math.log((node.data.text || "").length + 1));
+    // Cache log lengths to avoid redundant calculations
+    const logLengthMap: Record<string, number> = {};
+    descendants.forEach((node) => {
+      logLengthMap[node.data.id] = Math.log((node.data.text || "").length + 1);
+    });
+    const logLengths = Object.values(logLengthMap);
     const minLogLength = logLengths.length === 0 ? 0 : Math.min(...logLengths);
     const maxLogLength = logLengths.length === 0 ? 0 : Math.max(...logLengths);
     const logRange = maxLogLength - minLogLength || 1;
 
-    const getNodeHeight = (textLength: number) => {
-      const logLength = Math.log(textLength + 1);
+    const getNodeHeightFromCache = (nodeId: string) => {
+      const logLength = logLengthMap[nodeId] ?? Math.log(1);
       const normalized =
         maxLogLength === minLogLength
           ? 0.5
@@ -116,12 +121,11 @@ function useCoords(root: StoryNode) {
     // Apply flextree layout with variable node sizes
     const treeLayout = flextree<StoryNode>({
       spacing: (a, b) => {
-        // Tighter spacing for compact layout
-        return a.parent === b.parent ? NODE_WIDTH * 1.2 : NODE_WIDTH * 0.8;
+        // Tighter spacing for siblings, looser for cousins
+        return a.parent === b.parent ? NODE_WIDTH * 0.8 : NODE_WIDTH * 1.2;
       },
       nodeSize: (node) => {
-        const textLength = (node.data.text || "").length;
-        const nodeHeight = getNodeHeight(textLength);
+        const nodeHeight = getNodeHeightFromCache(node.data.id);
         // Total height is node height plus connector to next level
         return [NODE_WIDTH, nodeHeight + CONNECTOR_LENGTH];
       }
@@ -133,7 +137,7 @@ function useCoords(root: StoryNode) {
     const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
       const currentPath = [...path, node.data];
       const textLength = (node.data.text || "").length;
-      const nodeHeight = getNodeHeight(textLength);
+      const nodeHeight = getNodeHeightFromCache(node.data.id);
 
       coords[node.data.id] = {
         x: node.x || 0,
@@ -454,9 +458,9 @@ export const StoryMinimap = ({
                 (pathNode) => pathNode.id === id,
               );
               // Check if this node is an ancestor of the highlighted node
-              const isAncestor = highlightedNode && c.path.some(
-                (pathNode) => highlightedNode.id !== id && pathNode.id === highlightedNode.id
-              );
+              const isAncestor = coords[highlightedNode.id] &&
+                id !== highlightedNode.id &&
+                coords[highlightedNode.id].path.some((pathNode: StoryNode) => pathNode.id === id);
 
               return (
                 <g
