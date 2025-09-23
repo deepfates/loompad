@@ -1,6 +1,11 @@
 import { useMemo, useRef, useEffect, useLayoutEffect } from "react";
+<<<<<<< HEAD
+import { hierarchy, tree } from "d3-hierarchy";
+import type { HierarchyPointNode } from "d3-hierarchy";
+=======
 import { hierarchy } from "d3-hierarchy";
 import { flextree } from "d3-flextree";
+>>>>>>> origin/main
 import type { StoryNode } from "../types";
 
 /**
@@ -132,10 +137,18 @@ function useCoords(root: StoryNode) {
       }
     });
 
-    treeLayout(rootHierarchy);
+    const rootPoint = treeLayout(rootHierarchy);
 
+<<<<<<< HEAD
+    // Build path for each node and convert to coords
+    const buildPath = (
+      node: HierarchyPointNode<StoryNode>,
+      path: StoryNode[] = [],
+    ): StoryNode[] => {
+=======
     // Build coords from flextree's calculated positions
     const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
+>>>>>>> origin/main
       const currentPath = [...path, node.data];
       const textLength = (node.data.text || "").length;
       const nodeHeight = getNodeHeight(textLength);
@@ -152,15 +165,19 @@ function useCoords(root: StoryNode) {
 
       // Recursively process children
       if (node.children) {
+<<<<<<< HEAD
+        node.children.forEach((child) => buildPath(child, currentPath));
+=======
         node.children.forEach((child: any) =>
           buildPath(child, currentPath),
         );
+>>>>>>> origin/main
       }
 
       return currentPath;
     };
 
-    buildPath(rootHierarchy);
+    buildPath(rootPoint);
 
     return coords;
   }, [root]);
@@ -236,17 +253,23 @@ export const StoryMinimap = ({
     );
   })();
 
-  // Handle empty tree
-  if (Object.keys(coords).length === 0) {
-    return <div>Empty tree</div>;
-  }
+  // Handle empty tree by rendering an empty viewport; dimensions below are guarded
 
   // Bounds for <svg> viewBox - ensure it's wide enough for scrolling
+<<<<<<< HEAD
+  const xCoords = Object.values(coords).map((c) => c.x);
+  const minX = xCoords.length ? Math.min(...xCoords) : 0;
+  const maxX = xCoords.length ? Math.max(...xCoords) : 0;
+  const maxDepth = Object.values(coords).length
+    ? Math.max(...Object.values(coords).map((c) => c.depth))
+    : 0;
+=======
   const coordValues = Object.values(coords);
   const xCoords = coordValues.map((c) => c.x);
   const minX = Math.min(...xCoords);
   const maxX = Math.max(...xCoords);
   const maxY = Math.max(...coordValues.map((c) => c.y));
+>>>>>>> origin/main
 
   // Add padding around the tree
   const padding = LANE_WIDTH * 2;
@@ -491,6 +514,15 @@ export const StoryMinimap = ({
                               : isAncestor || isOnFavoritePath
                                 ? "var(--surface-color)"  // Already read or on breadcrumb trail
                                 : "var(--background-color)"  // Unvisited - empty
+                    }
+                    stroke={
+                      isHighlighted
+                        ? "var(--font-color)"
+                        : isSelected || isAncestor || isOnFavoritePath
+                          ? "var(--primary-color)"
+                          : isGenerating
+                            ? "var(--font-color)"
+                            : "var(--background-color)"
                     }
                     strokeWidth={
                       isHighlighted || isSelected ? 1.5 : 0.8
