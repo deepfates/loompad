@@ -89,8 +89,8 @@ function useCoords(root: StoryNode) {
 
     const descendants = rootHierarchy.descendants();
     const logLengths = descendants.map((node) => Math.log((node.data.text || "").length + 1));
-    const minLogLength = Math.min(...logLengths);
-    const maxLogLength = Math.max(...logLengths);
+    const minLogLength = logLengths.length === 0 ? 0 : Math.min(...logLengths);
+    const maxLogLength = logLengths.length === 0 ? 0 : Math.max(...logLengths);
     const logRange = maxLogLength - minLogLength || 1;
 
     const getConnectorLength = (textLength: number) => {
@@ -106,6 +106,20 @@ function useCoords(root: StoryNode) {
       );
     };
 
+    const getParentConnectorLength = (
+      node: any,
+      coords: Record<string, any>,
+      getConnectorLength: (length: number) => number
+    ): number => {
+      if (!node.parent) return 0;
+
+      if (coords[node.parent.data.id]) {
+        return coords[node.parent.data.id].connectorLength;
+      }
+
+      return getConnectorLength((node.parent.data.text || "").length);
+    };
+
     const buildPath = (
       node: any,
       path: StoryNode[] = [],
@@ -114,12 +128,7 @@ function useCoords(root: StoryNode) {
       const currentPath = [...path, node.data];
       const textLength = (node.data.text || "").length;
       const connectorLength = getConnectorLength(textLength);
-      const parentConnectorLength =
-        node.parent && coords[node.parent.data.id]
-          ? coords[node.parent.data.id].connectorLength
-          : node.parent
-            ? getConnectorLength((node.parent.data.text || "").length)
-            : 0;
+      const parentConnectorLength = getParentConnectorLength(node, coords, getConnectorLength);
       const y = node.parent ? parentY + parentConnectorLength : 0;
 
       coords[node.data.id] = {
@@ -387,8 +396,14 @@ export const StoryMinimap = ({
               } else {
                 // Smooth curve whose depth reflects the spacing between nodes
                 const horizontalGap = Math.abs(bx - ax);
+
+                // Curve control constants
+                const VERTICAL_CONTROL_FACTOR = 0.45; // Controls vertical curve depth
+                const CONTROL_OFFSET_RATIO = 0.75; // Ratio for second control point
+                const HORIZONTAL_CONTROL_FACTOR = 0.35; // Controls horizontal curve offset
+
                 const baseVerticalControl = Math.min(
-                  Math.max(verticalGap * 0.45, 18),
+                  Math.max(verticalGap * VERTICAL_CONTROL_FACTOR, 18),
                   verticalGap - 8,
                 );
                 const controlYOffset1 = Math.min(
@@ -396,11 +411,11 @@ export const StoryMinimap = ({
                   verticalGap / 2,
                 );
                 const controlYOffset2 = Math.min(
-                  baseVerticalControl * 0.75,
+                  baseVerticalControl * CONTROL_OFFSET_RATIO,
                   verticalGap / 2,
                 );
                 const controlXShift = Math.min(
-                  Math.max(horizontalGap * 0.35, 10),
+                  Math.max(horizontalGap * HORIZONTAL_CONTROL_FACTOR, 10),
                   60,
                 );
                 const controlX1 = bx > ax ? ax + controlXShift : ax - controlXShift;
