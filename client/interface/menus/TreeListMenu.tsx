@@ -9,21 +9,7 @@ export const TreeListMenu = ({
   onNew,
 }: TreeListProps) => {
   const treeEntries = sortTreeEntriesByRecency(trees);
-  const totalItems = treeEntries.length + 1; // +1 for "New Story" option
 
-  const handleSelect = (index: number) => {
-    if (index === 0) {
-      onNew?.();
-    } else {
-      onSelect(treeEntries[index - 1][0]);
-    }
-  };
-
-  const handleDelete = (index: number) => {
-    if (index > 0 && treeEntries.length > 1) {
-      onDelete?.(treeEntries[index - 1][0]);
-    }
-  };
 
   return (
     <div className="menu-content">

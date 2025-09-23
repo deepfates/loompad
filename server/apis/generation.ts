@@ -68,7 +68,7 @@ function getBoundaryRegex(mode: LengthMode): RegExp | null {
       return null;
     case "sentence":
       // ., ?, ! possibly followed by closing quotes/brackets; include them, not trailing space
-      return /[.?!](?:['""'»)\]\}]+)?(?=\s|$)/;
+      return /[.?!](?:['""'»)\]}]+)?(?=\s|$)/;
     case "paragraph":
       // Blank line (including optional spaces) OR Markdown horizontal rule
       return /\r?\n[ \t]*\r?\n|(?:^|\r?\n)[ \t]{0,3}(?:-{3,}|\*{3,}|_{3,})[ \t]*(?:\r?\n|$)/;
@@ -247,7 +247,7 @@ export async function generateText(req: Request, res: Response) {
         if (NON_WHITESPACE_RE.test(delta)) {
           // Emit the accumulated buffer
           // In word mode, preserve whitespace as generated (it acts as the separator)
-          let toSend = wordModeBuffer;
+          const toSend = wordModeBuffer;
 
           if (toSend) {
             res.write(`data: ${JSON.stringify({ content: toSend })}\n\n`);
@@ -322,7 +322,7 @@ export async function generateText(req: Request, res: Response) {
     if (!ended) {
       const remaining = accumulated.slice(sentIndex);
       if (remaining) {
-        let segment = normalizeJoin(joinState, remaining);
+        const segment = normalizeJoin(joinState, remaining);
         if (segment) {
           res.write(`data: ${JSON.stringify({ content: segment })}\n\n`);
         }

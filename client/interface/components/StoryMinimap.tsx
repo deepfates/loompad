@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect, useLayoutEffect } from "react";
 import { hierarchy, tree } from "d3-hierarchy";
+import type { HierarchyPointNode } from "d3-hierarchy";
 import type { StoryNode } from "../types";
 
 interface StoryMinimapProps {
@@ -73,10 +74,13 @@ function useCoords(root: StoryNode) {
       .separation(() => 1) // 1 lane between siblings
       .nodeSize([LANE_WIDTH, ROW_HEIGHT]); // Fixed node size instead of canvas size
 
-    treeLayout(rootHierarchy);
+    const rootPoint = treeLayout(rootHierarchy);
 
     // Build path for each node and convert to coords
-    const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
+    const buildPath = (
+      node: HierarchyPointNode<StoryNode>,
+      path: StoryNode[] = [],
+    ): StoryNode[] => {
       const currentPath = [...path, node.data];
       coords[node.data.id] = {
         x: node.x || 0,
@@ -88,13 +92,13 @@ function useCoords(root: StoryNode) {
 
       // Recursively process children
       if (node.children) {
-        node.children.forEach((child: any) => buildPath(child, currentPath));
+        node.children.forEach((child) => buildPath(child, currentPath));
       }
 
       return currentPath;
     };
 
-    buildPath(rootHierarchy);
+    buildPath(rootPoint);
 
     return coords;
   }, [root]);
@@ -170,16 +174,15 @@ export const StoryMinimap = ({
     );
   })();
 
-  // Handle empty tree
-  if (Object.keys(coords).length === 0) {
-    return <div>Empty tree</div>;
-  }
+  // Handle empty tree by rendering an empty viewport; dimensions below are guarded
 
   // Bounds for <svg> viewBox - ensure it's wide enough for scrolling
   const xCoords = Object.values(coords).map((c) => c.x);
-  const minX = Math.min(...xCoords);
-  const maxX = Math.max(...xCoords);
-  const maxDepth = Math.max(...Object.values(coords).map((c) => c.depth));
+  const minX = xCoords.length ? Math.min(...xCoords) : 0;
+  const maxX = xCoords.length ? Math.max(...xCoords) : 0;
+  const maxDepth = Object.values(coords).length
+    ? Math.max(...Object.values(coords).map((c) => c.depth))
+    : 0;
 
   // Add padding around the tree
   const padding = LANE_WIDTH * 2;

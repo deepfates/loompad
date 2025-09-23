@@ -21,7 +21,7 @@ const BOUNDARY_PATTERNS: BoundaryPattern[] = [
   },
   {
     name: "underline_heading",
-    regex: /^.+\n[=\-]{3,}$/gm,
+    regex: /^.+\n[=-]{3,}$/gm,
     priority: 95,
   },
   {

@@ -137,7 +137,8 @@ export async function createServer() {
           .replace(`<!--ssr-head-->`, head)
           .replace(`'<!--ssr-state-->'`, JSON.stringify(initial_state));
       } else if (ssr_enabled && mode === "production") {
-        const { render } = require(ssr_path_prod);
+        const mod = await import(ssr_path_prod);
+        const { render } = mod as { render: (url: string, initial: unknown) => Promise<{ body: string; head: string }> };
         const ssr_parts = await render(url, initial_state);
         const { body, head } = ssr_parts;
 

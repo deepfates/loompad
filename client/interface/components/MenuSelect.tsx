@@ -3,8 +3,6 @@ import { MenuSelectProps } from "../types";
 export const MenuSelect = ({
   label,
   value,
-  options,
-  onChange,
   selected,
 }: MenuSelectProps) => (
   <div

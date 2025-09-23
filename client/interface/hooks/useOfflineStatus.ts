@@ -10,14 +10,18 @@ export function useOfflineStatus() {
       if (wasOffline) {
         setWasOffline(false);
         // Could trigger a toast notification here
-        console.log("Connection restored");
+        if (import.meta.env.DEV) {
+          console.log("Connection restored");
+        }
       }
     };
 
     const handleOffline = () => {
       setIsOnline(false);
       setWasOffline(true);
-      console.log("Connection lost - working offline");
+      if (import.meta.env.DEV) {
+        console.log("Connection lost - working offline");
+      }
     };
 
     window.addEventListener("online", handleOnline);
