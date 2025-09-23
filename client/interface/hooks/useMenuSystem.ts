@@ -4,6 +4,7 @@ import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import { useModels } from "./useModels";
 import { scrollMenuItemElIntoView } from "../utils/scrolling";
+import type { Theme } from "../components/ThemeToggle";
 import {
   orderKeysReverseChronological,
   touchStoryActive,
@@ -15,8 +16,6 @@ interface MenuParams {
   model: ModelId;
   textSplitting: boolean;
 }
-
-type Theme = "matrix" | "light" | "system";
 
 interface MenuCallbacks {
   onNewTree?: () => void;
@@ -45,7 +44,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const handleMenuNavigation = useCallback(
     (
       key: string,
-      trees: { [key: string]: any } = {},
+      trees: Record<string, unknown> = {},
       callbacks: MenuCallbacks = {},
     ) => {
       if (activeMenu === "select") {
