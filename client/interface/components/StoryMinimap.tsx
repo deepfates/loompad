@@ -462,9 +462,9 @@ export const StoryMinimap = ({
                 (pathNode) => pathNode.id === id,
               );
               // Check if this node is an ancestor of the highlighted node
-              const isAncestor = highlightedNode &&c.path.some(
-                (pathNode) => highlightedNode.id !== id && pathNode.id === highlightedNode.id
-              );
+              const isAncestor = coords[highlightedNode.id] &&
+                id !== highlightedNode.id &&
+                coords[highlightedNode.id].path.some((pathNode: StoryNode) => pathNode.id === id);
 
               return (
                 <g
@@ -483,11 +483,11 @@ export const StoryMinimap = ({
                     ry={NODE_RADIUS}
                     fill={
                       isHighlighted
-                        ? "var(--primary-color)"  // Current - bright primary
+                        ? "var(--font-color)"  // Current - white/bright text color in dark mode
                         : isSelected
-                          ? "var(--font-color)"  // Next option - readable
+                          ? "var(--primary-color)"  // Next option - blue/primary
                           : isAncestor
-                              ? "var(--surface-color)"  // Already read - subtle fill
+                              ? "var(--secondary-color)"  // Already read - green/secondary in dark mode
                               : isOnFavoritePath
                                 ? "var(--surface-color)"  // Breadcrumb trail - subtle
                                 : isGenerating
@@ -496,13 +496,13 @@ export const StoryMinimap = ({
                     }
                     stroke={
                       isHighlighted
-                        ? "var(--primary-color)"
+                        ? "var(--font-color)"
                         : isSelected
-                          ? "var(--font-color)"
+                          ? "var(--primary-color)"
                           : isAncestor
-                            ? "var(--border-color)"
+                            ? "var(--secondary-color)"
                             : isOnFavoritePath
-                              ? "var(--secondary-color)"
+                              ? "var(--border-color)"
                               : "var(--border-color)"
                     }
                     strokeWidth={
@@ -512,11 +512,11 @@ export const StoryMinimap = ({
                       isHighlighted
                         ? 1  // Current - full brightness
                         : isSelected
-                          ? 0.85  // Next - prominent but not current
+                          ? 0.9  // Next - prominent but not current
                         : isAncestor
-                            ? 0.4  // Already read - faded into background
+                            ? 0.6  // Already read - visible but less prominent
                             : isOnFavoritePath
-                              ? 0.6  // Path - visible but not prominent
+                              ? 0.5  // Path - semi-visible
                               : isGenerating
                                 ? 0.7  // Generating - active
                                 : 0.3  // Unvisited - barely visible
