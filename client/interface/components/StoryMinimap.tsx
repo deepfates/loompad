@@ -105,8 +105,8 @@ function useCoords(root: StoryNode) {
     const maxLogLength = logLengths.length === 0 ? 0 : Math.max(...logLengths);
     const logRange = maxLogLength - minLogLength || 1;
 
-    const getNodeHeightFromCache = (nodeId: string) => {
-      const logLength = logLengthMap[nodeId] ?? Math.log(1);
+    const getNodeHeight = (textLength: number) => {
+      const logLength = Math.log(textLength + 1);
       const normalized =
         maxLogLength === minLogLength
           ? 0.5
@@ -121,11 +121,12 @@ function useCoords(root: StoryNode) {
     // Apply flextree layout with variable node sizes
     const treeLayout = flextree<StoryNode>({
       spacing: (a, b) => {
-        // Tighter spacing for siblings, looser for cousins
-        return a.parent === b.parent ? NODE_WIDTH * 0.8 : NODE_WIDTH * 1.2;
+        // Tighter spacing for compact layout
+        return a.parent === b.parent ? NODE_WIDTH * 1.2 : NODE_WIDTH * 0.8;
       },
       nodeSize: (node) => {
-        const nodeHeight = getNodeHeightFromCache(node.data.id);
+        const textLength = (node.data.text || "").length;
+        const nodeHeight = getNodeHeight(textLength);
         // Total height is node height plus connector to next level
         return [NODE_WIDTH, nodeHeight + CONNECTOR_LENGTH];
       }
@@ -137,7 +138,7 @@ function useCoords(root: StoryNode) {
     const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
       const currentPath = [...path, node.data];
       const textLength = (node.data.text || "").length;
-      const nodeHeight = getNodeHeightFromCache(node.data.id);
+      const nodeHeight = getNodeHeight(textLength);
 
       coords[node.data.id] = {
         x: node.x || 0,
@@ -387,20 +388,7 @@ export const StoryMinimap = ({
       <div ref={viewportRef} className="minimap-viewport">
         <div style={{ width: svgWidth, minWidth: "100%" }}>
           <svg width={svgWidth} height={svgHeight}>
-            {/* Define patterns for different node states - gameboy/e-paper style */}
-            <defs>
-              {/* Diagonal lines pattern for ancestor nodes
-                  Creates a 45-degree diagonal hatching effect:
-                  - M0,4 l4,-4: Main diagonal from bottom-left to top-right
-                  - M-1,1 l2,-2 & M3,5 l2,-2: Offset diagonals for seamless tiling */}
-              <pattern id="ancestorPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-                <path d="M0,4 l4,-4 M-1,1 l2,-2 M3,5 l2,-2" stroke="var(--font-color)" strokeWidth="0.5" opacity="0.2"/>
-              </pattern>
-              {/* Dots pattern for favorite path */}
-              <pattern id="favoritePattern" patternUnits="userSpaceOnUse" width="4" height="4">
-                <circle cx="2" cy="2" r="0.5" fill="var(--font-color)" opacity="0.15"/>
-              </pattern>
-            </defs>
+            {/* Terminal/typewriter aesthetic - monochromatic with varying intensities */}
             {/* Render edges first so they sit behind nodes */}
             {edges.map(({ from, to, key }) => {
               const a = coords[from.id];
@@ -446,7 +434,7 @@ export const StoryMinimap = ({
                   strokeWidth={isAncestorEdge ? 1.5 : 1}
                   fill="none"
                   strokeLinecap="square"
-                  opacity={isAncestorEdge ? 0.5 : 0.2}
+                  strokeOpacity={isAncestorEdge ? 0.4 : 0.15}
                 />
               );
             })}
@@ -461,11 +449,9 @@ export const StoryMinimap = ({
                 (pathNode) => pathNode.id === id,
               );
               // Check if this node is an ancestor of the highlighted node
-              const highlightedCoords = coords[highlightedNode.id];
-              const isAncestor =
-                highlightedCoords &&
-                id !== highlightedNode.id &&
-                highlightedCoords.path.some((pathNode: StoryNode) => pathNode.id === id);
+              const isAncestor = highlightedNode &&c.path.some(
+                (pathNode) => highlightedNode.id !== id && pathNode.id === highlightedNode.id
+              );
 
               return (
                 <g
@@ -485,29 +471,38 @@ export const StoryMinimap = ({
                     fill={
                       isHighlighted
                         ? "var(--font-color)"
-                        : isSelected
-                          ? "var(--primary-color)"
-                          : isAncestor
-                            ? "url(#ancestorPattern)"
-                            : isOnFavoritePath
-                              ? "url(#favoritePattern)"
-                              : isGenerating
-                                ? "var(--background-color)"
-                                : "none"
+                        : isSelected || isAncestor || isOnFavoritePath
+                          ? "var(--font-color)"
+                          : isGenerating
+                            ? "var(--font-color)"
+                            : "var(--background-color)"
                     }
                     stroke="var(--font-color)"
                     strokeWidth={
-                      isHighlighted ? 1.5 : 1
+                      isHighlighted ? 1.5 : 0.75
                     }
-                    opacity={
+                    fillOpacity={
                       isHighlighted
-                        ? 1
+                        ? 0.7  // Current - like terminal cursor block
                         : isSelected
-                          ? 0.8
-                          : isAncestor
-                            ? 0.5
+                          ? 0.25  // Next - medium intensity
+                        : isAncestor
+                            ? 0.12  // Path taken - faint trace
                             : isOnFavoritePath
-                              ? 0.3
+                              ? 0.06  // Future path - very faint
+                              : isGenerating
+                                ? 0.04  // Generating - barely visible pulse
+                                : 0  // Others - just outline
+                    }
+                    strokeOpacity={
+                      isHighlighted
+                        ? 0.9
+                        : isSelected
+                          ? 0.6
+                          : isAncestor
+                            ? 0.4
+                            : isOnFavoritePath
+                              ? 0.25
                               : 0.15
                     }
                   />
