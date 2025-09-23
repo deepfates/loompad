@@ -55,7 +55,7 @@ function getBoundaryRegex(mode: LengthMode): RegExp | null {
       return /\S+(?:(?=\s)|$)/;
     case "sentence":
       // ., ?, ! possibly followed by closing quotes/brackets; include them, not trailing space
-      return /[.?!](?:['"”’»)\]\}]+)?(?=\s|$)/;
+      return /[.?!](?:['""'»)\]\}]+)?(?=\s|$)/;
     case "paragraph":
       // Blank line (including optional spaces) OR Markdown horizontal rule
       return /\r?\n[ \t]*\r?\n|(?:^|\r?\n)[ \t]{0,3}(?:-{3,}|\*{3,}|_{3,})[ \t]*(?:\r?\n|$)/;
@@ -209,13 +209,48 @@ export async function generateText(req: Request, res: Response) {
     // Whether we've emitted at least one non-whitespace character
     let hasEmittedNonWhitespace = false;
 
+    // Track if we've seen any non-whitespace in word mode
+    let wordModeBuffer = "";
+    let hasSeenNonWhitespace = false;
+
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.text ?? "";
       if (!delta) continue;
 
       accumulated += delta;
 
-      // Check for boundary
+      // Special handling for word mode: emit complete tokens
+      if (mode === "word") {
+        wordModeBuffer += delta;
+
+        // If this token contains non-whitespace, we've found our word
+        if (/\S/.test(delta)) {
+          hasSeenNonWhitespace = true;
+
+          // Emit the accumulated buffer
+          let toSend = wordModeBuffer;
+
+          // Trim leading whitespace on first emission to avoid double spaces
+          if (!joinState.hasEmittedAny) {
+            toSend = toSend.trimStart();
+          }
+
+          if (toSend) {
+            res.write(`data: ${JSON.stringify({ content: toSend })}\n\n`);
+            joinState.hasEmittedAny = true;
+            joinState.endedWithNewline = /\r?\n$/.test(toSend);
+            joinState.endedWithWhitespace = /\s$/.test(toSend);
+
+            // Abort and end - we've emitted one word
+            abortController.abort();
+            endEarly();
+            return;
+          }
+        }
+        continue;
+      }
+
+      // Check for boundary (non-word modes)
       if (boundaryRegex) {
         const cutoff = findBoundaryCutoff(
           accumulated,
@@ -224,6 +259,7 @@ export async function generateText(req: Request, res: Response) {
         );
         if (cutoff !== null) {
           let toSend = accumulated.slice(sentIndex, cutoff);
+
           // Normalize join across seam
           toSend = normalizeJoin(joinState, toSend);
 
@@ -244,28 +280,26 @@ export async function generateText(req: Request, res: Response) {
         }
       }
 
-      // No boundary yet
-      if (!boundaryRegex) {
-        let segment = accumulated.slice(sentIndex);
+      // No boundary yet; stream what we have since last send
+      let segment = accumulated.slice(sentIndex);
+      if (segment) {
+        // Avoid emitting purely leading whitespace when nothing has been emitted at all and no non-ws yet
+        if (!joinState.hasEmittedAny && !/\S/.test(segment)) {
+          // Buffer until we see content; don't emit whitespace-only lead
+          continue;
+        }
+
+        // Normalize join to avoid duplicated spaces/newlines across chunk seams
+        segment = normalizeJoin(joinState, segment);
+
+        // Emit
         if (segment) {
-          // Avoid emitting purely leading whitespace when nothing has been emitted at all and no non-ws yet
-          if (!joinState.hasEmittedAny && !/\S/.test(segment)) {
-            // Buffer until we see content; don't emit whitespace-only lead
-            continue;
-          }
-
-          // Normalize join to avoid duplicated spaces/newlines across chunk seams
-          segment = normalizeJoin(joinState, segment);
-
-          // Emit
-          if (segment) {
-            res.write(`data: ${JSON.stringify({ content: segment })}\n\n`);
-            joinState.hasEmittedAny = true;
-            if (/\S/.test(segment)) hasEmittedNonWhitespace = true;
-            joinState.endedWithNewline = /\r?\n$/.test(segment);
-            joinState.endedWithWhitespace = /\s$/.test(segment);
-            sentIndex = accumulated.length;
-          }
+          res.write(`data: ${JSON.stringify({ content: segment })}\n\n`);
+          joinState.hasEmittedAny = true;
+          if (/\S/.test(segment)) hasEmittedNonWhitespace = true;
+          joinState.endedWithNewline = /\r?\n$/.test(segment);
+          joinState.endedWithWhitespace = /\s$/.test(segment);
+          sentIndex = accumulated.length;
         }
       }
     }
