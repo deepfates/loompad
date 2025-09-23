@@ -13,131 +13,126 @@ import type { StoryNode } from "../types";
  * - Connectors are simple "wires" with squircle-style branches (strong shoulders, then straight down)
  * - Layout uses d3-flextree for variable node heights while preventing path crossings
  */
-
-/**
- * Props for StoryMinimap
- */
 interface StoryMinimapProps {
   /**
-   * Tree node data structure
-   * @internal Passed by parent from current tree state
+   * The root of the story tree to render.
    */
-  tree: StoryNode;
-
+  tree: { root: StoryNode };
   /**
-   * Currently displayed node
-   * @internal Tracked from global state
+   * Current depth in the main reader.
    */
-  currentNode: StoryNode;
-
+  currentDepth: number;
   /**
-   * User-selected node in minimap
-   * @internal Local to minimap state
+   * Selected options at each depth.
    */
-  selectedNode: StoryNode | null;
-
+  selectedOptions: number[];
   /**
-   * Selection handler
-   * @internal Called when user clicks minimap node
+   * Set of node IDs currently generating.
    */
-  onSelectNode: (node: StoryNode) => void;
-
+  inFlight: Set<string>;
   /**
-   * Navigate handler
-   * @internal Triggered by double-click or enter key
+   * Generation metadata (unused but kept for future features).
    */
-  onNavigateToNode: (node: StoryNode) => void;
-
+  generatingInfo: { [nodeId: string]: { depth: number; index: number | null } };
   /**
-   * Parent reference for viewport calculations
-   * @internal Used for scroll syncing with main content
+   * Current path through the tree following favorite children.
    */
-  parentRef: React.RefObject<HTMLElement>;
-
+  currentPath: StoryNode[];
   /**
-   * Main content reference for scroll syncing
-   * @internal Auto-scrolls minimap to match main view
+   * Callback when user clicks a node (optional, for future use).
    */
-  terminalRef?: React.RefObject<HTMLElement>;
+  onSelectNode?: (path: StoryNode[]) => void;
+  /**
+   * Whether the minimap is currently visible.
+   */
+  isVisible?: boolean;
+  /**
+   * The ID of the node that was highlighted when map was last opened.
+   */
+  lastMapNodeId: string | null;
+  /**
+   * The ID of the currently highlighted node.
+   */
+  currentNodeId: string;
 }
 
 /**
- * Layout constants for consistent spacing
+ * Size constants – tweak for aesthetics.
  */
-const LANE_WIDTH = 20;
-const ROW_HEIGHT = 10;
-
-// Node dimensions - pages of varying heights
-const MIN_NODE_HEIGHT = 6;
-const MAX_NODE_HEIGHT = 30;
-const CONNECTOR_LENGTH = 8;
-const NODE_WIDTH = 14;
-const NODE_RADIUS = 1;
+const LANE_WIDTH = 30;
+const ROW_HEIGHT = 40;
+// Node heights adapt to the amount of text so the minimap
+// conveys relative length at a glance.
+const MIN_NODE_HEIGHT = 15;
+const MAX_NODE_HEIGHT = 60;
+const CONNECTOR_LENGTH = 12; // Fixed short connector between nodes
+const NODE_WIDTH = 14; // Width of the pill-shaped nodes - compact
+const NODE_RADIUS = 2; // Border radius for the pill shape - crisp corners
 
 /**
- * Calculate node positions using d3 tree layout
+ * Tidy tree layout using d3-hierarchy - no overlaps, optimal spacing
  */
-function useCoords(
-  tree: StoryNode,
-  currentNode: StoryNode,
-): Record<string, any> {
+function useCoords(root: StoryNode) {
   return useMemo(() => {
-    const coords: Record<string, any> = {};
+    const coords: Record<
+      string,
+      {
+        x: number;
+        y: number;
+        lane: number;
+        depth: number;
+        path: StoryNode[];
+        length: number;
+        nodeHeight: number;
+      }
+    > = {};
 
-    // Helper to get node height based on text length
-    const getNodeHeight = (length: number): number => {
-      if (length === 0) return MIN_NODE_HEIGHT;
-      // Map text length to height range
-      const normalizedLength = Math.min(length / 1000, 1); // Normalize to 0-1
+    // Handle empty tree
+    if (!root) return coords;
+
+    // Create hierarchy from StoryNode tree
+    const rootHierarchy = hierarchy(root, (d) => d.continuations);
+
+    // Calculate connector lengths based on text
+    const descendants = rootHierarchy.descendants();
+    // Cache log lengths to avoid redundant calculations
+    const logLengthMap: Record<string, number> = {};
+    descendants.forEach((node) => {
+      logLengthMap[node.data.id] = Math.log((node.data.text || "").length + 1);
+    });
+    const logLengths = Object.values(logLengthMap);
+    const minLogLength = logLengths.length === 0 ? 0 : Math.min(...logLengths);
+    const maxLogLength = logLengths.length === 0 ? 0 : Math.max(...logLengths);
+    const logRange = maxLogLength - minLogLength || 1;
+
+    const getNodeHeight = (textLength: number) => {
+      const logLength = Math.log(textLength + 1);
+      const normalized =
+        maxLogLength === minLogLength
+          ? 0.5
+          : (logLength - minLogLength) / logRange;
+
       return (
-        MIN_NODE_HEIGHT + normalizedLength * (MAX_NODE_HEIGHT - MIN_NODE_HEIGHT)
+        MIN_NODE_HEIGHT +
+        normalized * (MAX_NODE_HEIGHT - MIN_NODE_HEIGHT)
       );
-    };
-
-    // Create hierarchy from tree data
-    const rootHierarchy = hierarchy<StoryNode>(tree, (d) => {
-      if (!d.children || d.children.length === 0) return undefined;
-      // Sort children to ensure consistent layout
-      return [...d.children].sort((a, b) => {
-        if (a.createdAt && b.createdAt) {
-          return (
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-        }
-        return 0;
-      });
-    });
-
-    // Count siblings for spacing
-    rootHierarchy.each((node) => {
-      const parent = node.parent;
-      if (!parent) return;
-
-      const siblings = parent.children || [];
-      const siblingIndex = siblings.indexOf(node);
-
-      node.data.siblingCount = siblings.length;
-      node.data.siblingIndex = siblingIndex;
-    });
-
-    // Helper to calculate sizes for flextree
-    const size = (node: any) => {
-      const textLength = (node.data.text || "").length;
-      const nodeHeight = getNodeHeight(textLength);
-      return [LANE_WIDTH, nodeHeight + ROW_HEIGHT];
     };
 
     // Apply flextree layout with variable node sizes
     const treeLayout = flextree<StoryNode>({
       spacing: (a, b) => {
         // Tighter spacing for compact layout
-        return a.parent === b.parent ? 0.5 : 1;
+        return a.parent === b.parent ? NODE_WIDTH * 1.2 : NODE_WIDTH * 0.8;
       },
-      nodeSize: (node) => size(node),
+      nodeSize: (node) => {
+        const textLength = (node.data.text || "").length;
+        const nodeHeight = getNodeHeight(textLength);
+        // Total height is node height plus connector to next level
+        return [NODE_WIDTH, nodeHeight + CONNECTOR_LENGTH];
+      }
     });
 
-    // Calculate positions
-    const rootPoint = treeLayout(rootHierarchy);
+    treeLayout(rootHierarchy);
 
     // Build coords from flextree's calculated positions
     const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
@@ -165,79 +160,86 @@ function useCoords(
       return currentPath;
     };
 
-    buildPath(rootPoint);
-
-    // Add metadata
-    coords.root = tree;
-    coords.currentNode = currentNode;
+    buildPath(rootHierarchy);
 
     return coords;
-  }, [tree, currentNode]);
+  }, [root]);
 }
 
 /**
- * Small buffer showing current location text
- * Positioned at bottom of viewport like a status bar
+ * Return a list of edges as pairs of {from, to, key}.
  */
-const Minibuffer: React.FC<{ text: string }> = ({ text }) => (
+function useEdges(root: StoryNode) {
+  return useMemo(() => {
+    const edges: { from: StoryNode; to: StoryNode; key: string }[] = [];
+    const walk = (node: StoryNode) => {
+      node.continuations?.forEach((child, idx) => {
+        edges.push({ from: node, to: child, key: `${node.id}-${idx}` });
+        walk(child);
+      });
+    };
+    walk(root);
+    return edges;
+  }, [root]);
+}
+
+/**
+ * Terminal-style minibuffer at bottom of map
+ */
+const Minibuffer = ({ text }: { text: string }) => (
   <div className="minimap-minibuffer">
     <div className="minimap-minibuffer-text">
-      {text.slice(0, 80)}
-      {text.length > 80 ? "..." : ""}
+      {text || "Navigate with arrow keys • A to generate • B to edit"}
     </div>
   </div>
 );
 
 /**
- * Minimap component for navigating the story tree
+ * The actual component.
  */
-const StoryMinimap: React.FC<StoryMinimapProps> = ({
+export const StoryMinimap = ({
   tree,
-  currentNode,
-  selectedNode,
+  currentDepth,
+  selectedOptions,
+  currentPath,
+  inFlight,
+  generatingInfo,
   onSelectNode,
-  onNavigateToNode,
-  parentRef,
-  terminalRef,
-}) => {
-  const svgRef = useRef<SVGSVGElement>(null);
+  isVisible,
+  lastMapNodeId,
+  currentNodeId,
+}: StoryMinimapProps) => {
+  const { root } = tree;
+  const coords = useCoords(root);
+  const edges = useEdges(root);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const coords = useCoords(tree, currentNode);
+  const lastHighlightedNodeRef = useRef<string | null>(null);
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedNode) return;
-
-      if (e.key === "Enter") {
-        onNavigateToNode(selectedNode);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedNode, onNavigateToNode]);
-
-  // Auto-scroll to keep current node in view
-  useLayoutEffect(() => {
-    if (!viewportRef.current || !coords[currentNode.id]) return;
-
-    const viewport = viewportRef.current;
-    const nodeCoord = coords[currentNode.id];
-
-    // Calculate node position in viewport coordinates
-    const nodeX = nodeCoord.x;
-    const viewportWidth = viewport.clientWidth;
-    const scrollLeft = viewport.scrollLeft;
-
-    // Check if node is outside viewport
-    if (nodeX < scrollLeft || nodeX > scrollLeft + viewportWidth - NODE_WIDTH) {
-      // Center the node in viewport
-      viewport.scrollLeft = nodeX - viewportWidth / 2 + NODE_WIDTH / 2;
+  // Determine node that matches current reader position for highlight
+  const highlightedNode = (() => {
+    let node = root;
+    for (let depth = 0; depth < currentDepth; depth++) {
+      const idx = selectedOptions[depth];
+      const child = node.continuations?.[idx];
+      if (!child) break;
+      node = child;
     }
-  }, [currentNode.id, coords]);
+    return node;
+  })();
 
-  // Handle empty tree by rendering an empty viewport; dimensions below are guarded
+  // Determine selected sibling (next depth)
+  const selectedSibling = (() => {
+    if (!highlightedNode.continuations?.length) return null;
+    const idx = selectedOptions[currentDepth] ?? 0;
+    return (
+      highlightedNode.continuations[idx] || highlightedNode.continuations[0]
+    );
+  })();
+
+  // Handle empty tree
+  if (Object.keys(coords).length === 0) {
+    return <div>Empty tree</div>;
+  }
 
   // Bounds for <svg> viewBox - ensure it's wide enough for scrolling
   const coordValues = Object.values(coords);
@@ -248,232 +250,278 @@ const StoryMinimap: React.FC<StoryMinimapProps> = ({
 
   // Add padding around the tree
   const padding = LANE_WIDTH * 2;
-  const viewBoxWidth = Math.max(maxX - minX + padding * 2, 200);
-  const viewBoxHeight = maxY + padding * 2;
-  const viewBoxX = minX - padding;
-  const viewBoxY = -padding;
+  const svgWidth = Math.max(600, maxX - minX + padding * 2); // Ensure minimum width
+  const svgHeight = Math.max(maxY + MAX_NODE_HEIGHT, ROW_HEIGHT * 4);
 
-  // Draw connector path between parent and child
-  const drawConnector = (parentCoord: any, childCoord: any) => {
-    const x1 = parentCoord.x + NODE_WIDTH / 2;
-    const y1 = parentCoord.y + parentCoord.nodeHeight;
-    const x2 = childCoord.x + NODE_WIDTH / 2;
-    const y2 = childCoord.y;
+  // Center the tree horizontally - offset all x coords so tree is centered
+  const centerX = svgWidth / 2;
+  const treeCenter = (minX + maxX) / 2;
+  const rootOffset = centerX - treeCenter;
 
-    // Squircle-style connector: strong shoulders, then straight down
-    const controlPointOffset = Math.min(CONNECTOR_LENGTH, (y2 - y1) * 0.3);
+  // Track initial positioning so opening the map doesn't animate
+  const hasPositionedRef = useRef(false);
+  // Reset hasPositionedRef when map becomes invisible
+  useEffect(() => {
+    if (!isVisible) {
+      hasPositionedRef.current = false;
+    }
+  }, [isVisible]);
 
-    return `
-      M ${x1} ${y1}
-      C ${x1} ${y1 + controlPointOffset},
-        ${x2} ${y2 - controlPointOffset},
-        ${x2} ${y2}
-    `;
-  };
-
-  // Get visual properties for a node
-  const getNodeClass = (node: StoryNode): string => {
-    const classes = ["minimap-node"];
-
-    if (node.id === currentNode.id) {
-      classes.push("current");
-    } else if (selectedNode && node.id === selectedNode.id) {
-      classes.push("selected");
-    } else if (coords[currentNode.id]?.path?.some((n: StoryNode) => n.id === node.id)) {
-      classes.push("ancestor");
-    } else if (coords[node.id]?.path?.some((n: StoryNode) => n.id === currentNode.id)) {
-      classes.push("descendant");
+  // Position viewport to keep highlighted/selected in view
+  // Use layout effect so the map appears already positioned on open
+  useLayoutEffect(() => {
+    if (
+      !viewportRef.current ||
+      !highlightedNode ||
+      !coords[highlightedNode.id]
+    ) {
+      return;
     }
 
-    return classes.join(" ");
-  };
+    const viewport = viewportRef.current;
+    const viewportRect = viewport.getBoundingClientRect();
 
-  const getConnectorClass = (parentNode: StoryNode, childNode: StoryNode): string => {
-    const classes = ["minimap-connector"];
-    const currentPath = coords[currentNode.id]?.path || [];
+    // A function to calculate the ideal scroll position to center a node (and its sibling)
+    const getTargetScrollPosition = (
+      node: StoryNode,
+      sibling: StoryNode | null,
+    ) => {
+      const nodeCoord = coords[node.id];
+      const nodeX = nodeCoord.x + rootOffset;
+      const nodeY = nodeCoord.y;
 
-    // Check if this edge is part of the current path
-    const parentInPath = currentPath.some((n: StoryNode) => n.id === parentNode.id);
-    const childInPath = currentPath.some((n: StoryNode) => n.id === childNode.id);
+      let minX = nodeX,
+        maxX = nodeX,
+        minY = nodeY,
+        maxY = nodeY;
 
-    if (parentInPath && childInPath) {
-      // Check if they're consecutive in the path
-      const parentIndex = currentPath.findIndex((n: StoryNode) => n.id === parentNode.id);
-      const childIndex = currentPath.findIndex((n: StoryNode) => n.id === childNode.id);
-      if (Math.abs(parentIndex - childIndex) === 1) {
-        classes.push("active-path");
+      if (sibling && coords[sibling.id]) {
+        const siblingCoord = coords[sibling.id];
+        const siblingX = siblingCoord.x + rootOffset;
+        const siblingY = siblingCoord.y;
+        minX = Math.min(minX, siblingX);
+        maxX = Math.max(maxX, siblingX);
+        minY = Math.min(minY, siblingY);
+        maxY = Math.max(maxY, siblingY);
+      }
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      const targetLeft = centerX - viewportRect.width / 2;
+      const targetTop = centerY - viewportRect.height / 2;
+
+      return {
+        left: Math.max(0, targetLeft),
+        top: Math.max(0, targetTop),
+      };
+    };
+
+    const isFirstPositioning = !hasPositionedRef.current;
+    const nodeChangedSinceLastOpen =
+      lastMapNodeId !== null && lastMapNodeId !== highlightedNode.id;
+
+    // Calculate where we want to scroll TO
+    const newTarget = getTargetScrollPosition(highlightedNode, selectedSibling);
+
+    if (isFirstPositioning) {
+      hasPositionedRef.current = true; // Mark as positioned
+
+      if (nodeChangedSinceLastOpen && lastMapNodeId && coords[lastMapNodeId]) {
+        // This is the key: we just opened the map after navigating.
+        // We need to animate from the LAST position to the NEW one.
+        const lastNode = coords[lastMapNodeId].path.slice(-1)[0];
+
+        if (lastNode) {
+          // 1. Calculate the scroll position of the OLD node.
+          const oldTarget = getTargetScrollPosition(lastNode, null);
+
+          // 2. JUMP to the old position instantly. The user won't see this frame.
+          viewport.scrollLeft = oldTarget.left;
+          viewport.scrollTop = oldTarget.top;
+
+          // 3. In the NEXT frame, smoothly scroll to the new position.
+          requestAnimationFrame(() => {
+            viewport.scrollTo({
+              left: newTarget.left,
+              top: newTarget.top,
+              behavior: "smooth",
+            });
+          });
+        } else {
+          // Fallback: last node not found, just jump to new position.
+          viewport.scrollLeft = newTarget.left;
+          viewport.scrollTop = newTarget.top;
+        }
+      } else {
+        // It's the first time, but the node hasn't changed, or there's no history.
+        // Just jump to the correct position without animation.
+        viewport.scrollLeft = newTarget.left;
+        viewport.scrollTop = newTarget.top;
+      }
+    } else {
+      // The map is already open, so any change should be smooth.
+      // This handles navigation within the map itself (if that feature is added)
+      // or other reactive changes.
+      if (
+        viewport.scrollLeft !== newTarget.left ||
+        viewport.scrollTop !== newTarget.top
+      ) {
+        viewport.scrollTo({
+          left: newTarget.left,
+          top: newTarget.top,
+          behavior: "smooth",
+        });
       }
     }
-
-    return classes.join(" ");
-  };
-
-  // If the tree is not loaded, show loading state
-  if (!tree || Object.keys(coords).length === 0) {
-    return (
-      <div className="minimap-container">
-        <div className="minimap-viewport loading">
-          <div>Loading tree...</div>
-        </div>
-      </div>
-    );
-  }
+  }, [
+    highlightedNode.id,
+    selectedSibling?.id,
+    coords,
+    rootOffset,
+    isVisible,
+    lastMapNodeId,
+  ]);
 
   return (
-    <div className="minimap-container">
-      <div className="minimap-viewport" ref={viewportRef}>
-        <svg
-          ref={svgRef}
-          viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
-          preserveAspectRatio="xMidYMid meet"
-          style={{
-            width: `${viewBoxWidth}px`,
-            height: `${viewBoxHeight}px`,
-          }}
-        >
-          {/* Define patterns for visual effects */}
-          <defs>
-            {/* Diagonal lines pattern for ancestors */}
-            <pattern
-              id="diagonal-lines"
-              patternUnits="userSpaceOnUse"
-              width="3"
-              height="3"
-            >
-              <path
-                d="M0,3 L3,0"
-                stroke="var(--font-color)"
-                strokeWidth="0.5"
-                opacity="0.3"
-              />
-            </pattern>
+    <div className="minimap-container view-fade">
+      <div ref={viewportRef} className="minimap-viewport">
+        <div style={{ width: svgWidth, minWidth: "100%" }}>
+          <svg width={svgWidth} height={svgHeight}>
+            {/* Define patterns for different node states */}
+            <defs>
+              {/* Subtle stripe pattern for ancestors - they've been read */}
+              <pattern id="ancestorPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                <rect width="4" height="4" fill="var(--surface-color)" />
+                <line x1="0" y1="0" x2="0" y2="4" stroke="var(--border-color)" strokeWidth="0.5" opacity="0.3"/>
+                <line x1="2" y1="0" x2="2" y2="4" stroke="var(--border-color)" strokeWidth="0.5" opacity="0.3"/>
+              </pattern>
+              {/* Dots for favorite path - breadcrumb trail */}
+              <pattern id="pathPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                <rect width="4" height="4" fill="var(--surface-color)" />
+                <circle cx="2" cy="2" r="0.4" fill="var(--secondary-color)"/>
+              </pattern>
+            </defs>
+            {/* Render edges first so they sit behind nodes */}
+            {edges.map(({ from, to, key }) => {
+              const a = coords[from.id];
+              const b = coords[to.id];
 
-            {/* Dot pattern for path nodes */}
-            <pattern
-              id="dot-pattern"
-              patternUnits="userSpaceOnUse"
-              width="4"
-              height="4"
-            >
-              <circle
-                cx="2"
-                cy="2"
-                r="0.5"
-                fill="var(--font-color)"
-                opacity="0.3"
-              />
-            </pattern>
+              // Check if this edge is part of the ancestor path
+              const isAncestorEdge = highlightedNode &&
+                currentPath.some(node => node.id === from.id) &&
+                currentPath.some(node => node.id === to.id);
 
-            {/* Solid pattern for current node */}
-            <pattern
-              id="solid-pattern"
-              patternUnits="userSpaceOnUse"
-              width="1"
-              height="1"
-            >
-              <rect width="1" height="1" fill="var(--font-color)" />
-            </pattern>
-          </defs>
+              const ax = a.x + rootOffset;
+              const bx = b.x + rootOffset;
 
-          {/* Render connectors first (behind nodes) */}
-          {Object.entries(coords).map(([nodeId, coord]) => {
-            if (typeof coord !== "object" || !coord.path) return null;
-            const node = coord.path[coord.path.length - 1];
-            if (!node.children) return null;
+              // Start connector at bottom edge of parent pill (accounting for border radius)
+              const startY = a.y + a.nodeHeight - NODE_RADIUS/2;
+              // End connector at top edge of child pill (accounting for border radius)
+              const endY = b.y + NODE_RADIUS/2;
 
-            return node.children.map((child) => {
-              const childCoord = coords[child.id];
-              if (!childCoord) return null;
+              let path;
+
+              if (a.lane === b.lane) {
+                // Straight line for same lane
+                path = `M${ax},${startY} L${bx},${endY}`;
+              } else {
+                // Squircle-style branch: curve early then straight down
+                const branchPoint = startY + 6; // Fork happens just below parent node
+                const curveRadius = 4; // Radius of the rounded corner - tighter
+
+                if (bx > ax) {
+                  // Branching to the right
+                  path = `M${ax},${startY} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax + curveRadius},${branchPoint} L${bx - curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${endY}`;
+                } else {
+                  // Branching to the left
+                  path = `M${ax},${startY} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax - curveRadius},${branchPoint} L${bx + curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${endY}`;
+                }
+              }
 
               return (
                 <path
-                  key={`${nodeId}-${child.id}`}
-                  d={drawConnector(coord, childCoord)}
-                  className={getConnectorClass(node, child)}
+                  key={key}
+                  d={path}
+                  stroke={isAncestorEdge ? "var(--secondary-color)" : "var(--border-color)"}
+                  strokeWidth={isAncestorEdge ? 1.2 : 0.8}
                   fill="none"
+                  strokeLinecap="square"
+                  opacity={isAncestorEdge ? 0.8 : 0.4}
                 />
               );
-            });
-          })}
+            })}
 
-          {/* Render nodes */}
-          {Object.entries(coords).map(([nodeId, coord]) => {
-            if (typeof coord !== "object" || !coord.path) return null;
-            const node = coord.path[coord.path.length - 1];
-            const nodeClass = getNodeClass(node);
-            const isCurrentNode = node.id === currentNode.id;
-            const isSelectedNode = selectedNode && node.id === selectedNode.id;
+            {/* Nodes */}
+            {Object.entries(coords).map(([id, c]) => {
+              const node = c.path[c.path.length - 1];
+              const isHighlighted = id === highlightedNode.id;
+              const isSelected = selectedSibling && id === selectedSibling.id;
+              const isGenerating = inFlight.has(id);
+              const isOnFavoritePath = currentPath.some(
+                (pathNode) => pathNode.id === id,
+              );
+              // Check if this node is an ancestor of the highlighted node
+              const isAncestor = coords[highlightedNode.id] &&
+                id !== highlightedNode.id &&
+                coords[highlightedNode.id].path.some((pathNode: StoryNode) => pathNode.id === id);
 
-            // Determine fill based on node state
-            let fill = "none";
-            if (isCurrentNode) {
-              fill = "url(#solid-pattern)";
-            } else if (coords[currentNode.id]?.path?.some((n: StoryNode) => n.id === node.id)) {
-              fill = "url(#diagonal-lines)";
-            } else if (isSelectedNode) {
-              fill = "none";
-            }
-
-            return (
-              <g
-                key={nodeId}
-                transform={`translate(${coord.x}, ${coord.y})`}
-                className={nodeClass}
-                onClick={() => onSelectNode(node)}
-                onDoubleClick={() => onNavigateToNode(node)}
-                style={{ cursor: "pointer" }}
-              >
-                {/* Node background - gameboy page style */}
-                <rect
-                  x={0}
-                  y={0}
-                  width={NODE_WIDTH}
-                  height={coord.nodeHeight}
-                  rx={NODE_RADIUS}
-                  ry={NODE_RADIUS}
-                  fill={fill}
-                  stroke="var(--font-color)"
-                  strokeWidth={isCurrentNode || isSelectedNode ? 1.5 : 0.5}
-                  opacity={isCurrentNode ? 1 : isSelectedNode ? 0.9 : 0.6}
-                />
-
-                {/* Add subtle corner detail for page effect */}
-                {(isCurrentNode || isSelectedNode) && (
-                  <path
-                    d={`M ${NODE_WIDTH - 3} 0 L ${NODE_WIDTH} 0 L ${NODE_WIDTH} 3`}
-                    fill="none"
-                    stroke="var(--font-color)"
-                    strokeWidth={0.5}
-                    opacity={0.5}
+              return (
+                <g
+                  key={id}
+                  onClick={() => onSelectNode?.(c.path)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {/* Draw node as an elongated pill/capsule shape */}
+                  <rect
+                    className={`minimap-node ${isGenerating ? "generating" : ""}`}
+                    x={c.x + rootOffset - NODE_WIDTH / 2}
+                    y={c.y}
+                    width={NODE_WIDTH}
+                    height={c.nodeHeight}
+                    rx={NODE_RADIUS}
+                    ry={NODE_RADIUS}
+                    fill={
+                      isHighlighted
+                        ? "var(--surface-color)"  // Current - white/bright text color in dark mode
+                        : isSelected
+                          ? "var(--primary-color)"  // Next option - blue/primary
+                          : isGenerating
+                              ? "var(--primary-color)"  // Generating - pulsing blue
+                              : isAncestor || isOnFavoritePath
+                                ? "var(--surface-color)"  // Already read or on breadcrumb trail
+                                : "var(--background-color)"  // Unvisited - empty
+                    }
+                    strokeWidth={
+                      isHighlighted || isSelected ? 1.5 : 0.8
+                    }
+                    opacity={
+                      isHighlighted
+                        ? 1  // Current - full brightness
+                        : isSelected
+                          ? 0.9  // Next - prominent but not current
+                        : isGenerating
+                            ? 1  // Generating - full brightness with pulse animation
+                            : isAncestor
+                              ? 0.6 // Already read - visible but less prominent
+                              : isOnFavoritePath
+                                ? 0.5  // Path - semi-visible
+                                : 0.4  // Unvisited - barely visible
+                    }
                   />
-                )}
-
-                {/* Text length indicator - small bars inside node */}
-                {coord.length > 0 && (
-                  <g opacity={0.3}>
-                    {/* Create 1-3 bars based on text length */}
-                    {Array.from({
-                      length: Math.min(3, Math.ceil(coord.length / 333)),
-                    }).map((_, i) => (
-                      <rect
-                        key={i}
-                        x={3}
-                        y={3 + i * 3}
-                        width={NODE_WIDTH - 6}
-                        height={1}
-                        fill="var(--font-color)"
-                      />
-                    ))}
-                  </g>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
-      {selectedNode && <Minibuffer text={selectedNode.text || ""} />}
+      <Minibuffer
+        text={
+          selectedSibling
+            ? selectedSibling.text.split("\n")[0]
+            : highlightedNode.text.split("\n")[0]
+        }
+      />
     </div>
   );
 };
-
-export default StoryMinimap;
