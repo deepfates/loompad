@@ -6,19 +6,23 @@ LoomPad is an interactive Progressive Web App (PWA) for exploring branching narr
 **Tech Stack:**
 - Runtime: Bun 1.2.16
 - Frontend: React + Vite + TypeScript
-- Backend: Express.js with Server-Side Rendering (SSR)
+- Backend: Express.js (custom SSR mode, disabled by default)
 - AI: OpenRouter API for text generation
 - Styling: Styled Components
 - Storage: Local Storage for persistence
 
-## Recent Changes (Import Setup)
-- October 4, 2025: Imported from GitHub and configured for Replit environment
-  - Installed Bun runtime and dependencies
-  - Configured Vite dev server to work with Replit's proxy (port 5000, host 0.0.0.0)
-  - Fixed TypeScript configuration by adding @types/node
-  - Installed @rollup/rollup-linux-x64-gnu to resolve build issues
-  - Set up deployment configuration (autoscale)
-  - Server binds to 0.0.0.0:5000 for frontend access
+## Recent Changes (Replit Setup - October 4, 2025)
+- Imported from GitHub and fully configured for Replit environment
+  - Installed Bun runtime and all dependencies
+  - Fixed Vite configuration:
+    - Changed base path from `/client/` to `/` for proper routing
+    - Configured inline Vite setup with React plugin
+    - Added security middleware to prevent unauthorized file access
+  - Disabled SSR by default (changed from true to false in server/args.ts)
+  - Fixed offline detection for iframe environment (always returns online in Replit)
+  - Configured proper middleware order (Vite → Security → Catch-all routes)
+  - Server binds to 0.0.0.0:5000 with HMR over WSS protocol
+  - Set up deployment configuration for Replit Autoscale
 
 ## Project Structure
 ```
@@ -40,8 +44,9 @@ LoomPad is an interactive Progressive Web App (PWA) for exploring branching narr
 
 ## Development
 - **Start dev server**: `bun run dev` (uses nodemon with hot reload)
-- **Port**: 5000 (configured for Replit)
-- **Dev mode**: SSR enabled, HMR via WebSocket (wss protocol for Replit)
+- **Port**: 5000 (configured for Replit proxy)
+- **Dev mode**: SSR disabled by default (use --ssr flag to enable), HMR configured for WSS
+- **Note**: HMR WebSocket may show connection errors in Replit's iframe but app functions normally
 
 ## Building & Deployment
 - **Build**: `bun run build` - Creates production bundles in `dist/`

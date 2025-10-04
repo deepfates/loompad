@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import express from "express";
 import http from "http";
 import { createServer as createViteServer } from "vite";
+import react from "@vitejs/plugin-react";
 
 // app specific imports
 import args from "server/args";
@@ -42,7 +43,10 @@ export async function createServer() {
   let vite;
   if (mode === "development") {
     vite = await createViteServer({
+      configFile: false, // Don't load config file - use inline config only
+      root: path.resolve(__dirname, "../"),
       appType: "custom",
+      plugins: [react()],
       server: {
         middlewareMode: true,
         hmr: {
@@ -50,7 +54,6 @@ export async function createServer() {
           protocol: "wss",
         },
       },
-      base: "/",
       clearScreen: false,
     });
   } else if (mode === "production") {
@@ -71,6 +74,11 @@ export async function createServer() {
     );
   }
 
+  // Add Vite middleware BEFORE catch-all routes in development
+  if (mode === "development") {
+    app.use(vite.middlewares);
+  }
+
   // vite exposes all files at root by default, this is to prevent accessing server files
   app.use(async (req, res, next) => {
     const url = req.originalUrl;
@@ -78,7 +86,7 @@ export async function createServer() {
     // remove leading slashes
     cleaned_url = cleaned_url.replace(/^\/+/, "");
 
-    const allowed_prefixes = ["client", "shared", "node_modules"];
+    const allowed_prefixes = ["client", "shared", "node_modules", "@vite", "@react-refresh", "@fs"];
     if (
       cleaned_url == "" ||
       allowed_prefixes.some((prefix) => cleaned_url.startsWith(prefix))
@@ -153,7 +161,7 @@ export async function createServer() {
         html = template
           .replace(`<!--ssr-outlet-->`, "")
           .replace(`<!--ssr-head-->`, "")
-          .replace(`'<!--ssr-state-->'`, "{}");
+          .replace(`"<!--ssr-state-->"`, "{}");
       }
 
       res.status(200).set({ "Content-Type": "text/html" }).end(html);
@@ -164,10 +172,6 @@ export async function createServer() {
       next(e);
     }
   });
-
-  if (mode === "development") {
-    app.use(vite.middlewares);
-  }
 
   // Serve PWA files at root level
   app.get("/sw.js", (req, res) => {

@@ -13,7 +13,7 @@ const argv = yargs(hideBin(process.argv))
         choices: ['development', 'production']
     })
     .option('ssr', {
-        default: true,
+        default: false,
         type: 'boolean',
         describe: 'Enable server-side rendering.\n  *CSS SSR requires mode=production'
     })
