@@ -1,25 +1,32 @@
 import { useState, useEffect } from "react";
 
 export function useOfflineStatus() {
-  // In Replit iframe, navigator.onLine is unreliable - assume online by default
-  const isInReplit = typeof window !== 'undefined' && window.location !== window.parent.location;
-  const [isOnline, setIsOnline] = useState(() => {
-    if (typeof navigator === 'undefined') return true;
-    return isInReplit ? true : navigator.onLine;
-  });
+  // Always assume online for SSR and Replit iframe environments
+  // navigator.onLine is unreliable in iframes
+  const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
-    // Skip offline detection in Replit iframe since navigator.onLine is unreliable
-    if (isInReplit) {
+    // Only check online status in browser (not SSR) and not in iframe
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
       return;
     }
+
+    // Check if we're in an iframe (like Replit)
+    const isInIframe = window.location !== window.parent.location;
+    if (isInIframe) {
+      // In iframe, navigator.onLine is unreliable, so stay online
+      setIsOnline(true);
+      return;
+    }
+
+    // Only use navigator.onLine outside of iframes
+    setIsOnline(navigator.onLine);
 
     const handleOnline = () => {
       setIsOnline(true);
       if (wasOffline) {
         setWasOffline(false);
-        // Could trigger a toast notification here
         if (import.meta.env.DEV) {
           console.log("Connection restored");
         }
@@ -41,7 +48,7 @@ export function useOfflineStatus() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [wasOffline, isInReplit]);
+  }, [wasOffline]);
 
   return {
     isOnline,
