@@ -53,6 +53,7 @@ export async function createServer() {
           clientPort: 443,
           protocol: "wss",
         },
+        allowedHosts: [".replit.dev"], // Allow Replit's dynamic domains
       },
       clearScreen: false,
     });

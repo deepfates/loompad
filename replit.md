@@ -17,6 +17,7 @@ LoomPad is an interactive Progressive Web App (PWA) for exploring branching narr
   - Fixed Vite configuration:
     - Changed base path from `/client/` to `/` for proper routing
     - Configured inline Vite setup with React plugin
+    - Added allowedHosts for Replit's dynamic domains (.replit.dev)
     - Added security middleware to prevent unauthorized file access
   - Disabled SSR by default (changed from true to false in server/args.ts)
   - Fixed offline detection for iframe environment (always returns online in Replit)
