@@ -3,7 +3,7 @@ import { hideBin } from 'yargs/helpers';
 
 const argv = yargs(hideBin(process.argv))
     .option('port', {
-        default: 4000,
+        default: 5000,
         type: 'number',
         describe: 'Server port'
     })

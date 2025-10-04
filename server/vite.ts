@@ -45,7 +45,10 @@ export async function createServer() {
       appType: "custom",
       server: {
         middlewareMode: true,
-        hmr: mode === "development",
+        hmr: {
+          clientPort: 443,
+          protocol: "wss",
+        },
       },
       base: "/",
       clearScreen: false,
@@ -202,8 +205,8 @@ export async function createServer() {
     }
   });
 
-  http_server.listen(port, () => {
-    console.log(`Server listening on http://localhost:${port}`);
+  http_server.listen(port, "0.0.0.0", () => {
+    console.log(`Server listening on http://0.0.0.0:${port}`);
   });
 
   return app;
