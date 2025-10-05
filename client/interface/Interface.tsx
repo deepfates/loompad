@@ -45,6 +45,14 @@ export const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
   const { theme, setTheme } = useTheme();
   const [lastMapNodeId, setLastMapNodeId] = useState<string | null>(null);
+  const [pendingNewNode, setPendingNewNode] = useState<
+    | {
+        depth: number;
+        pathIds: string[];
+        draft: StoryNode;
+      }
+    | null
+  >(null);
 
   // (select menu navigation now handled in useMenuSystem)
 
@@ -78,6 +86,7 @@ export const GamepadInterface = () => {
     setTrees,
     setStoryTree,
     setSelectionByPath,
+    createSiblingNode,
   } = useStoryTree(menuParams);
 
   // Compute reverse-chronologically ordered trees for menus
@@ -183,6 +192,7 @@ export const GamepadInterface = () => {
         if (key === "Backspace") {
           // B button exits map and goes to edit mode
           setLastMapNodeId(highlightedNode.id);
+          setPendingNewNode(null);
           setActiveMenu("edit");
           return;
         } else if (key === "`") {
@@ -238,6 +248,29 @@ export const GamepadInterface = () => {
           return;
         }
       } else {
+        if (!activeMenu && key === "ArrowRight") {
+          const options = getOptionsAtDepth(currentDepth);
+          const currentOption = selectedOptions[currentDepth] ?? 0;
+          if (
+            currentDepth > 0 &&
+            options.length > 0 &&
+            currentOption >= options.length - 1
+          ) {
+            const path = getCurrentPath();
+            const pathIds = path.slice(0, currentDepth + 1).map((node) => node.id);
+            setPendingNewNode({
+              depth: currentDepth,
+              pathIds,
+              draft: {
+                id: `draft-${Date.now().toString(36)}`,
+                text: "",
+                continuations: [],
+              },
+            });
+            setActiveMenu("edit");
+            return;
+          }
+        }
         await handleStoryNavigation(key);
       }
 
@@ -270,6 +303,7 @@ export const GamepadInterface = () => {
           });
         });
       } else if (key === "Backspace" && !activeMenu) {
+        setPendingNewNode(null);
         setActiveMenu("edit");
       }
     },
@@ -284,6 +318,11 @@ export const GamepadInterface = () => {
       setActiveMenu,
       setSelectedTreeIndex,
       highlightedNode,
+      getOptionsAtDepth,
+      currentDepth,
+      selectedOptions,
+      getCurrentPath,
+      setPendingNewNode,
     ],
   );
 
@@ -522,8 +561,55 @@ export const GamepadInterface = () => {
           ) : activeMenu === "edit" ? (
             <MenuScreen>
               <EditMenu
-                node={getCurrentPath()[currentDepth]}
+                node={
+                  pendingNewNode?.draft ??
+                  getCurrentPath()[currentDepth] ??
+                  storyTree.root
+                }
                 onSave={(text) => {
+                  if (pendingNewNode) {
+                    const buildNode = () => {
+                      if (menuParams.textSplitting) {
+                        const nodeChain = splitTextToNodes(text);
+                        if (nodeChain) {
+                          return nodeChain;
+                        }
+                      }
+
+                      return {
+                        id: Math.random().toString(36).substring(2, 15),
+                        text,
+                        continuations: [],
+                      } as StoryNode;
+                    };
+
+                    const newNode = buildNode();
+                    const created = createSiblingNode(
+                      pendingNewNode.pathIds,
+                      pendingNewNode.depth,
+                      newNode,
+                    );
+
+                    setActiveMenu(null);
+                    setPendingNewNode(null);
+
+                    if (created) {
+                      requestAnimationFrame(() => {
+                        const path = getCurrentPath();
+                        const last = path[path.length - 1];
+                        if (last) {
+                          queueScroll({
+                            nodeId: last.id,
+                            reason: "edit-save",
+                            priority: 60,
+                          });
+                        }
+                      });
+                    }
+
+                    return;
+                  }
+
                   const newTree = JSON.parse(JSON.stringify(storyTree)) as {
                     root: StoryNode;
                   };
@@ -575,6 +661,7 @@ export const GamepadInterface = () => {
                   // Mark story as updated for reverse-chronological order
                   touchStoryUpdated(currentTreeKey);
                   setActiveMenu(null);
+                  setPendingNewNode(null);
 
                   // Align to end of updated content after text splitting
                   requestAnimationFrame(() => {
@@ -589,7 +676,10 @@ export const GamepadInterface = () => {
                     }
                   });
                 }}
-                onCancel={() => setActiveMenu(null)}
+                onCancel={() => {
+                  setPendingNewNode(null);
+                  setActiveMenu(null);
+                }}
               />
             </MenuScreen>
           ) : null}
