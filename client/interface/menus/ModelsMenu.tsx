@@ -8,7 +8,7 @@ interface ModelsMenuProps {
   onSortChange: (option: ModelSortOption) => void;
   onSelectIndex: (index: number) => void;
   onNew: () => void;
-  onSelectModel: (modelId: ModelId) => void;
+  onEditModel: (modelId: ModelId) => void;
   onDeleteModel: (modelId: ModelId) => void;
   isLoading?: boolean;
   error?: string | null;
@@ -26,14 +26,14 @@ export const ModelsMenu = ({
   onSortChange,
   onSelectIndex,
   onNew,
-  onSelectModel,
+  onEditModel,
   onDeleteModel,
   isLoading = false,
   error,
 }: ModelsMenuProps) => {
   return (
     <div className="menu-content models-menu">
-      <div className="models-menu__header">
+      <div className="models-menu__toolbar">
         <label className="models-menu__sort-label" htmlFor="models-sort">
           Sort
         </label>
@@ -78,12 +78,11 @@ export const ModelsMenu = ({
         return (
           <div
             key={modelId}
-            className={`menu-item ${
+            className={`menu-item models-menu__item ${
               selectedIndex === listIndex ? "selected" : ""
             }`}
             onClick={() => {
               onSelectIndex(listIndex);
-              onSelectModel(modelId);
             }}
             role="button"
             tabIndex={0}
@@ -91,7 +90,7 @@ export const ModelsMenu = ({
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
                 onSelectIndex(listIndex);
-                onSelectModel(modelId);
+                onEditModel(modelId);
               }
             }}
           >
@@ -99,17 +98,30 @@ export const ModelsMenu = ({
             <div className="menu-item-preview">
               {modelId} • Max Tokens: {config.maxTokens} • Temp: {config.defaultTemp}
             </div>
-            <button
-              type="button"
-              className="models-menu__delete"
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelectIndex(listIndex);
-                onDeleteModel(modelId);
-              }}
-            >
-              Delete
-            </button>
+            <div className="models-menu__actions">
+              <button
+                type="button"
+                className="models-menu__button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectIndex(listIndex);
+                  onEditModel(modelId);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="models-menu__button models-menu__button--danger"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectIndex(listIndex);
+                  onDeleteModel(modelId);
+                }}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         );
       })}

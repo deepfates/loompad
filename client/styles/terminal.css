@@ -1693,26 +1693,12 @@ progress::-moz-progress-bar {
     white-space: nowrap;
 }
 
-.models-screen {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    width: 100%;
-}
-
-@media (min-width: 768px) {
-    .models-screen {
-        flex-direction: row;
-        align-items: flex-start;
-    }
-}
-
 .models-menu {
     flex: 1;
     padding-right: 1rem;
 }
 
-.models-menu__header {
+.models-menu__toolbar {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -1731,18 +1717,39 @@ progress::-moz-progress-bar {
     font-family: inherit;
 }
 
-.models-menu__delete {
-    margin-top: 0.5rem;
-    align-self: flex-start;
-    background: transparent;
-    border: 0.125rem solid var(--error-color);
-    color: var(--error-color);
-    padding: 0.25rem 0.5rem;
-    cursor: pointer;
+.models-menu__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-.models-menu__delete:hover,
-.models-menu__delete:focus {
+.models-menu__actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.models-menu__button {
+    padding: 0.25rem 0.75rem;
+    border: 0.125rem solid var(--font-color);
+    background: transparent;
+    color: var(--font-color);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.models-menu__button:hover,
+.models-menu__button:focus {
+    background: var(--font-color);
+    color: var(--invert-font-color);
+}
+
+.models-menu__button--danger {
+    border-color: var(--error-color);
+    color: var(--error-color);
+}
+
+.models-menu__button--danger:hover,
+.models-menu__button--danger:focus {
     background: var(--error-color);
     color: var(--invert-font-color);
 }

@@ -242,9 +242,10 @@ export const GamepadInterface = () => {
     setModelForm(createEmptyModelForm());
     setModelFormError(null);
     setSelectedModelIndex(0);
-  }, [setSelectedModelIndex]);
+    setActiveMenu("model-editor");
+  }, [setActiveMenu, setSelectedModelIndex]);
 
-  const handleSelectModel = useCallback(
+  const handleEditModel = useCallback(
     (modelId: ModelId) => {
       const config = models?.[modelId];
       if (!config) return;
@@ -257,8 +258,34 @@ export const GamepadInterface = () => {
         defaultTemp: config.defaultTemp,
       });
       setModelFormError(null);
+      setActiveMenu("model-editor");
     },
-    [models],
+    [models, setActiveMenu],
+  );
+
+  const showModelsMenu = useCallback(
+    (focusModelId?: ModelId | null) => {
+      const targetId =
+        focusModelId ??
+        (models && models[menuParams.model] ? menuParams.model : modelOrder[0]);
+      if (targetId) {
+        const index = modelOrder.indexOf(targetId);
+        if (index >= 0) {
+          setSelectedModelIndex(index + 1);
+        }
+      } else {
+        setSelectedModelIndex(0);
+      }
+      setModelFormError(null);
+      setActiveMenu("models");
+    },
+    [
+      menuParams.model,
+      modelOrder,
+      models,
+      setActiveMenu,
+      setSelectedModelIndex,
+    ],
   );
 
   const handleCancelModelEdit = useCallback(() => {
@@ -270,11 +297,19 @@ export const GamepadInterface = () => {
         maxTokens: config.maxTokens,
         defaultTemp: config.defaultTemp,
       });
-      setModelFormError(null);
-      return;
+    } else {
+      setModelForm(createEmptyModelForm());
+      setEditingModelId(null);
+      setModelEditorMode("create");
     }
-    handleStartNewModel();
-  }, [editingModelId, modelEditorMode, models, handleStartNewModel]);
+    setModelFormError(null);
+    showModelsMenu(editingModelId);
+  }, [
+    editingModelId,
+    modelEditorMode,
+    models,
+    showModelsMenu,
+  ]);
 
   const handleDeleteModel = useCallback(
     async (modelId: ModelId) => {
@@ -317,7 +352,9 @@ export const GamepadInterface = () => {
             });
             setPendingModelSelection(firstId);
           } else {
-            handleStartNewModel();
+            setEditingModelId(null);
+            setModelEditorMode("create");
+            setModelForm(createEmptyModelForm());
           }
         }
       } catch (err) {
@@ -329,10 +366,10 @@ export const GamepadInterface = () => {
     [
       deleteModel,
       editingModelId,
-      handleStartNewModel,
       menuParams.model,
       models,
       setMenuParams,
+      setPendingModelSelection,
     ],
   );
 
@@ -361,6 +398,7 @@ export const GamepadInterface = () => {
     }
 
     try {
+      let nextFocusId: ModelId | null = null;
       if (modelEditorMode === "create") {
         const newId = trimmedId as ModelId;
         await createModel(newId, {
@@ -378,6 +416,7 @@ export const GamepadInterface = () => {
         });
         setPendingModelSelection(newId);
         setMenuParams((prev) => ({ ...prev, model: newId }));
+        nextFocusId = newId;
       } else if (editingModelId) {
         await updateModel(editingModelId, {
           name: trimmedName,
@@ -390,8 +429,11 @@ export const GamepadInterface = () => {
           maxTokens: modelForm.maxTokens,
           defaultTemp: modelForm.defaultTemp,
         });
+        setPendingModelSelection(editingModelId);
+        nextFocusId = editingModelId;
       }
       setModelFormError(null);
+      showModelsMenu(nextFocusId);
     } catch (err) {
       setModelFormError(
         err instanceof Error ? err.message : "Failed to save model",
@@ -404,35 +446,8 @@ export const GamepadInterface = () => {
     modelForm,
     editingModelId,
     setMenuParams,
+    showModelsMenu,
   ]);
-
-  const openModelsMenu = useCallback(
-    (focusModelId?: ModelId | null) => {
-      const targetId =
-        focusModelId ??
-        (models && models[menuParams.model] ? menuParams.model : modelOrder[0]);
-      if (targetId) {
-        const index = modelOrder.indexOf(targetId);
-        if (index >= 0) {
-          setSelectedModelIndex(index + 1);
-        }
-        handleSelectModel(targetId);
-      } else {
-        handleStartNewModel();
-      }
-      setModelFormError(null);
-      setActiveMenu("models");
-    },
-    [
-      handleSelectModel,
-      handleStartNewModel,
-      menuParams.model,
-      modelOrder,
-      models,
-      setActiveMenu,
-      setSelectedModelIndex,
-    ],
-  );
 
   useEffect(() => {
     const total = modelOrder.length + 1;
@@ -466,7 +481,7 @@ export const GamepadInterface = () => {
     if (editingModelId && !models[editingModelId]) {
       const fallbackId = modelOrder[0];
       if (fallbackId) {
-        handleSelectModel(fallbackId);
+        handleEditModel(fallbackId);
         const index = modelOrder.indexOf(fallbackId);
         if (index >= 0) {
           setSelectedModelIndex(index + 1);
@@ -477,7 +492,7 @@ export const GamepadInterface = () => {
     }
   }, [
     editingModelId,
-    handleSelectModel,
+    handleEditModel,
     handleStartNewModel,
     modelOrder,
     models,
@@ -537,6 +552,13 @@ export const GamepadInterface = () => {
         // Let arrow keys and Enter fall through to story navigation
       }
 
+      if (activeMenu === "model-editor") {
+        if (key === "Backspace") {
+          handleCancelModelEdit();
+          return;
+        }
+      }
+
       if (activeMenu === "select") {
         handleMenuNavigation(key, trees, {
           onNewTree: handleNewTree,
@@ -548,7 +570,7 @@ export const GamepadInterface = () => {
           onDeleteTree: handleDeleteTree,
           currentTheme: theme,
           onThemeChange: setTheme,
-          onManageModels: () => openModelsMenu(),
+          onManageModels: () => showModelsMenu(),
         });
       } else if (activeMenu === "models") {
         handleMenuNavigation(key, trees, {
@@ -556,8 +578,8 @@ export const GamepadInterface = () => {
           onNewModel: () => {
             handleStartNewModel();
           },
-          onSelectModel: (modelId) => {
-            handleSelectModel(modelId);
+          onEditModel: (modelId) => {
+            handleEditModel(modelId);
           },
           onDeleteModel: (modelId) => {
             handleDeleteModel(modelId);
@@ -626,15 +648,16 @@ export const GamepadInterface = () => {
       handleNewTree,
       handleDeleteTree,
       handleDeleteModel,
-      handleSelectModel,
+      handleEditModel,
       handleStartNewModel,
+      handleCancelModelEdit,
       handleStoryNavigation,
       setCurrentTreeKey,
       setActiveMenu,
       setSelectedTreeIndex,
       modelOrder,
       highlightedNode,
-      openModelsMenu,
+      showModelsMenu,
       theme,
       setTheme,
     ],
@@ -825,7 +848,7 @@ export const GamepadInterface = () => {
                   modelsLoading={modelsLoading}
                   modelsError={modelsError}
                   getModelName={getModelName}
-                  onManageModels={() => openModelsMenu()}
+                  onManageModels={() => showModelsMenu()}
                 />
               </MenuScreen>
             </>
@@ -883,29 +906,30 @@ export const GamepadInterface = () => {
             </>
           ) : activeMenu === "models" ? (
             <MenuScreen>
-              <div className="models-screen">
-                <ModelsMenu
-                  modelEntries={sortedModelEntries}
-                  selectedIndex={selectedModelIndex}
-                  sortOrder={modelSort}
-                  onSortChange={handleModelSortChange}
-                  onSelectIndex={setSelectedModelIndex}
-                  onNew={handleStartNewModel}
-                  onSelectModel={handleSelectModel}
-                  onDeleteModel={handleDeleteModel}
-                  isLoading={modelsLoading || modelsSaving}
-                  error={modelsError ?? undefined}
-                />
-                <ModelEditor
-                  formState={modelForm}
-                  onChange={handleModelFormChange}
-                  onSubmit={handleSubmitModel}
-                  onCancel={handleCancelModelEdit}
-                  mode={modelEditorMode}
-                  isSaving={modelsSaving}
-                  error={modelFormError}
-                />
-              </div>
+              <ModelsMenu
+                modelEntries={sortedModelEntries}
+                selectedIndex={selectedModelIndex}
+                sortOrder={modelSort}
+                onSortChange={handleModelSortChange}
+                onSelectIndex={setSelectedModelIndex}
+                onNew={handleStartNewModel}
+                onEditModel={handleEditModel}
+                onDeleteModel={handleDeleteModel}
+                isLoading={modelsLoading || modelsSaving}
+                error={modelsError ?? undefined}
+              />
+            </MenuScreen>
+          ) : activeMenu === "model-editor" ? (
+            <MenuScreen>
+              <ModelEditor
+                formState={modelForm}
+                onChange={handleModelFormChange}
+                onSubmit={handleSubmitModel}
+                onCancel={handleCancelModelEdit}
+                mode={modelEditorMode}
+                isSaving={modelsSaving}
+                error={modelFormError}
+              />
             </MenuScreen>
           ) : activeMenu === "edit" ? (
             <MenuScreen>

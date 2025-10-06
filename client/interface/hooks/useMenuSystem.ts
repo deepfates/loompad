@@ -27,7 +27,7 @@ interface MenuCallbacks {
   onManageModels?: () => void;
   modelOrder?: ModelId[];
   onNewModel?: () => void;
-  onSelectModel?: (modelId: ModelId) => void;
+  onEditModel?: (modelId: ModelId) => void;
   onDeleteModel?: (modelId: ModelId) => void;
 }
 
@@ -307,7 +307,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             } else {
               const modelId = modelIds[selectedModelIndex - 1];
               if (modelId) {
-                callbacks.onSelectModel?.(modelId);
+                callbacks.onEditModel?.(modelId);
               }
             }
             break;
@@ -323,7 +323,12 @@ export function useMenuSystem(defaultParams: MenuParams) {
       }
 
       // Global menu controls (Enter closes non-settings menus)
-      if (key === "Enter" && activeMenu !== "select" && activeMenu !== "models") {
+      if (
+        key === "Enter" &&
+        activeMenu !== "select" &&
+        activeMenu !== "models" &&
+        activeMenu !== "model-editor"
+      ) {
         setActiveMenu(null);
       }
     },

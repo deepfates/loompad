@@ -105,4 +105,11 @@ export interface ActiveControls {
   start: boolean;
 }
 
-export type MenuType = "select" | "start" | "edit" | "map" | "models" | null;
+export type MenuType =
+  | "select"
+  | "start"
+  | "edit"
+  | "map"
+  | "models"
+  | "model-editor"
+  | null;
