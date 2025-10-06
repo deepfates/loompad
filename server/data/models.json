@@ -1,0 +1,17 @@
+{
+  "meta-llama/llama-3.1-405b": {
+    "name": "Llama 3.1 405B",
+    "maxTokens": 1024,
+    "defaultTemp": 0.7
+  },
+  "deepseek/deepseek-v3.1-base": {
+    "name": "DeepSeek V3.1",
+    "maxTokens": 1024,
+    "defaultTemp": 0.7
+  },
+  "moonshotai/kimi-k2": {
+    "name": "Kimi K2 0711",
+    "maxTokens": 1024,
+    "defaultTemp": 0.7
+  }
+}

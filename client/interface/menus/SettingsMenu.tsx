@@ -2,7 +2,6 @@ import { SettingsMenuProps } from "../types";
 import { MenuKnob } from "../components/MenuKnob";
 import { MenuSelect } from "../components/MenuSelect";
 import { MenuToggle } from "../components/MenuToggle";
-import { useModels } from "../hooks/useModels";
 import type { ModelId } from "../../../shared/models";
 import {
   LENGTH_PRESETS,
@@ -14,12 +13,17 @@ export const SettingsMenu = ({
   onParamChange,
   selectedParam = 0,
   isLoading = false,
+  models,
+  modelsLoading = false,
+  modelsError,
+  getModelName,
+  onManageModels,
 }: SettingsMenuProps) => {
-  const { models, loading: loadingModels, error, getModelName } = useModels();
 
   // Get model options
   const modelOptions = models ? (Object.keys(models) as ModelId[]) : [];
   const modelNames = modelOptions.map(getModelName);
+  const isModelsLoading = modelsLoading && !models;
 
   const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
   const lengthModeLabels = lengthModes.map(
@@ -51,7 +55,7 @@ export const SettingsMenu = ({
         selected={selectedParam === 1}
       />
       <MenuSelect
-        label={`Model${loadingModels && !models ? " (Loading...)" : ""}`}
+        label={`Model${isModelsLoading ? " (Loading...)" : ""}`}
         value={getModelName(params.model)}
         options={modelNames}
         onChange={(value) => {
@@ -90,9 +94,26 @@ export const SettingsMenu = ({
         onChange={(value) => onParamChange("textSplitting", value)}
         selected={selectedParam === 4}
       />
-      {error && (
+      <div
+        className={`menu-item ${selectedParam === 5 ? "selected" : ""}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => onManageModels?.()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onManageModels?.();
+          }
+        }}
+      >
+        <div className="menu-item-label">Manage Models</div>
+        <div className="menu-item-preview">
+          Add, edit, or remove OpenRouter models
+        </div>
+      </div>
+      {modelsError && (
         <output className="error-message">
-          Failed to load models: {error}
+          Failed to load models: {modelsError}
         </output>
       )}
       {isLoading && <output className="loading-message">Generating...</output>}

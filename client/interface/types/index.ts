@@ -1,4 +1,4 @@
-import type { ModelId } from "../../../shared/models";
+import type { AvailableModels, ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import type { Theme } from "../components/ThemeToggle";
 
@@ -49,6 +49,11 @@ export interface SettingsMenuProps {
   onParamChange: (param: string, value: number | string | boolean) => void;
   selectedParam: number;
   isLoading?: boolean;
+  models: AvailableModels | null;
+  modelsLoading?: boolean;
+  modelsError?: string | null;
+  getModelName: (modelId: ModelId) => string;
+  onManageModels?: () => void;
 }
 
 export interface TreeListProps {
@@ -81,6 +86,8 @@ export interface MenuButtonProps {
   onMouseUp: () => void;
 }
 
+export type ModelSortOption = "name-asc" | "name-desc";
+
 export type InFlight = Set<string>;
 
 export interface GeneratingInfo {
@@ -98,4 +105,4 @@ export interface ActiveControls {
   start: boolean;
 }
 
-export type MenuType = "select" | "start" | "edit" | "map" | null;
+export type MenuType = "select" | "start" | "edit" | "map" | "models" | null;

@@ -24,6 +24,11 @@ interface MenuCallbacks {
   // Settings menu (theme)
   currentTheme?: Theme;
   onThemeChange?: (theme: Theme) => void;
+  onManageModels?: () => void;
+  modelOrder?: ModelId[];
+  onNewModel?: () => void;
+  onSelectModel?: (modelId: ModelId) => void;
+  onDeleteModel?: (modelId: ModelId) => void;
 }
 
 // Story ordering and active tracking handled by utils/storyMeta
@@ -32,6 +37,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const [activeMenu, setActiveMenu] = useState<MenuType>(null);
   const [selectedParam, setSelectedParam] = useState(0);
   const [selectedTreeIndex, setSelectedTreeIndex] = useState(0);
+  const [selectedModelIndex, setSelectedModelIndex] = useState(0);
   const [menuParams, setMenuParams] = useState<MenuParams>(defaultParams);
   const { models } = useModels();
   const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
@@ -48,10 +54,26 @@ export function useMenuSystem(defaultParams: MenuParams) {
       callbacks: MenuCallbacks = {},
     ) => {
       if (activeMenu === "select") {
+        const params: (
+          | "temperature"
+          | "lengthMode"
+          | "model"
+          | "theme"
+          | "textSplitting"
+          | "manageModels"
+        )[] = [
+          "temperature",
+          "lengthMode",
+          "model",
+          "theme",
+          "textSplitting",
+          "manageModels",
+        ];
+
         switch (key) {
           case "ArrowUp":
             setSelectedParam((prev) => {
-              const count = 5; // number of settings items
+              const count = params.length;
               const newIndex = (prev - 1 + count) % count;
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
@@ -67,7 +89,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           case "ArrowDown":
             setSelectedParam((prev) => {
-              const count = 5;
+              const count = params.length;
               const newIndex = (prev + 1) % count;
               const menuContent = document.querySelector(".menu-content");
               if (menuContent) {
@@ -82,13 +104,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             });
             break;
           case "ArrowLeft": {
-            const param = [
-              "temperature",
-              "lengthMode",
-              "model",
-              "theme",
-              "textSplitting",
-            ][selectedParam];
+            const param = params[selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -125,13 +141,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           }
           case "ArrowRight": {
-            const param = [
-              "temperature",
-              "lengthMode",
-              "model",
-              "theme",
-              "textSplitting",
-            ][selectedParam];
+            const param = params[selectedParam];
             if (param === "temperature") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -168,13 +178,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
           }
           case "Enter": {
             // Enter acts on cyclers/toggles in Settings
-            const param = [
-              "temperature",
-              "lengthMode",
-              "model",
-              "theme",
-              "textSplitting",
-            ][selectedParam];
+            const param = params[selectedParam];
             if (param === "model" && models) {
               const modelIds = Object.keys(models) as ModelId[];
               const currentIndex = modelIds.indexOf(menuParams.model);
@@ -183,6 +187,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 model: newModel,
               }));
+            } else if (param === "manageModels") {
+              callbacks.onManageModels?.();
             } else if (param === "lengthMode") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -260,10 +266,64 @@ export function useMenuSystem(defaultParams: MenuParams) {
             }
             break;
         }
+      } else if (activeMenu === "models") {
+        const modelIds = callbacks.modelOrder ?? [];
+        const totalItems = modelIds.length + 1; // +1 for New Model
+
+        switch (key) {
+          case "ArrowUp":
+            setSelectedModelIndex((prev) => {
+              const newIndex = (prev - 1 + totalItems) % totalItems;
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                const container = menuContent as HTMLElement;
+                const items = container.querySelectorAll(".menu-item");
+                const el = items[newIndex] as HTMLElement | null;
+                if (el) {
+                  scrollMenuItemElIntoView(container, el);
+                }
+              }
+              return newIndex;
+            });
+            break;
+          case "ArrowDown":
+            setSelectedModelIndex((prev) => {
+              const newIndex = (prev + 1) % totalItems;
+              const menuContent = document.querySelector(".menu-content");
+              if (menuContent) {
+                const container = menuContent as HTMLElement;
+                const items = container.querySelectorAll(".menu-item");
+                const el = items[newIndex] as HTMLElement | null;
+                if (el) {
+                  scrollMenuItemElIntoView(container, el);
+                }
+              }
+              return newIndex;
+            });
+            break;
+          case "Enter":
+            if (selectedModelIndex === 0) {
+              callbacks.onNewModel?.();
+            } else {
+              const modelId = modelIds[selectedModelIndex - 1];
+              if (modelId) {
+                callbacks.onSelectModel?.(modelId);
+              }
+            }
+            break;
+          case "Backspace":
+            if (selectedModelIndex > 0) {
+              const modelId = modelIds[selectedModelIndex - 1];
+              if (modelId) {
+                callbacks.onDeleteModel?.(modelId);
+              }
+            }
+            break;
+        }
       }
 
       // Global menu controls (Enter closes non-settings menus)
-      if (key === "Enter" && activeMenu !== "select") {
+      if (key === "Enter" && activeMenu !== "select" && activeMenu !== "models") {
         setActiveMenu(null);
       }
     },
@@ -271,6 +331,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
       activeMenu,
       selectedParam,
       selectedTreeIndex,
+      selectedModelIndex,
       menuParams,
       models,
       scrollMenuItemElIntoView,
@@ -284,6 +345,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
     setSelectedParam,
     selectedTreeIndex,
     setSelectedTreeIndex,
+    selectedModelIndex,
+    setSelectedModelIndex,
     menuParams,
     setMenuParams,
     handleMenuNavigation,
