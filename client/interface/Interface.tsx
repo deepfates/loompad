@@ -353,131 +353,6 @@ export const GamepadInterface = () => {
     [modelEditorFields, setSelectedModelField],
   );
 
-  const handleModelEditorAdjust = useCallback(
-    (field: ModelEditorField, delta: number) => {
-      if (field === "maxTokens") {
-        setModelForm((prev) => {
-          const next = Math.max(1, prev.maxTokens + delta * 64);
-          return {
-            ...prev,
-            maxTokens: next,
-          };
-        });
-        setModelFormError(null);
-      } else if (field === "defaultTemp") {
-        setModelForm((prev) => {
-          const next = Math.max(
-            0,
-            Math.min(2, Number((prev.defaultTemp + delta * 0.1).toFixed(1))),
-          );
-          return {
-            ...prev,
-            defaultTemp: next,
-          };
-        });
-        setModelFormError(null);
-      }
-    },
-    [],
-  );
-
-  const handleModelEditorActivate = useCallback(
-    (field: ModelEditorField) => {
-      switch (field) {
-        case "id": {
-          if (modelEditorMode === "edit") {
-            return;
-          }
-          const input = window.prompt(
-            "Model ID",
-            `${modelForm.id ?? "provider/model"}`.trim(),
-          );
-          if (input === null) return;
-          const trimmed = input.trim();
-          setModelForm((prev) => ({
-            ...prev,
-            id: (trimmed as ModelId | "") ?? ("" as ModelId | ""),
-          }));
-          setModelFormError(null);
-          break;
-        }
-        case "name": {
-          const input = window.prompt("Display Name", modelForm.name.trim());
-          if (input === null) return;
-          const trimmed = input.trim();
-          setModelForm((prev) => ({
-            ...prev,
-            name: trimmed,
-          }));
-          setModelFormError(null);
-          break;
-        }
-        case "maxTokens": {
-          const input = window.prompt("Max Tokens", `${modelForm.maxTokens}`);
-          if (input === null) return;
-          const parsed = Number.parseInt(input, 10);
-          if (!Number.isNaN(parsed) && parsed > 0) {
-            setModelForm((prev) => ({
-              ...prev,
-              maxTokens: parsed,
-            }));
-            setModelFormError(null);
-          } else {
-            setModelFormError("Max tokens must be a positive number.");
-          }
-          break;
-        }
-        case "defaultTemp": {
-          const input = window.prompt(
-            "Default Temperature",
-            modelForm.defaultTemp.toFixed(1),
-          );
-          if (input === null) return;
-          const parsed = Number.parseFloat(input);
-          if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 2) {
-            const rounded = Number(parsed.toFixed(1));
-            setModelForm((prev) => ({
-              ...prev,
-              defaultTemp: rounded,
-            }));
-            setModelFormError(null);
-          } else {
-            setModelFormError("Temperature must be between 0 and 2.");
-          }
-          break;
-        }
-        case "save": {
-          void handleSubmitModel();
-          break;
-        }
-        case "cancel": {
-          handleCancelModelEdit();
-          break;
-        }
-        case "delete": {
-          if (editingModelId) {
-            void handleDeleteModel(editingModelId);
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    },
-    [
-      editingModelId,
-      handleCancelModelEdit,
-      handleDeleteModel,
-      handleSubmitModel,
-      modelEditorMode,
-      modelForm.defaultTemp,
-      modelForm.id,
-      modelForm.maxTokens,
-      modelForm.name,
-      setModelForm,
-    ],
-  );
-
   const handleDeleteModel = useCallback(
     async (modelId: ModelId) => {
       const totalModels = models ? Object.keys(models).length : 0;
@@ -617,6 +492,131 @@ export const GamepadInterface = () => {
     setMenuParams,
     showModelsMenu,
   ]);
+
+  const handleModelEditorAdjust = useCallback(
+    (field: ModelEditorField, delta: number) => {
+      if (field === "maxTokens") {
+        setModelForm((prev) => {
+          const next = Math.max(1, prev.maxTokens + delta * 64);
+          return {
+            ...prev,
+            maxTokens: next,
+          };
+        });
+        setModelFormError(null);
+      } else if (field === "defaultTemp") {
+        setModelForm((prev) => {
+          const next = Math.max(
+            0,
+            Math.min(2, Number((prev.defaultTemp + delta * 0.1).toFixed(1))),
+          );
+          return {
+            ...prev,
+            defaultTemp: next,
+          };
+        });
+        setModelFormError(null);
+      }
+    },
+    [],
+  );
+
+  const handleModelEditorActivate = useCallback(
+    (field: ModelEditorField) => {
+      switch (field) {
+        case "id": {
+          if (modelEditorMode === "edit") {
+            return;
+          }
+          const input = window.prompt(
+            "Model ID",
+            `${modelForm.id ?? "provider/model"}`.trim(),
+          );
+          if (input === null) return;
+          const trimmed = input.trim();
+          setModelForm((prev) => ({
+            ...prev,
+            id: (trimmed as ModelId | "") ?? ("" as ModelId | ""),
+          }));
+          setModelFormError(null);
+          break;
+        }
+        case "name": {
+          const input = window.prompt("Display Name", modelForm.name.trim());
+          if (input === null) return;
+          const trimmed = input.trim();
+          setModelForm((prev) => ({
+            ...prev,
+            name: trimmed,
+          }));
+          setModelFormError(null);
+          break;
+        }
+        case "maxTokens": {
+          const input = window.prompt("Max Tokens", `${modelForm.maxTokens}`);
+          if (input === null) return;
+          const parsed = Number.parseInt(input, 10);
+          if (!Number.isNaN(parsed) && parsed > 0) {
+            setModelForm((prev) => ({
+              ...prev,
+              maxTokens: parsed,
+            }));
+            setModelFormError(null);
+          } else {
+            setModelFormError("Max tokens must be a positive number.");
+          }
+          break;
+        }
+        case "defaultTemp": {
+          const input = window.prompt(
+            "Default Temperature",
+            modelForm.defaultTemp.toFixed(1),
+          );
+          if (input === null) return;
+          const parsed = Number.parseFloat(input);
+          if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 2) {
+            const rounded = Number(parsed.toFixed(1));
+            setModelForm((prev) => ({
+              ...prev,
+              defaultTemp: rounded,
+            }));
+            setModelFormError(null);
+          } else {
+            setModelFormError("Temperature must be between 0 and 2.");
+          }
+          break;
+        }
+        case "save": {
+          void handleSubmitModel();
+          break;
+        }
+        case "cancel": {
+          handleCancelModelEdit();
+          break;
+        }
+        case "delete": {
+          if (editingModelId) {
+            void handleDeleteModel(editingModelId);
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    },
+    [
+      editingModelId,
+      handleCancelModelEdit,
+      handleDeleteModel,
+      handleSubmitModel,
+      modelEditorMode,
+      modelForm.defaultTemp,
+      modelForm.id,
+      modelForm.maxTokens,
+      modelForm.name,
+      setModelForm,
+    ],
+  );
 
   useEffect(() => {
     const total = modelOrder.length + 2;
