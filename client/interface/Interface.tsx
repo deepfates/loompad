@@ -14,7 +14,11 @@ import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { StoryMinimap } from "./components/StoryMinimap";
 import { useTheme } from "./components/ThemeToggle";
-import { ModelEditor, type ModelFormState } from "./components/ModelEditor";
+import {
+  ModelEditor,
+  type ModelFormState,
+  type ModelEditorField,
+} from "./components/ModelEditor";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
@@ -67,6 +71,8 @@ export const GamepadInterface = () => {
     setSelectedTreeIndex,
     selectedModelIndex,
     setSelectedModelIndex,
+    selectedModelField,
+    setSelectedModelField,
     menuParams,
     setMenuParams,
     handleMenuNavigation,
@@ -138,6 +144,26 @@ export const GamepadInterface = () => {
     () => sortedModelEntries.map(([modelId]) => modelId),
     [sortedModelEntries],
   );
+
+  const modelEditorFields = useMemo<ModelEditorField[]>(() => {
+    const base: ModelEditorField[] = [
+      "id",
+      "name",
+      "maxTokens",
+      "defaultTemp",
+      "save",
+      "cancel",
+    ];
+
+    if (modelEditorMode === "edit") {
+      return [...base, "delete"];
+    }
+
+    return base;
+  }, [modelEditorMode]);
+
+  const currentModelEditorField =
+    modelEditorFields[selectedModelField] ?? modelEditorFields[0] ?? "id";
 
   // On first load, default to the most recently active story (if any)
   const hasAppliedDefault = useRef(false);
@@ -219,8 +245,13 @@ export const GamepadInterface = () => {
     [currentTreeKey, trees, setTrees, setCurrentTreeKey],
   );
 
-  const handleModelSortChange = useCallback((option: ModelSortOption) => {
-    setModelSort(option);
+  const cycleModelSort = useCallback((_delta: -1 | 1 = 1) => {
+    setModelSort((prev) => {
+      if (prev === "name-asc") {
+        return "name-desc";
+      }
+      return "name-asc";
+    });
   }, []);
 
   const handleModelFormChange = useCallback(
@@ -241,9 +272,9 @@ export const GamepadInterface = () => {
     setEditingModelId(null);
     setModelForm(createEmptyModelForm());
     setModelFormError(null);
-    setSelectedModelIndex(0);
+    setSelectedModelField(0);
     setActiveMenu("model-editor");
-  }, [setActiveMenu, setSelectedModelIndex]);
+  }, [setActiveMenu, setSelectedModelField]);
 
   const handleEditModel = useCallback(
     (modelId: ModelId) => {
@@ -258,9 +289,10 @@ export const GamepadInterface = () => {
         defaultTemp: config.defaultTemp,
       });
       setModelFormError(null);
+      setSelectedModelField(0);
       setActiveMenu("model-editor");
     },
-    [models, setActiveMenu],
+    [models, setActiveMenu, setSelectedModelField],
   );
 
   const showModelsMenu = useCallback(
@@ -271,10 +303,10 @@ export const GamepadInterface = () => {
       if (targetId) {
         const index = modelOrder.indexOf(targetId);
         if (index >= 0) {
-          setSelectedModelIndex(index + 1);
+          setSelectedModelIndex(index + 2);
         }
       } else {
-        setSelectedModelIndex(0);
+        setSelectedModelIndex(1);
       }
       setModelFormError(null);
       setActiveMenu("models");
@@ -310,6 +342,141 @@ export const GamepadInterface = () => {
     models,
     showModelsMenu,
   ]);
+
+  const handleModelEditorHighlight = useCallback(
+    (field: ModelEditorField) => {
+      const index = modelEditorFields.indexOf(field);
+      if (index >= 0) {
+        setSelectedModelField(index);
+      }
+    },
+    [modelEditorFields, setSelectedModelField],
+  );
+
+  const handleModelEditorAdjust = useCallback(
+    (field: ModelEditorField, delta: number) => {
+      if (field === "maxTokens") {
+        setModelForm((prev) => {
+          const next = Math.max(1, prev.maxTokens + delta * 64);
+          return {
+            ...prev,
+            maxTokens: next,
+          };
+        });
+        setModelFormError(null);
+      } else if (field === "defaultTemp") {
+        setModelForm((prev) => {
+          const next = Math.max(
+            0,
+            Math.min(2, Number((prev.defaultTemp + delta * 0.1).toFixed(1))),
+          );
+          return {
+            ...prev,
+            defaultTemp: next,
+          };
+        });
+        setModelFormError(null);
+      }
+    },
+    [],
+  );
+
+  const handleModelEditorActivate = useCallback(
+    (field: ModelEditorField) => {
+      switch (field) {
+        case "id": {
+          if (modelEditorMode === "edit") {
+            return;
+          }
+          const input = window.prompt(
+            "Model ID",
+            `${modelForm.id ?? "provider/model"}`.trim(),
+          );
+          if (input === null) return;
+          const trimmed = input.trim();
+          setModelForm((prev) => ({
+            ...prev,
+            id: (trimmed as ModelId | "") ?? ("" as ModelId | ""),
+          }));
+          setModelFormError(null);
+          break;
+        }
+        case "name": {
+          const input = window.prompt("Display Name", modelForm.name.trim());
+          if (input === null) return;
+          const trimmed = input.trim();
+          setModelForm((prev) => ({
+            ...prev,
+            name: trimmed,
+          }));
+          setModelFormError(null);
+          break;
+        }
+        case "maxTokens": {
+          const input = window.prompt("Max Tokens", `${modelForm.maxTokens}`);
+          if (input === null) return;
+          const parsed = Number.parseInt(input, 10);
+          if (!Number.isNaN(parsed) && parsed > 0) {
+            setModelForm((prev) => ({
+              ...prev,
+              maxTokens: parsed,
+            }));
+            setModelFormError(null);
+          } else {
+            setModelFormError("Max tokens must be a positive number.");
+          }
+          break;
+        }
+        case "defaultTemp": {
+          const input = window.prompt(
+            "Default Temperature",
+            modelForm.defaultTemp.toFixed(1),
+          );
+          if (input === null) return;
+          const parsed = Number.parseFloat(input);
+          if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 2) {
+            const rounded = Number(parsed.toFixed(1));
+            setModelForm((prev) => ({
+              ...prev,
+              defaultTemp: rounded,
+            }));
+            setModelFormError(null);
+          } else {
+            setModelFormError("Temperature must be between 0 and 2.");
+          }
+          break;
+        }
+        case "save": {
+          void handleSubmitModel();
+          break;
+        }
+        case "cancel": {
+          handleCancelModelEdit();
+          break;
+        }
+        case "delete": {
+          if (editingModelId) {
+            void handleDeleteModel(editingModelId);
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    },
+    [
+      editingModelId,
+      handleCancelModelEdit,
+      handleDeleteModel,
+      handleSubmitModel,
+      modelEditorMode,
+      modelForm.defaultTemp,
+      modelForm.id,
+      modelForm.maxTokens,
+      modelForm.name,
+      setModelForm,
+    ],
+  );
 
   const handleDeleteModel = useCallback(
     async (modelId: ModelId) => {
@@ -351,10 +518,12 @@ export const GamepadInterface = () => {
               defaultTemp: config.defaultTemp,
             });
             setPendingModelSelection(firstId);
+            setSelectedModelField(0);
           } else {
             setEditingModelId(null);
             setModelEditorMode("create");
             setModelForm(createEmptyModelForm());
+            setSelectedModelField(0);
           }
         }
       } catch (err) {
@@ -450,7 +619,7 @@ export const GamepadInterface = () => {
   ]);
 
   useEffect(() => {
-    const total = modelOrder.length + 1;
+    const total = modelOrder.length + 2;
     setSelectedModelIndex((prev) => {
       const maxIndex = Math.max(0, total - 1);
       return prev > maxIndex ? maxIndex : prev;
@@ -458,10 +627,20 @@ export const GamepadInterface = () => {
   }, [modelOrder, setSelectedModelIndex]);
 
   useEffect(() => {
+    if (selectedModelField >= modelEditorFields.length) {
+      setSelectedModelField(0);
+    }
+  }, [
+    modelEditorFields,
+    selectedModelField,
+    setSelectedModelField,
+  ]);
+
+  useEffect(() => {
     if (!pendingModelSelection) return;
     const index = modelOrder.indexOf(pendingModelSelection);
     if (index >= 0) {
-      setSelectedModelIndex(index + 1);
+      setSelectedModelIndex(index + 2);
     }
     setPendingModelSelection(null);
   }, [modelOrder, pendingModelSelection, setSelectedModelIndex]);
@@ -471,7 +650,7 @@ export const GamepadInterface = () => {
     const index = modelOrder.indexOf(editingModelId);
     if (index >= 0) {
       setSelectedModelIndex((prev) =>
-        prev === index + 1 ? prev : index + 1,
+        prev === index + 2 ? prev : index + 2,
       );
     }
   }, [editingModelId, modelOrder, setSelectedModelIndex]);
@@ -484,7 +663,7 @@ export const GamepadInterface = () => {
         handleEditModel(fallbackId);
         const index = modelOrder.indexOf(fallbackId);
         if (index >= 0) {
-          setSelectedModelIndex(index + 1);
+          setSelectedModelIndex(index + 2);
         }
       } else {
         handleStartNewModel();
@@ -553,10 +732,18 @@ export const GamepadInterface = () => {
       }
 
       if (activeMenu === "model-editor") {
-        if (key === "Backspace") {
-          handleCancelModelEdit();
-          return;
+        handleMenuNavigation(key, trees, {
+          modelEditorFields,
+          onModelEditorEnter: handleModelEditorActivate,
+          onModelEditorAdjust: handleModelEditorAdjust,
+          onModelEditorBack: handleCancelModelEdit,
+          onModelEditorHighlight: handleModelEditorHighlight,
+        });
+
+        if (key === "Escape") {
+          showModelsMenu(editingModelId);
         }
+        return;
       }
 
       if (activeMenu === "select") {
@@ -584,10 +771,18 @@ export const GamepadInterface = () => {
           onDeleteModel: (modelId) => {
             handleDeleteModel(modelId);
           },
+          onToggleModelSort: cycleModelSort,
         });
 
-        if (key === "`" || key === "Escape") {
+        if (key === "Escape") {
           setActiveMenu("select");
+          return;
+        }
+
+        if (key === "`") {
+          if (selectedModelIndex !== 0) {
+            setActiveMenu("select");
+          }
           return;
         }
       } else if (activeMenu && activeMenu !== "map") {
@@ -651,11 +846,18 @@ export const GamepadInterface = () => {
       handleEditModel,
       handleStartNewModel,
       handleCancelModelEdit,
+      handleModelEditorActivate,
+      handleModelEditorAdjust,
+      handleModelEditorHighlight,
       handleStoryNavigation,
       setCurrentTreeKey,
       setActiveMenu,
       setSelectedTreeIndex,
       modelOrder,
+      modelEditorFields,
+      cycleModelSort,
+      selectedModelIndex,
+      editingModelId,
       highlightedNode,
       showModelsMenu,
       theme,
@@ -910,11 +1112,10 @@ export const GamepadInterface = () => {
                 modelEntries={sortedModelEntries}
                 selectedIndex={selectedModelIndex}
                 sortOrder={modelSort}
-                onSortChange={handleModelSortChange}
+                onToggleSort={cycleModelSort}
                 onSelectIndex={setSelectedModelIndex}
                 onNew={handleStartNewModel}
                 onEditModel={handleEditModel}
-                onDeleteModel={handleDeleteModel}
                 isLoading={modelsLoading || modelsSaving}
                 error={modelsError ?? undefined}
               />
@@ -923,9 +1124,20 @@ export const GamepadInterface = () => {
             <MenuScreen>
               <ModelEditor
                 formState={modelForm}
+                fields={modelEditorFields}
+                selectedField={currentModelEditorField}
+                onSelectField={handleModelEditorHighlight}
+                onActivateField={handleModelEditorActivate}
                 onChange={handleModelFormChange}
                 onSubmit={handleSubmitModel}
                 onCancel={handleCancelModelEdit}
+                onDelete={
+                  modelEditorMode === "edit" && editingModelId
+                    ? () => {
+                        void handleDeleteModel(editingModelId);
+                      }
+                    : undefined
+                }
                 mode={modelEditorMode}
                 isSaving={modelsSaving}
                 error={modelFormError}

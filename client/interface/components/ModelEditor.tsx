@@ -1,3 +1,4 @@
+import { MenuKnob } from "./MenuKnob";
 import type { ModelId } from "../../../shared/models";
 
 export interface ModelFormState {
@@ -7,123 +8,200 @@ export interface ModelFormState {
   defaultTemp: number;
 }
 
+export type ModelEditorField =
+  | "id"
+  | "name"
+  | "maxTokens"
+  | "defaultTemp"
+  | "save"
+  | "cancel"
+  | "delete";
+
 interface ModelEditorProps {
   formState: ModelFormState;
-  onChange: <Key extends keyof ModelFormState>(field: Key, value: ModelFormState[Key]) => void;
+  fields: ModelEditorField[];
+  selectedField: ModelEditorField;
+  onSelectField: (field: ModelEditorField) => void;
+  onActivateField: (field: ModelEditorField) => void;
+  onChange: <Key extends keyof ModelFormState>(
+    field: Key,
+    value: ModelFormState[Key],
+  ) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  onDelete?: () => void;
   mode: "create" | "edit";
   isSaving?: boolean;
   error?: string | null;
 }
 
+const SORTABLE_FIELDS: Record<ModelEditorField, string> = {
+  id: "Model ID",
+  name: "Display Name",
+  maxTokens: "Max Tokens",
+  defaultTemp: "Default Temperature",
+  save: "Save",
+  cancel: "Cancel",
+  delete: "Delete",
+};
+
+const formatFieldValue = (
+  field: ModelEditorField,
+  formState: ModelFormState,
+) => {
+  switch (field) {
+    case "id":
+      return formState.id || "provider/model";
+    case "name":
+      return formState.name || "Friendly name";
+    case "maxTokens":
+      return `${formState.maxTokens}`;
+    case "defaultTemp":
+      return formState.defaultTemp.toFixed(1);
+    default:
+      return "";
+  }
+};
+
 export const ModelEditor = ({
   formState,
+  fields,
+  selectedField,
+  onSelectField,
+  onActivateField,
   onChange,
   onSubmit,
   onCancel,
+  onDelete,
   mode,
   isSaving = false,
   error,
 }: ModelEditorProps) => {
-  const handleNumberChange = (
-    field: "maxTokens" | "defaultTemp",
-    value: string,
-  ) => {
-    if (field === "maxTokens") {
-      const parsed = Number.parseInt(value, 10);
-      if (!Number.isNaN(parsed)) {
-        onChange(field, parsed);
-      } else if (value === "") {
-        onChange(field, 0 as ModelFormState[typeof field]);
-      }
-    } else {
-      const parsed = Number.parseFloat(value);
-      if (!Number.isNaN(parsed)) {
-        onChange(field, parsed);
-      } else if (value === "") {
-        onChange(field, 0 as ModelFormState[typeof field]);
-      }
-    }
-  };
-
   return (
-    <form
-      className="model-editor"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-    >
-      <h2 className="model-editor__title">
-        {mode === "create" ? "New Model" : "Edit Model"}
-      </h2>
-      <label className="model-editor__label" htmlFor="model-id">
-        Model ID
-      </label>
-      <input
-        id="model-id"
-        className="model-editor__input"
-        type="text"
-        value={formState.id}
-        onChange={(event) => onChange("id", event.target.value as ModelId | "")}
-        placeholder="provider/model"
-        required
-        disabled={mode === "edit"}
-      />
-
-      <label className="model-editor__label" htmlFor="model-name">
-        Display Name
-      </label>
-      <input
-        id="model-name"
-        className="model-editor__input"
-        type="text"
-        value={formState.name}
-        onChange={(event) => onChange("name", event.target.value)}
-        placeholder="Friendly name"
-        required
-      />
-
-      <label className="model-editor__label" htmlFor="model-max-tokens">
-        Max Tokens
-      </label>
-      <input
-        id="model-max-tokens"
-        className="model-editor__input"
-        type="number"
-        min={1}
-        step={1}
-        value={formState.maxTokens}
-        onChange={(event) => handleNumberChange("maxTokens", event.target.value)}
-        required
-      />
-
-      <label className="model-editor__label" htmlFor="model-default-temp">
-        Default Temperature
-      </label>
-      <input
-        id="model-default-temp"
-        className="model-editor__input"
-        type="number"
-        min={0}
-        max={2}
-        step={0.1}
-        value={formState.defaultTemp}
-        onChange={(event) => handleNumberChange("defaultTemp", event.target.value)}
-        required
-      />
-
-      {error && <output className="error-message model-editor__error">{error}</output>}
-
-      <div className="model-editor__actions">
-        <button type="submit" className="model-editor__submit" disabled={isSaving}>
-          {isSaving ? "Saving…" : "Save"}
-        </button>
-        <button type="button" className="model-editor__cancel" onClick={onCancel}>
-          Cancel
-        </button>
+    <div className="menu-content model-editor-menu">
+      <div className="model-editor-menu__header">
+        <h2 className="model-editor-menu__title">
+          {mode === "create" ? "New Model" : "Edit Model"}
+        </h2>
+        <p className="model-editor-menu__hint">
+          Use ▲▼ to choose a field. Press A to edit text, ◄► to adjust numbers, and START to
+          return to the list.
+        </p>
       </div>
-    </form>
+
+      {fields.map((field) => {
+        if (field === "maxTokens" || field === "defaultTemp") {
+          const min = field === "maxTokens" ? 1 : 0;
+          const max = field === "maxTokens" ? 32768 : 2;
+          const step = field === "maxTokens" ? 1 : 0.1;
+          return (
+            <div
+              key={field}
+              className="model-editor-menu__knob"
+              onMouseEnter={() => onSelectField(field)}
+            >
+              <MenuKnob
+                label={SORTABLE_FIELDS[field]}
+                value={formState[field] as number}
+                min={min}
+                max={max}
+                step={step}
+                onChange={(value) =>
+                  onChange(field, value as ModelFormState[typeof field])
+                }
+                selected={selectedField === field}
+              />
+            </div>
+          );
+        }
+
+        if (field === "save" || field === "cancel" || field === "delete") {
+          const isDelete = field === "delete";
+          const isSelected = selectedField === field;
+          const label = SORTABLE_FIELDS[field];
+          const isDisabled = field === "delete" && mode !== "edit";
+          const handleActivate = () => {
+            if (field === "save") {
+              onSubmit();
+            } else if (field === "cancel") {
+              onCancel();
+            } else if (field === "delete" && onDelete) {
+              onDelete();
+            }
+          };
+
+          if (isDisabled) {
+            return null;
+          }
+
+          return (
+            <div
+              key={field}
+              className={`menu-item model-editor-menu__action ${
+                isSelected ? "selected" : ""
+              } ${isDelete ? "danger" : ""}`}
+              role="button"
+              tabIndex={0}
+              onMouseEnter={() => onSelectField(field)}
+              onClick={() => handleActivate()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleActivate();
+                }
+              }}
+            >
+              <div className="menu-item-label">{label}</div>
+              <div className="menu-item-preview">
+                {field === "save"
+                  ? isSaving
+                    ? "Saving…"
+                    : "Apply changes"
+                  : field === "cancel"
+                    ? "Discard changes"
+                    : "Remove this model"}
+              </div>
+            </div>
+          );
+        }
+
+        const isLocked = field === "id" && mode === "edit";
+        const isSelected = selectedField === field;
+        const value = formatFieldValue(field, formState);
+
+        return (
+          <div
+            key={field}
+            className={`menu-item model-editor-menu__field ${
+              isSelected ? "selected" : ""
+            } ${isLocked ? "locked" : ""}`}
+            role={isLocked ? undefined : "button"}
+            tabIndex={isLocked ? -1 : 0}
+            aria-disabled={isLocked}
+            onMouseEnter={() => onSelectField(field)}
+            onClick={() => {
+              if (!isLocked) {
+                onActivateField(field);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (isLocked) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onActivateField(field);
+              }
+            }}
+          >
+            <div className="menu-item-label">
+              {SORTABLE_FIELDS[field]}
+              {isLocked ? " (locked)" : ""}
+            </div>
+            <div className="menu-item-preview">{value}</div>
+          </div>
+        );
+      })}
+
+      {error && <output className="error-message">{error}</output>}
+    </div>
   );
 };

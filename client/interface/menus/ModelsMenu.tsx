@@ -5,11 +5,10 @@ interface ModelsMenuProps {
   modelEntries: Array<[ModelId, ModelConfig]>;
   selectedIndex: number;
   sortOrder: ModelSortOption;
-  onSortChange: (option: ModelSortOption) => void;
   onSelectIndex: (index: number) => void;
+  onToggleSort: (direction: -1 | 1) => void;
   onNew: () => void;
   onEditModel: (modelId: ModelId) => void;
-  onDeleteModel: (modelId: ModelId) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -23,40 +22,49 @@ export const ModelsMenu = ({
   modelEntries,
   selectedIndex,
   sortOrder,
-  onSortChange,
   onSelectIndex,
+  onToggleSort,
   onNew,
   onEditModel,
-  onDeleteModel,
   isLoading = false,
   error,
 }: ModelsMenuProps) => {
+  const handleSortActivate = () => {
+    onToggleSort(1);
+  };
+
   return (
     <div className="menu-content models-menu">
-      <div className="models-menu__toolbar">
-        <label className="models-menu__sort-label" htmlFor="models-sort">
-          Sort
-        </label>
-        <select
-          id="models-sort"
-          className="models-menu__sort-select"
-          value={sortOrder}
-          onChange={(event) =>
-            onSortChange(event.target.value as ModelSortOption)
+      <div
+        className={`menu-item models-menu__sort ${selectedIndex === 0 ? "selected" : ""}`}
+        role="button"
+        tabIndex={0}
+        onMouseEnter={() => onSelectIndex(0)}
+        onClick={handleSortActivate}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleSortActivate();
+          } else if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            onToggleSort(-1);
+          } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            onToggleSort(1);
           }
-        >
-          {Object.entries(SORT_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+        }}
+      >
+        <div className="menu-item-label">Sort Models</div>
+        <div className="menu-item-preview">
+          {SORT_LABELS[sortOrder]} (◄► to change)
+        </div>
       </div>
 
       <div
-        className={`menu-item ${selectedIndex === 0 ? "selected" : ""}`}
+        className={`menu-item ${selectedIndex === 1 ? "selected" : ""}`}
+        onMouseEnter={() => onSelectIndex(1)}
         onClick={() => {
-          onSelectIndex(0);
+          onSelectIndex(1);
           onNew();
         }}
         role="button"
@@ -64,7 +72,7 @@ export const ModelsMenu = ({
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            onSelectIndex(0);
+            onSelectIndex(1);
             onNew();
           }
         }}
@@ -74,15 +82,17 @@ export const ModelsMenu = ({
       </div>
 
       {modelEntries.map(([modelId, config], index) => {
-        const listIndex = index + 1; // account for + New Model row
+        const listIndex = index + 2; // account for sort + new rows
         return (
           <div
             key={modelId}
             className={`menu-item models-menu__item ${
               selectedIndex === listIndex ? "selected" : ""
             }`}
+            onMouseEnter={() => onSelectIndex(listIndex)}
             onClick={() => {
               onSelectIndex(listIndex);
+              onEditModel(modelId);
             }}
             role="button"
             tabIndex={0}
@@ -97,30 +107,6 @@ export const ModelsMenu = ({
             <div className="menu-item-label">{config.name}</div>
             <div className="menu-item-preview">
               {modelId} • Max Tokens: {config.maxTokens} • Temp: {config.defaultTemp}
-            </div>
-            <div className="models-menu__actions">
-              <button
-                type="button"
-                className="models-menu__button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectIndex(listIndex);
-                  onEditModel(modelId);
-                }}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className="models-menu__button models-menu__button--danger"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectIndex(listIndex);
-                  onDeleteModel(modelId);
-                }}
-              >
-                Delete
-              </button>
             </div>
           </div>
         );
