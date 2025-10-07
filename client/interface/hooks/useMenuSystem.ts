@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { MenuType } from "../types";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
-import { useModels } from "./useModels";
 import { scrollMenuItemElIntoView } from "../utils/scrolling";
 import type { Theme } from "../components/ThemeToggle";
 import {
@@ -46,7 +45,6 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const [selectedModelIndex, setSelectedModelIndex] = useState(0);
   const [selectedModelField, setSelectedModelField] = useState(0);
   const [menuParams, setMenuParams] = useState<MenuParams>(defaultParams);
-  const { models } = useModels();
   const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
   const cycleLengthMode = (current: LengthMode, delta: number): LengthMode => {
     const index = lengthModes.indexOf(current);
@@ -122,15 +120,25 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 lengthMode: cycleLengthMode(prev.lengthMode, -1),
               }));
-            } else if (param === "model" && models) {
-              const modelIds = Object.keys(models) as ModelId[];
-              const currentIndex = modelIds.indexOf(menuParams.model);
-              if (currentIndex > 0) {
-                const newModel = modelIds[currentIndex - 1];
-                setMenuParams((prev) => ({
-                  ...prev,
-                  model: newModel,
-                }));
+            } else if (param === "model") {
+              const modelIds = callbacks.modelOrder ?? [];
+              if (modelIds.length) {
+                const currentIndex = modelIds.indexOf(menuParams.model);
+                if (currentIndex > 0) {
+                  const newModel = modelIds[currentIndex - 1];
+                  setMenuParams((prev) => ({
+                    ...prev,
+                    model: newModel,
+                  }));
+                } else if (currentIndex === -1) {
+                  const fallback = modelIds[0];
+                  if (fallback) {
+                    setMenuParams((prev) => ({
+                      ...prev,
+                      model: fallback,
+                    }));
+                  }
+                }
               }
             } else if (param === "theme") {
               const themes: Theme[] = ["matrix", "light", "system"];
@@ -159,15 +167,25 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 lengthMode: cycleLengthMode(prev.lengthMode, +1),
               }));
-            } else if (param === "model" && models) {
-              const modelIds = Object.keys(models) as ModelId[];
-              const currentIndex = modelIds.indexOf(menuParams.model);
-              if (currentIndex < modelIds.length - 1) {
-                const newModel = modelIds[currentIndex + 1];
-                setMenuParams((prev) => ({
-                  ...prev,
-                  model: newModel,
-                }));
+            } else if (param === "model") {
+              const modelIds = callbacks.modelOrder ?? [];
+              if (modelIds.length) {
+                const currentIndex = modelIds.indexOf(menuParams.model);
+                if (currentIndex >= 0 && currentIndex < modelIds.length - 1) {
+                  const newModel = modelIds[currentIndex + 1];
+                  setMenuParams((prev) => ({
+                    ...prev,
+                    model: newModel,
+                  }));
+                } else if (currentIndex === -1) {
+                  const fallback = modelIds[0];
+                  if (fallback) {
+                    setMenuParams((prev) => ({
+                      ...prev,
+                      model: fallback,
+                    }));
+                  }
+                }
               }
             } else if (param === "theme") {
               const themes: Theme[] = ["matrix", "light", "system"];
@@ -186,14 +204,21 @@ export function useMenuSystem(defaultParams: MenuParams) {
           case "Enter": {
             // Enter acts on cyclers/toggles in Settings
             const param = params[selectedParam];
-            if (param === "model" && models) {
-              const modelIds = Object.keys(models) as ModelId[];
-              const currentIndex = modelIds.indexOf(menuParams.model);
-              const newModel = modelIds[(currentIndex + 1) % modelIds.length];
-              setMenuParams((prev) => ({
-                ...prev,
-                model: newModel,
-              }));
+            if (param === "model") {
+              const modelIds = callbacks.modelOrder ?? [];
+              if (modelIds.length) {
+                const currentIndex = modelIds.indexOf(menuParams.model);
+                const nextIndex = currentIndex >= 0
+                  ? (currentIndex + 1) % modelIds.length
+                  : 0;
+                const newModel = modelIds[nextIndex];
+                if (newModel) {
+                  setMenuParams((prev) => ({
+                    ...prev,
+                    model: newModel,
+                  }));
+                }
+              }
             } else if (param === "manageModels") {
               callbacks.onManageModels?.();
             } else if (param === "lengthMode") {
@@ -416,7 +441,6 @@ export function useMenuSystem(defaultParams: MenuParams) {
       selectedModelIndex,
       selectedModelField,
       menuParams,
-      models,
       scrollMenuItemElIntoView,
     ],
   );

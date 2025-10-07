@@ -757,6 +757,7 @@ export const GamepadInterface = () => {
           onDeleteTree: handleDeleteTree,
           currentTheme: theme,
           onThemeChange: setTheme,
+          modelOrder,
           onManageModels: () => showModelsMenu(),
         });
       } else if (activeMenu === "models") {
