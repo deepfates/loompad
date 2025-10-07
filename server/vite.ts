@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import express from "express";
+import express, { type Response } from "express";
 import http from "http";
 import { createServer as createViteServer } from "vite";
 import react from "@vitejs/plugin-react";
@@ -58,21 +58,29 @@ export async function createServer() {
       clearScreen: false,
     });
   } else if (mode === "production") {
-    app.use(
-      "/client",
-      express.static(client_dir_prod, {
-        setHeaders: (res, filePath) => {
-          if (
-            filePath.endsWith("sw.js") ||
-            filePath.endsWith("registerSW.js")
-          ) {
-            res.setHeader("Content-Type", "application/javascript");
-            res.setHeader("Service-Worker-Allowed", "/");
-            res.setHeader("Cache-Control", "no-cache");
-          }
-        },
-      }),
-    );
+    const staticHeaders = (
+      res: Response,
+      filePath: string,
+      _stat?: fs.Stats,
+    ) => {
+      if (filePath.endsWith("sw.js") || filePath.endsWith("registerSW.js")) {
+        res.setHeader("Content-Type", "application/javascript");
+        res.setHeader("Service-Worker-Allowed", "/");
+        res.setHeader("Cache-Control", "no-cache");
+        return;
+      }
+
+      // Allow hashed build assets to be cached aggressively by browsers/CDNs
+      const fileName = path.basename(filePath);
+      if (/\.[a-f0-9]{8}\./.test(fileName)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    };
+
+    app.use(express.static(client_dir_prod, { setHeaders: staticHeaders }));
+
+    // Preserve the previous /client mount for any legacy asset references
+    app.use("/client", express.static(client_dir_prod, { setHeaders: staticHeaders }));
   }
 
   // Add Vite middleware BEFORE catch-all routes in development

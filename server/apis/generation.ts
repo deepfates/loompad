@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import OpenAI from "openai";
 import { config } from "../config";
-import type { AvailableModels, ModelId } from "../../shared/models";
+import type { ModelId } from "../../shared/models";
+import { getModel } from "../modelsStore";
 import {
   DEFAULT_LENGTH_MODE,
   LENGTH_PRESETS,
@@ -34,25 +35,6 @@ const openai = new OpenAI({
     "X-Title": "LoomPad",
   },
 });
-
-// Available models and their configs
-export const AVAILABLE_MODELS: AvailableModels = {
-  "meta-llama/llama-3.1-405b": {
-    name: "Llama 3.1 405B",
-    maxTokens: 1024,
-    defaultTemp: 0.7,
-  },
-  "deepseek/deepseek-v3.1-base": {
-    name: "DeepSeek V3.1",
-    maxTokens: 1024,
-    defaultTemp: 0.7,
-  },
-  "moonshotai/kimi-k2": {
-    name: "Kimi K2 0711",
-    maxTokens: 1024,
-    defaultTemp: 0.7,
-  },
-};
 
 interface GenerateRequest {
   prompt: string;
@@ -100,14 +82,15 @@ export async function generateText(req: Request, res: Response) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
-    if (!AVAILABLE_MODELS[model]) {
+    const modelConfig = getModel(model);
+    if (!modelConfig) {
       return res.status(400).json({ error: "Invalid model specified" });
     }
 
     const mode = lengthMode ?? DEFAULT_LENGTH_MODE;
     const preset = LENGTH_PRESETS[mode] ?? LENGTH_PRESETS[DEFAULT_LENGTH_MODE];
 
-    const modelMaxTokens = AVAILABLE_MODELS[model].maxTokens;
+    const modelMaxTokens = modelConfig.maxTokens;
     const maxTokensToUse = Math.min(
       preset.maxTokens,
       modelMaxTokens,
@@ -123,7 +106,7 @@ export async function generateText(req: Request, res: Response) {
       {
         model,
         prompt,
-        temperature: temperature ?? AVAILABLE_MODELS[model].defaultTemp,
+        temperature: temperature ?? modelConfig.defaultTemp,
         max_tokens: maxTokensToUse,
         // Omit upstream 'stop'; semantic stopping is handled server-side via boundary detection.
         stream: true,
