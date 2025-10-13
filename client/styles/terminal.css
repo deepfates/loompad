@@ -1569,29 +1569,40 @@ progress::-moz-progress-bar {
 }
 
 /* Menu styles */
+
 .menu-screen {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* Subtle fade-in without vertical motion to avoid perceived scroll */
-    animation: menuFadeIn 0.2s ease-out;
 }
 
-@keyframes menuFadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+.gameboy-screen {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 
-/* Respect users who prefer reduced motion */
-@media (prefers-reduced-motion: reduce) {
-    .menu-screen {
-        animation: none;
-    }
+.gameboy-screen__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.gameboy-screen__body--story {
+    gap: 0.5rem;
+}
+
+.gameboy-screen__body--map {
+    padding: 0.25rem 0.75rem 0.75rem;
+}
+
+.gameboy-screen__body--menu,
+.gameboy-screen__body--editor {
+    padding: 0;
 }
 
 /* Unified view fade-in for all modes (LOOM, MAP, MENUS) */
