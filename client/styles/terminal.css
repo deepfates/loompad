@@ -1568,6 +1568,39 @@ progress::-moz-progress-bar {
     animation: edgeBump 0.2s ease-in-out;
 }
 
+/* Game Boy inspired view shell */
+.gameboy-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.gameboy-view__content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.gameboy-view__content--menu {
+    padding: 0;
+    gap: 0;
+}
+
+.gameboy-view__content--map {
+    padding: 0;
+    gap: 0;
+}
+
+.gameboy-view__status {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
 /* Menu styles */
 .menu-screen {
     flex: 1;
