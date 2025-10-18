@@ -14,6 +14,46 @@ export const INITIAL_STORY = {
   },
 };
 
+export function applyContinuations(
+  prevTree: { root: StoryNode },
+  path: StoryNode[],
+  newContinuations: StoryNode[],
+  isNewChildren: boolean,
+): { root: StoryNode } {
+  const newTree = JSON.parse(JSON.stringify(prevTree)) as typeof prevTree;
+  let current = newTree.root;
+
+  for (let i = 1; i < path.length; i++) {
+    const pathNode = path[i];
+    const continuationIndex =
+      current.continuations?.findIndex((node) => node.id === pathNode.id) ?? -1;
+
+    if (continuationIndex === -1) {
+      console.error("Failed to find node in path:", {
+        pathNode,
+        currentContinuations: current.continuations,
+      });
+      return newTree;
+    }
+
+    current = current.continuations![continuationIndex];
+  }
+
+  if (!current.continuations) {
+    current.continuations = newContinuations;
+  } else {
+    current.continuations = [...current.continuations, ...newContinuations];
+  }
+
+  if (isNewChildren) {
+    current.lastSelectedIndex = 0;
+  } else {
+    current.lastSelectedIndex = (current.continuations?.length ?? 1) - 1;
+  }
+
+  return newTree;
+}
+
 const DEFAULT_TREES = {
   "Story 1": INITIAL_STORY,
 };
@@ -161,50 +201,6 @@ export function useStoryTree(params: StoryParams) {
     [getCurrentPath, currentDepth, params, generateContinuation],
   );
 
-  const addContinuations = useCallback(
-    (
-      path: StoryNode[],
-      newContinuations: StoryNode[],
-      isNewChildren: boolean,
-    ) => {
-      const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
-      let current = newTree.root;
-
-      // Navigate to the target node using path IDs to ensure we find the right node
-      for (let i = 1; i < path.length; i++) {
-        const pathNode = path[i];
-        const continuationIndex =
-          current.continuations?.findIndex((node) => node.id === pathNode.id) ??
-          -1;
-        if (continuationIndex === -1) {
-          console.error("Failed to find node in path:", {
-            pathNode,
-            currentContinuations: current.continuations,
-          });
-          return newTree;
-        }
-        current = current.continuations![continuationIndex];
-      }
-
-      // Initialize or append continuations
-      if (!current.continuations) {
-        current.continuations = newContinuations;
-      } else {
-        current.continuations = [...current.continuations, ...newContinuations];
-      }
-
-      // Set lastSelectedIndex for the current node
-      if (isNewChildren) {
-        current.lastSelectedIndex = 0;
-      } else {
-        current.lastSelectedIndex = (current.continuations?.length ?? 1) - 1;
-      }
-
-      return newTree;
-    },
-    [storyTree],
-  );
-
   const handleStoryNavigation = useCallback(
     async (key: string) => {
       // Allow arrow/backspace navigation during generation, but prevent new
@@ -294,22 +290,29 @@ export function useStoryTree(params: StoryParams) {
 
           try {
             const newContinuations = await generateContinuations(count);
-
-            const updatedTree = addContinuations(
-              currentPath.slice(0, currentDepth + 1),
-              newContinuations,
-              !hasExistingContinuations,
-            );
+            const updatePath = currentPath.slice(0, currentDepth + 1);
 
             // Don't auto-jump to new nodes - let user navigate manually
             // The new nodes will be visible in the reader and minimap
             // but the cursor stays where it was
 
             // Update tree last to ensure all state is consistent
-            setStoryTree(updatedTree);
+            setStoryTree((prevTree) =>
+              applyContinuations(
+                prevTree,
+                updatePath,
+                newContinuations,
+                !hasExistingContinuations,
+              ),
+            );
             setTrees((prev) => ({
               ...prev,
-              [currentTreeKey]: updatedTree,
+              [currentTreeKey]: applyContinuations(
+                prev[currentTreeKey] ?? INITIAL_STORY,
+                updatePath,
+                newContinuations,
+                !hasExistingContinuations,
+              ),
             }));
             // Mark story as updated for reverse-chronological ordering
             touchStoryUpdated(currentTreeKey);
@@ -339,7 +342,6 @@ export function useStoryTree(params: StoryParams) {
       currentDepth,
       selectedOptions,
       generateContinuations,
-      addContinuations,
       currentTreeKey,
       setTrees,
       getLastSelectedIndex,
