@@ -1,7 +1,7 @@
 import { useMemo, useRef, useEffect, useLayoutEffect } from "react";
 import { hierarchy } from "d3-hierarchy";
 import { flextree } from "d3-flextree";
-import type { StoryNode } from "../types";
+import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 
 /**
  * VISUAL DESIGN:
@@ -27,13 +27,13 @@ interface StoryMinimapProps {
    */
   selectedOptions: number[];
   /**
-   * Set of node IDs currently generating.
+   * Pending generation counts per node.
    */
-  inFlight: Set<string>;
+  inFlight: InFlight;
   /**
    * Generation metadata (unused but kept for future features).
    */
-  generatingInfo: { [nodeId: string]: { depth: number; index: number | null } };
+  generatingInfo: GeneratingInfo;
   /**
    * Current path through the tree following favorite children.
    */
@@ -464,7 +464,7 @@ export const StoryMinimap = ({
               const node = c.path[c.path.length - 1];
               const isHighlighted = id === highlightedNode.id;
               const isSelected = selectedSibling && id === selectedSibling.id;
-              const isGenerating = inFlight.has(id);
+              const isGenerating = (inFlight.get(id) ?? 0) > 0;
               const isOnFavoritePath = currentPath.some(
                 (pathNode) => pathNode.id === id,
               );

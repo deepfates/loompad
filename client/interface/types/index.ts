@@ -88,13 +88,16 @@ export interface MenuButtonProps {
 
 export type ModelSortOption = "name-asc" | "name-desc";
 
-export type InFlight = Set<string>;
+export type InFlight = Map<string, number>;
+
+export interface GeneratingInfoEntry {
+  depth: number;
+  pendingCount: number;
+  batchSize: number;
+}
 
 export interface GeneratingInfo {
-  [nodeId: string]: {
-    depth: number;
-    index: number | null;
-  };
+  [nodeId: string]: GeneratingInfoEntry;
 }
 
 export interface ActiveControls {

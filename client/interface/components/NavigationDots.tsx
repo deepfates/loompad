@@ -43,7 +43,7 @@ export const NavigationDots = ({
   let loadingCount = 0;
   Object.values(generatingInfo).forEach((info) => {
     if (info.depth === currentDepth) {
-      loadingCount += info.index === null ? 3 : 1;
+      loadingCount += info.pendingCount * info.batchSize;
     }
   });
 
@@ -52,7 +52,7 @@ export const NavigationDots = ({
       {/* Show existing options */}
       {options.map((option, index) => {
         const isSelected = index === currentIndex;
-        const isGenerating = inFlight.has(option.id);
+        const isGenerating = (inFlight.get(option.id) ?? 0) > 0;
         const shouldBump = isSelected && isEdgePress;
 
         return (
