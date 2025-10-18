@@ -65,6 +65,10 @@ const ROW_HEIGHT = 40;
 // conveys relative length at a glance.
 const MIN_NODE_HEIGHT = 15;
 const MAX_NODE_HEIGHT = 60;
+// Exponent used to scale text length into a height signal. Values below 1
+// keep very long passages from blowing up the layout while staying closer to a
+// linear relationship than a logarithm.
+const LENGTH_EXPONENT = 0.75;
 const CONNECTOR_LENGTH = 12; // Fixed short connector between nodes
 const NODE_WIDTH = 14; // Width of the pill-shaped nodes - compact
 const NODE_RADIUS = 2; // Border radius for the pill shape - crisp corners
@@ -95,22 +99,27 @@ function useCoords(root: StoryNode) {
 
     // Calculate connector lengths based on text
     const descendants = rootHierarchy.descendants();
-    // Cache log lengths to avoid redundant calculations
-    const logLengthMap: Record<string, number> = {};
+    // Cache scaled lengths to avoid redundant calculations
+    const scaledLengthMap: Record<string, number> = {};
     descendants.forEach((node) => {
-      logLengthMap[node.data.id] = Math.log((node.data.text || "").length + 1);
+      scaledLengthMap[node.data.id] = Math.pow(
+        (node.data.text || "").length + 1,
+        LENGTH_EXPONENT,
+      );
     });
-    const logLengths = Object.values(logLengthMap);
-    const minLogLength = logLengths.length === 0 ? 0 : Math.min(...logLengths);
-    const maxLogLength = logLengths.length === 0 ? 0 : Math.max(...logLengths);
-    const logRange = maxLogLength - minLogLength || 1;
+    const scaledLengths = Object.values(scaledLengthMap);
+    const minScaledLength =
+      scaledLengths.length === 0 ? 0 : Math.min(...scaledLengths);
+    const maxScaledLength =
+      scaledLengths.length === 0 ? 0 : Math.max(...scaledLengths);
+    const scaledRange = maxScaledLength - minScaledLength || 1;
 
     const getNodeHeight = (textLength: number) => {
-      const logLength = Math.log(textLength + 1);
+      const scaledLength = Math.pow(textLength + 1, LENGTH_EXPONENT);
       const normalized =
-        maxLogLength === minLogLength
+        maxScaledLength === minScaledLength
           ? 0.5
-          : (logLength - minLogLength) / logRange;
+          : (scaledLength - minScaledLength) / scaledRange;
 
       return (
         MIN_NODE_HEIGHT +
