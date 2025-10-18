@@ -1643,6 +1643,36 @@ progress::-moz-progress-bar {
     text-overflow: ellipsis;
 }
 
+.gameboy-screen {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.gameboy-screen__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.gameboy-screen--menu .gameboy-screen__body {
+    gap: 0;
+}
+
+.gameboy-screen--view .gameboy-screen__body {
+    gap: 0.75rem;
+}
+
+.gameboy-screen__surface {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: 0.75rem;
+}
+
 .menu-content {
     flex: 1;
     overflow-y: auto;

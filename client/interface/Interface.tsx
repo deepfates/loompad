@@ -10,7 +10,6 @@ import { useModels } from "./hooks/useModels";
 import { DPad } from "./components/DPad";
 import { GamepadButton } from "./components/GamepadButton";
 import { MenuButton } from "./components/MenuButton";
-import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { StoryMinimap } from "./components/StoryMinimap";
 import { useTheme } from "./components/ThemeToggle";
@@ -19,13 +18,13 @@ import {
   type ModelFormState,
   type ModelEditorField,
 } from "./components/ModelEditor";
+import { GameBoyScreen } from "./components/GameBoyScreen";
 
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { ModelsMenu } from "./menus/ModelsMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
-import ModeBar from "./components/ModeBar";
 import { splitTextToNodes } from "./utils/textSplitter";
 import { scrollElementIntoViewIfNeeded, isAtBottom } from "./utils/scrolling";
 
@@ -55,8 +54,36 @@ const createEmptyModelForm = (): ModelFormState => ({
   defaultTemp: 0.7,
 });
 
+type MenuMode = Exclude<MenuType, null>;
+type ActiveMode = MenuMode | "loom";
+
+const MODE_METADATA: Record<
+  ActiveMode,
+  { title: string; hint: string; variant: "menu" | "view" }
+> = {
+  loom: { title: "LOOM", hint: "START: MAP • SELECT: SETTINGS", variant: "view" },
+  map: { title: "MAP", hint: "SELECT: STORIES • START: LOOM", variant: "view" },
+  select: { title: "SETTINGS", hint: "START: CLOSE", variant: "menu" },
+  start: {
+    title: "STORIES",
+    hint: "↵: OPEN • ⌫: DELETE • START: MAP",
+    variant: "menu",
+  },
+  models: {
+    title: "MODELS",
+    hint: "↵: EDIT • ⌫: DELETE • SELECT: SETTINGS",
+    variant: "menu",
+  },
+  "model-editor": {
+    title: "MODEL EDITOR",
+    hint: "↵: ACTIVATE • ⌫: CANCEL • START: MODELS",
+    variant: "menu",
+  },
+  edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE", variant: "menu" },
+};
+
 export const GamepadInterface = () => {
-  const { isOnline, isOffline, wasOffline } = useOfflineStatus();
+  const { isOffline } = useOfflineStatus();
   const { theme, setTheme } = useTheme();
   const [lastMapNodeId, setLastMapNodeId] = useState<string | null>(null);
 
@@ -1003,224 +1030,14 @@ export const GamepadInterface = () => {
     );
   };
 
-  return (
-    <main className="terminal" aria-label="Story Interface">
-      <InstallPrompt />
-      <div ref={containerRef} className={`container ${layout}`}>
-        {/* Screen area */}
-        <section className="terminal-screen" aria-label="Story Display">
-          {/* Unified top mode bar */}
-          {(() => {
-            const map: Record<MenuType, { title: string; hint: string }> & {
-              null: { title: string; hint: string };
-            } = {
-              null: { title: "LOOM", hint: "START: MAP • SELECT: SETTINGS" },
-              map: { title: "MAP", hint: "SELECT: STORIES • START: LOOM" },
-              select: { title: "SETTINGS", hint: "START: CLOSE" },
-              start: {
-                title: "STORIES",
-                hint: "↵: OPEN • ⌫: DELETE • START: MAP",
-              },
-              models: {
-                title: "MODELS",
-                hint: "↵: EDIT • ⌫: DELETE • SELECT: SETTINGS",
-              },
-              edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
-            } as const;
-            const key = (activeMenu ?? "null") as keyof typeof map;
-            const entry = map[key];
-            return entry ? (
-              <ModeBar title={entry.title} hint={entry.hint} />
-            ) : null;
-          })()}
-          {activeMenu === "select" ? (
-            <>
-              <MenuScreen>
-                <SettingsMenu
-                  params={{ ...menuParams, theme }}
-                  onParamChange={(param, value) => {
-                    if (param === "theme") {
-                      setTheme(value as "matrix" | "light" | "system");
-                    } else {
-                      setMenuParams((prev) => ({ ...prev, [param]: value }));
-                    }
-                  }}
-                  selectedParam={selectedParam}
-                  isLoading={isAnyGenerating}
-                  models={models}
-                  modelsLoading={modelsLoading}
-                  modelsError={modelsError}
-                  getModelName={getModelName}
-                  onManageModels={() => showModelsMenu()}
-                />
-              </MenuScreen>
-            </>
-          ) : activeMenu === "map" ? (
-            <StoryMinimap
-              tree={storyTree}
-              currentDepth={currentDepth}
-              selectedOptions={selectedOptions}
-              currentPath={getCurrentPath()}
-              inFlight={inFlight}
-              generatingInfo={generatingInfo}
-              onSelectNode={(path) => {
-                setSelectionByPath(path);
-                setActiveMenu(null);
-                requestAnimationFrame(() => {
-                  const last = path[path.length - 1];
-                  if (last) {
-                    queueScroll({
-                      nodeId: last.id,
-                      reason: "map-select",
-                      priority: 90,
-                    });
-                  }
-                });
-              }}
-              isVisible={activeMenu === "map"}
-              lastMapNodeId={lastMapNodeId}
-              currentNodeId={highlightedNode.id}
-            />
-          ) : activeMenu === "start" ? (
-            <>
-              <MenuScreen>
-                <TreeListMenu
-                  trees={trees}
-                  selectedIndex={selectedTreeIndex}
-                  onSelect={(key) => {
-                    touchStoryActive(key);
-                    setCurrentTreeKey(key);
-                    setActiveMenu(null);
-                  }}
-                  onNew={() => {
-                    handleNewTree();
-                  }}
-                  onDelete={(key) => {
-                    handleDeleteTree(key);
-                    // Adjust selected index if needed
-                    if (selectedTreeIndex > 0) {
-                      setSelectedTreeIndex((prev) =>
-                        Math.min(prev, Object.keys(trees).length - 1),
-                      );
-                    }
-                  }}
-                />
-              </MenuScreen>
-            </>
-          ) : activeMenu === "models" ? (
-            <MenuScreen>
-              <ModelsMenu
-                modelEntries={sortedModelEntries}
-                selectedIndex={selectedModelIndex}
-                sortOrder={modelSort}
-                onToggleSort={cycleModelSort}
-                onSelectIndex={setSelectedModelIndex}
-                onNew={handleStartNewModel}
-                onEditModel={handleEditModel}
-                isLoading={modelsLoading || modelsSaving}
-                error={modelsError ?? undefined}
-              />
-            </MenuScreen>
-          ) : activeMenu === "model-editor" ? (
-            <MenuScreen>
-              <ModelEditor
-                formState={modelForm}
-                fields={modelEditorFields}
-                selectedField={currentModelEditorField}
-                onSelectField={handleModelEditorHighlight}
-                onActivateField={handleModelEditorActivate}
-                onChange={handleModelFormChange}
-                onSubmit={handleSubmitModel}
-                onCancel={handleCancelModelEdit}
-                onDelete={
-                  modelEditorMode === "edit" && editingModelId
-                    ? () => {
-                        void handleDeleteModel(editingModelId);
-                      }
-                    : undefined
-                }
-                mode={modelEditorMode}
-                isSaving={modelsSaving}
-                error={modelFormError}
-              />
-            </MenuScreen>
-          ) : activeMenu === "edit" ? (
-            <MenuScreen>
-              <EditMenu
-                node={getCurrentPath()[currentDepth]}
-                onSave={(text) => {
-                  const newTree = JSON.parse(JSON.stringify(storyTree)) as {
-                    root: StoryNode;
-                  };
-                  let current = newTree.root;
+  const activeMode = (activeMenu ?? "loom") as ActiveMode;
+  const screenMeta = MODE_METADATA[activeMode];
 
-                  for (let i = 1; i <= currentDepth; i++) {
-                    if (!current.continuations) break;
-                    current = current.continuations[selectedOptions[i - 1]];
-                  }
-
-                  // Conditionally split the edited text based on settings
-                  if (menuParams.textSplitting) {
-                    const nodeChain = splitTextToNodes(text);
-
-                    if (nodeChain) {
-                      // Replace current node with the head of the chain
-                      current.text = nodeChain.text;
-
-                      // Preserve existing continuations by attaching them to the end of the chain
-                      const existingContinuations = current.continuations || [];
-
-                      // Walk to the end of the new chain
-                      let chainEnd = nodeChain;
-                      while (
-                        chainEnd.continuations &&
-                        chainEnd.continuations.length > 0
-                      ) {
-                        chainEnd = chainEnd.continuations[0];
-                      }
-
-                      // Attach existing continuations to the end of the chain
-                      chainEnd.continuations = existingContinuations;
-
-                      // Replace the current node's continuations with the new chain
-                      current.continuations = nodeChain.continuations;
-                      if (nodeChain.lastSelectedIndex !== undefined) {
-                        current.lastSelectedIndex = nodeChain.lastSelectedIndex;
-                      }
-                    } else {
-                      // Fallback to simple text replacement if splitting fails
-                      current.text = text;
-                    }
-                  } else {
-                    // Simple text replacement when splitting is disabled
-                    current.text = text;
-                  }
-
-                  setStoryTree(newTree);
-                  // Mark story as updated for reverse-chronological order
-                  touchStoryUpdated(currentTreeKey);
-                  setActiveMenu(null);
-
-                  // Align to end of updated content after text splitting
-                  requestAnimationFrame(() => {
-                    const path = getCurrentPath();
-                    const last = path[path.length - 1];
-                    if (last) {
-                      queueScroll({
-                        nodeId: last.id,
-                        reason: "edit-save",
-                        priority: 60,
-                      });
-                    }
-                  });
-                }}
-                onCancel={() => setActiveMenu(null)}
-              />
-            </MenuScreen>
-          ) : null}
-
-          {/* Keep LOOM mounted; hide when a menu is active. Use display: contents to preserve flex context */}
-          <div style={{ display: activeMenu ? "none" : ("contents" as const) }}>
+  const screenContent = (() => {
+    switch (activeMode) {
+      case "loom":
+        return (
+          <div className="gameboy-screen__surface">
             {renderStoryText()}
             <NavigationDots
               options={getOptionsAtDepth(currentDepth)}
@@ -1241,6 +1058,208 @@ export const GamepadInterface = () => {
               </output>
             )}
           </div>
+        );
+      case "map":
+        return (
+          <div className="gameboy-screen__surface view-fade">
+            <StoryMinimap
+              tree={storyTree}
+              currentDepth={currentDepth}
+              selectedOptions={selectedOptions}
+              inFlight={inFlight}
+              generatingInfo={generatingInfo}
+              currentPath={getCurrentPath()}
+              onSelectNode={(path) => {
+                setSelectionByPath(path);
+                setActiveMenu(null);
+                requestAnimationFrame(() => {
+                  const last = path[path.length - 1];
+                  if (last) {
+                    queueScroll({
+                      nodeId: last.id,
+                      reason: "map-select",
+                      priority: 90,
+                    });
+                  }
+                });
+              }}
+              isVisible={activeMode === "map"}
+              lastMapNodeId={lastMapNodeId}
+              currentNodeId={highlightedNode.id}
+            />
+          </div>
+        );
+      case "select":
+        return (
+          <SettingsMenu
+            params={{ ...menuParams, theme }}
+            onParamChange={(param, value) => {
+              if (param === "theme") {
+                setTheme(value as Parameters<typeof setTheme>[0]);
+              } else {
+                setMenuParams((prev) => ({ ...prev, [param]: value }));
+              }
+            }}
+            selectedParam={selectedParam}
+            isLoading={isAnyGenerating}
+            models={models}
+            modelsLoading={modelsLoading}
+            modelsError={modelsError}
+            getModelName={getModelName}
+            onManageModels={() => showModelsMenu()}
+          />
+        );
+      case "start":
+        return (
+          <TreeListMenu
+            trees={trees}
+            selectedIndex={selectedTreeIndex}
+            onSelect={(key) => {
+              touchStoryActive(key);
+              setCurrentTreeKey(key);
+              setActiveMenu(null);
+            }}
+            onNew={() => {
+              handleNewTree();
+            }}
+            onDelete={(key) => {
+              handleDeleteTree(key);
+              if (selectedTreeIndex > 0) {
+                setSelectedTreeIndex((prev) =>
+                  Math.min(prev, Object.keys(trees).length - 1),
+                );
+              }
+            }}
+          />
+        );
+      case "models":
+        return (
+          <ModelsMenu
+            modelEntries={sortedModelEntries}
+            selectedIndex={selectedModelIndex}
+            sortOrder={modelSort}
+            onToggleSort={cycleModelSort}
+            onSelectIndex={setSelectedModelIndex}
+            onNew={handleStartNewModel}
+            onEditModel={handleEditModel}
+            isLoading={modelsLoading || modelsSaving}
+            error={modelsError ?? undefined}
+          />
+        );
+      case "model-editor":
+        return (
+          <ModelEditor
+            formState={modelForm}
+            fields={modelEditorFields}
+            selectedField={currentModelEditorField}
+            onSelectField={handleModelEditorHighlight}
+            onActivateField={handleModelEditorActivate}
+            onChange={handleModelFormChange}
+            onSubmit={handleSubmitModel}
+            onCancel={handleCancelModelEdit}
+            onDelete={
+              modelEditorMode === "edit" && editingModelId
+                ? () => {
+                    void handleDeleteModel(editingModelId);
+                  }
+                : undefined
+            }
+            mode={modelEditorMode}
+            isSaving={modelsSaving}
+            error={modelFormError}
+          />
+        );
+      case "edit":
+        return (
+          <EditMenu
+            node={getCurrentPath()[currentDepth]}
+            onSave={(text) => {
+              const newTree = JSON.parse(JSON.stringify(storyTree)) as {
+                root: StoryNode;
+              };
+              let current = newTree.root;
+
+              for (let i = 1; i <= currentDepth; i++) {
+                if (!current.continuations) break;
+                current = current.continuations[selectedOptions[i - 1]];
+              }
+
+              // Conditionally split the edited text based on settings
+              if (menuParams.textSplitting) {
+                const nodeChain = splitTextToNodes(text);
+
+                if (nodeChain) {
+                  // Replace current node with the head of the chain
+                  current.text = nodeChain.text;
+
+                  // Preserve existing continuations by attaching them to the end of the chain
+                  const existingContinuations = current.continuations || [];
+
+                  // Walk to the end of the new chain
+                  let chainEnd = nodeChain;
+                  while (
+                    chainEnd.continuations &&
+                    chainEnd.continuations.length > 0
+                  ) {
+                    chainEnd = chainEnd.continuations[0];
+                  }
+
+                  // Attach existing continuations to the end of the chain
+                  chainEnd.continuations = existingContinuations;
+
+                  // Replace the current node's continuations with the new chain
+                  current.continuations = nodeChain.continuations;
+                  if (nodeChain.lastSelectedIndex !== undefined) {
+                    current.lastSelectedIndex = nodeChain.lastSelectedIndex;
+                  }
+                } else {
+                  // Fallback to simple text replacement if splitting fails
+                  current.text = text;
+                }
+              } else {
+                // Simple text replacement when splitting is disabled
+                current.text = text;
+              }
+
+              setStoryTree(newTree);
+              // Mark story as updated for reverse-chronological order
+              touchStoryUpdated(currentTreeKey);
+              setActiveMenu(null);
+
+              // Align to end of updated content after text splitting
+              requestAnimationFrame(() => {
+                const path = getCurrentPath();
+                const last = path[path.length - 1];
+                if (last) {
+                  queueScroll({
+                    nodeId: last.id,
+                    reason: "edit-save",
+                    priority: 60,
+                  });
+                }
+              });
+            }}
+            onCancel={() => setActiveMenu(null)}
+          />
+        );
+      default:
+        return null;
+    }
+  })();
+
+  return (
+    <main className="terminal" aria-label="Story Interface">
+      <InstallPrompt />
+      <div ref={containerRef} className={`container ${layout}`}>
+        {/* Screen area */}
+        <section className="terminal-screen" aria-label="Story Display">
+          <GameBoyScreen
+            title={screenMeta.title}
+            hint={screenMeta.hint}
+            variant={screenMeta.variant}
+          >
+            {screenContent}
+          </GameBoyScreen>
         </section>
 
         {/* Controls */}
