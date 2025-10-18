@@ -75,15 +75,20 @@ export function useStoryTree(params: StoryParams) {
   );
   const [currentDepth, setCurrentDepth] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
-  const [inFlight, setInFlight] = useState<InFlight>(new Set());
+  const [inFlight, setInFlight] = useState<InFlight>(() => new Map());
   const [generatingInfo, setGeneratingInfo] = useState<GeneratingInfo>({});
 
   const { generateContinuation, error } = useStoryGeneration();
 
+  const getInFlightCount = useCallback(
+    (nodeId: string) => inFlight.get(nodeId) ?? 0,
+    [inFlight],
+  );
+
   // Helper to check if a specific node is generating
   const isGeneratingAt = useCallback(
-    (nodeId: string) => inFlight.has(nodeId),
-    [inFlight],
+    (nodeId: string) => getInFlightCount(nodeId) > 0,
+    [getInFlightCount],
   );
 
   // Helper to check if any generation is in progress
@@ -274,19 +279,33 @@ export function useStoryTree(params: StoryParams) {
           const currentNode = currentPath[currentDepth];
           const hasExistingContinuations =
             currentNode.continuations?.length > 0;
+
+          if (!hasExistingContinuations && isGeneratingAt(currentNode.id)) {
+            return;
+          }
+
           const count = hasExistingContinuations ? 1 : 3;
+          const batchSize = count;
 
           // Add node to in-flight set and track generation info
-          setInFlight((prev) => new Set(prev).add(currentNode.id));
-          setGeneratingInfo((prev) => ({
-            ...prev,
-            [currentNode.id]: {
-              depth: currentDepth,
-              index: hasExistingContinuations
-                ? (currentNode.continuations?.length ?? 0)
-                : null,
-            },
-          }));
+          setInFlight((prev) => {
+            const next = new Map(prev);
+            next.set(currentNode.id, (next.get(currentNode.id) ?? 0) + 1);
+            return next;
+          });
+          setGeneratingInfo((prev) => {
+            const existing = prev[currentNode.id];
+            const pendingCount = (existing?.pendingCount ?? 0) + 1;
+
+            return {
+              ...prev,
+              [currentNode.id]: {
+                depth: currentDepth,
+                batchSize,
+                pendingCount,
+              },
+            };
+          });
 
           try {
             const newContinuations = await generateContinuations(count);
@@ -321,14 +340,32 @@ export function useStoryTree(params: StoryParams) {
           } finally {
             // Remove node from in-flight set and clear generation info
             setInFlight((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(currentNode.id);
-              return newSet;
+              const next = new Map(prev);
+              const remaining = (next.get(currentNode.id) ?? 1) - 1;
+              if (remaining <= 0) {
+                next.delete(currentNode.id);
+              } else {
+                next.set(currentNode.id, remaining);
+              }
+              return next;
             });
             setGeneratingInfo((prev) => {
-              const newInfo = { ...prev };
-              delete newInfo[currentNode.id];
-              return newInfo;
+              const existing = prev[currentNode.id];
+              if (!existing) return prev;
+
+              const pendingCount = existing.pendingCount - 1;
+              if (pendingCount <= 0) {
+                const { [currentNode.id]: _, ...rest } = prev;
+                return rest;
+              }
+
+              return {
+                ...prev,
+                [currentNode.id]: {
+                  ...existing,
+                  pendingCount,
+                },
+              };
             });
           }
           break;
