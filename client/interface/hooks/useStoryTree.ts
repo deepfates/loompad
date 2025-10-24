@@ -289,9 +289,8 @@ export function useStoryTree(params: StoryParams) {
         const selectedNode = candidateNodes[choiceIndex];
         if (!selectedNode) break;
 
-        if (selectedNode.continuations?.length) {
-          break;
-        }
+        // Remember the model's preference so navigation follows the auto-expanded path
+        parentNode.lastSelectedIndex = choiceIndex;
 
         const selectedPathIds = [...currentPathIds, selectedNode.id];
         const selectedPath = resolvePath(workingTree, selectedPathIds);
