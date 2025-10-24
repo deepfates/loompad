@@ -94,8 +94,19 @@ export const SettingsMenu = ({
         onChange={(value) => onParamChange("textSplitting", value)}
         selected={selectedParam === 4}
       />
+      <MenuKnob
+        label="Auto Mode"
+        value={params.autoModeIterations}
+        min={0}
+        max={3}
+        step={1}
+        onChange={(value) =>
+          onParamChange("autoModeIterations", Math.round(value))
+        }
+        selected={selectedParam === 5}
+      />
       <div
-        className={`menu-item ${selectedParam === 5 ? "selected" : ""}`}
+        className={`menu-item ${selectedParam === 6 ? "selected" : ""}`}
         role="button"
         tabIndex={0}
         onClick={() => onManageModels?.()}

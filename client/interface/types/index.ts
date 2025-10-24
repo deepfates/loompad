@@ -44,6 +44,7 @@ export interface SettingsMenuProps {
     lengthMode: LengthMode;
     model: ModelId;
     textSplitting: boolean;
+    autoModeIterations: number;
     theme: Theme;
   };
   onParamChange: (param: string, value: number | string | boolean) => void;
