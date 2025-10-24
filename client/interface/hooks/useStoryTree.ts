@@ -292,6 +292,20 @@ export function useStoryTree(params: StoryParams) {
         // Remember the model's preference so navigation follows the auto-expanded path
         parentNode.lastSelectedIndex = choiceIndex;
 
+        // Align the user's explicit selection state with the model's choice so
+        // subsequent navigation (e.g. pressing ArrowDown) follows the
+        // auto-expanded branch instead of staying on the previously selected
+        // sibling.
+        setSelectedOptions((prev) => {
+          const next = [...prev];
+          if (next.length <= currentDepth) {
+            const fillCount = currentDepth - next.length + 1;
+            next.push(...Array(fillCount).fill(0));
+          }
+          next[currentDepth] = choiceIndex;
+          return next.slice(0, currentDepth + 1);
+        });
+
         const selectedPathIds = [...currentPathIds, selectedNode.id];
         const selectedPath = resolvePath(workingTree, selectedPathIds);
         if (!selectedPath) break;
@@ -376,6 +390,7 @@ export function useStoryTree(params: StoryParams) {
       chooseContinuation,
       generateContinuation,
       addContinuations,
+      setSelectedOptions,
       setInFlight,
       setGeneratingInfo,
     ],
