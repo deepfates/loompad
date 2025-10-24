@@ -1,6 +1,4 @@
 import type { Request, Response } from "express";
-import OpenAI from "openai";
-import { config } from "../config";
 import type { ModelId } from "../../shared/models";
 import { getModel } from "../modelsStore";
 import {
@@ -26,15 +24,7 @@ import {
  * (see getBoundaryRegex and findBoundaryCutoff in this module). This preserves
  * delimiters exactly as generated and gives us more flexible control.
  */
-// Initialize OpenAI client with OpenRouter base URL
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: config.openRouterApiKey,
-  defaultHeaders: {
-    "HTTP-Referer": "https://loompad.dev",
-    "X-Title": "LoomPad",
-  },
-});
+import { openai } from "./openaiClient";
 
 interface GenerateRequest {
   prompt: string;

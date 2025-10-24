@@ -126,75 +126,32 @@ export function useStoryGeneration() {
       options,
     ].join("\n\n");
 
-    let result = "";
-
-    await generate(
-      rankingPrompt,
-      {
-        model: params.model,
-        temperature: Math.max(0.1, Math.min(params.temperature, 0.8)),
-        lengthMode: "sentence",
-      },
-      (token) => {
-        result += token;
-      },
-      () => {},
-    );
-
-    const trimmed = result.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
-    const jsonCandidate = jsonMatch ? jsonMatch[0] : trimmed;
-
-    const parseChoice = (value: unknown): number | null => {
-      if (typeof value === "number" && Number.isFinite(value)) {
-        return Math.trunc(value);
-      }
-      if (typeof value === "string") {
-        const num = Number.parseInt(value, 10);
-        if (Number.isFinite(num)) {
-          return num;
-        }
-      }
-      return null;
-    };
-
-    const candidateCount = candidates.length;
-
     try {
-      const parsed = JSON.parse(jsonCandidate);
-      const rawChoice = parseChoice(
-        (parsed as { choice?: unknown; index?: unknown; selection?: unknown })
-          .choice ??
-          (parsed as { index?: unknown }).index ??
-          (parsed as { selection?: unknown }).selection,
-      );
-      if (rawChoice !== null) {
-        if (rawChoice <= 0) {
-          return null;
-        }
-        if (rawChoice >= 1 && rawChoice <= candidateCount) {
-          return rawChoice - 1;
-        }
+      const response = await fetch("/api/judge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: rankingPrompt,
+          model: params.model,
+          temperature: Math.max(0.1, Math.min(params.temperature, 0.8)),
+          maxTokens: 96,
+          candidateCount: candidates.length,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Judge request failed", await response.text());
+        return null;
+      }
+
+      const payload = (await response.json()) as { choice: number | null };
+      if (typeof payload.choice === "number") {
+        return payload.choice;
       }
     } catch (err) {
-      console.warn("Failed to parse auto-mode selection JSON:", err, result);
-    }
-
-    const fallbackMatch = trimmed.match(/\d+/);
-    if (fallbackMatch) {
-      const numeric = Number.parseInt(fallbackMatch[0] ?? "", 10);
-      if (Number.isFinite(numeric)) {
-        if (numeric <= 0) {
-          return null;
-        }
-        if (numeric >= 1 && numeric <= candidateCount) {
-          return numeric - 1;
-        }
-      }
+      console.error("Auto-mode judge error", err);
     }
 
     return null;
