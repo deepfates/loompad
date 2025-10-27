@@ -99,7 +99,6 @@ export async function judgeContinuation(req: Request, res: Response) {
       temperature: temperature ?? Math.min(modelConfig.defaultTemp, 0.8),
       max_tokens: limit,
       stream: false,
-      stop: ["\n", "\r"],
     });
 
     const raw =
