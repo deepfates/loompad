@@ -378,6 +378,12 @@ export function useStoryTree(params: StoryParams) {
           true,
         );
 
+        setStoryTree(workingTree);
+        setTrees((prev) => ({
+          ...prev,
+          [currentTreeKey]: workingTree,
+        }));
+
         currentPathIds = leafPath.map((node) => node.id);
         currentChildIds = autoChildren.map((child) => child.id);
         currentDepth = targetDepth;
@@ -393,6 +399,9 @@ export function useStoryTree(params: StoryParams) {
       setSelectedOptions,
       setInFlight,
       setGeneratingInfo,
+      setStoryTree,
+      setTrees,
+      currentTreeKey,
     ],
   );
 
