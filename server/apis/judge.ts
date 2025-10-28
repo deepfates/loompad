@@ -3,6 +3,75 @@ import type { ModelId } from "../../shared/models";
 import { getModel } from "../modelsStore";
 import { openai } from "./openaiClient";
 
+const JUDGE_SCHEMA = {
+  type: "json_schema" as const,
+  name: "judge_choice",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      choice: {
+        description:
+          "Index of the option to expand next. Use 0 when no option should be chosen.",
+        type: "integer",
+        minimum: 0,
+        maximum: 100,
+      },
+    },
+    required: ["choice"],
+    additionalProperties: false,
+  },
+};
+
+async function runStructuredJudge(params: JudgeRequest & { limit: number }) {
+  const { prompt, model, temperature, limit } = params;
+
+  try {
+    const response = await openai.responses.parse({
+      model,
+      input: prompt,
+      temperature: temperature ?? 0.2,
+      max_output_tokens: limit,
+      text: {
+        format: JUDGE_SCHEMA,
+      },
+    });
+
+    const raw = response.output_text ?? "";
+    const parsed =
+      parseChoiceValue((response.output_parsed as { choice?: unknown } | null)?.choice) ??
+      extractChoice(raw);
+
+    if (parsed === null) {
+      return null;
+    }
+
+    return { choice: parsed, raw };
+  } catch (error) {
+    console.warn("Structured judge call failed, falling back to completions", error);
+    return null;
+  }
+}
+
+async function runCompletionJudge(
+  params: JudgeRequest & { limit: number },
+): Promise<{ choice: number | null; raw: string }> {
+  const { prompt, model, temperature, limit } = params;
+
+  const completion = await openai.completions.create({
+    model,
+    prompt,
+    temperature: temperature ?? 0.2,
+    max_tokens: limit,
+    stream: false,
+  });
+
+  const raw = completion.choices?.map((choice) => choice.text ?? "").join("") ?? "";
+  const parsedChoice = extractChoice(raw);
+
+  return { choice: parsedChoice, raw };
+}
+
 interface JudgeRequest {
   prompt: string;
   model: ModelId;
@@ -93,18 +162,28 @@ export async function judgeContinuation(req: Request, res: Response) {
       FALLBACK_MAX_TOKENS,
     );
 
-    const completion = await openai.completions.create({
-      model,
+    const structured = await runStructuredJudge({
       prompt,
+      model,
       temperature: temperature ?? Math.min(modelConfig.defaultTemp, 0.8),
-      max_tokens: limit,
-      stream: false,
+      limit,
+      candidateCount,
     });
 
-    const raw =
-      completion.choices?.map((choice) => choice.text ?? "").join("") ?? "";
+    let raw = structured?.raw ?? "";
+    let parsedChoice = structured?.choice ?? null;
 
-    const parsedChoice = extractChoice(raw);
+    if (parsedChoice === null) {
+      const fallback = await runCompletionJudge({
+        prompt,
+        model,
+        temperature: temperature ?? Math.min(modelConfig.defaultTemp, 0.8),
+        limit,
+        candidateCount,
+      });
+      raw = fallback.raw;
+      parsedChoice = fallback.choice;
+    }
 
     if (parsedChoice === null || parsedChoice <= 0) {
       return res.json({ choice: null, raw });
