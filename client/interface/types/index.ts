@@ -62,6 +62,8 @@ export interface TreeListProps {
   onSelect: (key: string) => void;
   onDelete?: (key: string) => void;
   onNew?: () => void;
+  onExportJson?: (key: string) => void;
+  onExportThread?: (key: string) => void;
 }
 
 export interface GamepadButtonProps {

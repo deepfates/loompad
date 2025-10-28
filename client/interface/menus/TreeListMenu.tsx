@@ -7,6 +7,8 @@ export const TreeListMenu = ({
   onSelect,
   onDelete,
   onNew,
+  onExportJson,
+  onExportThread,
 }: TreeListProps) => {
   const treeEntries = sortTreeEntriesByRecency(trees);
 
@@ -32,8 +34,36 @@ export const TreeListMenu = ({
         >
           <div className="menu-item-label">{key}</div>
           <div className="menu-item-preview">
-            {tree.root.text.slice(0, 50)}...
+            {(tree.root.text ?? "").slice(0, 50)}...
           </div>
+          {(onExportJson || onExportThread) && (
+            <div className="menu-item-actions" aria-label="Story actions">
+              {onExportJson ? (
+                <button
+                  type="button"
+                  className="menu-item-action"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExportJson(key);
+                  }}
+                >
+                  Save
+                </button>
+              ) : null}
+              {onExportThread ? (
+                <button
+                  type="button"
+                  className="menu-item-action"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExportThread(key);
+                  }}
+                >
+                  Print
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
       ))}
     </div>

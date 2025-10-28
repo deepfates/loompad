@@ -40,6 +40,10 @@ import {
   touchStoryUpdated,
   touchStoryActive,
 } from "./utils/storyMeta";
+import {
+  downloadStoryThreadText,
+  downloadStoryTreeJson,
+} from "./utils/storyExport";
 
 const DEFAULT_PARAMS = {
   temperature: 0.7,
@@ -243,6 +247,24 @@ export const GamepadInterface = () => {
       }
     },
     [currentTreeKey, trees, setTrees, setCurrentTreeKey],
+  );
+
+  const handleExportTree = useCallback(
+    (key: string) => {
+      const tree = trees[key];
+      if (!tree) return;
+      downloadStoryTreeJson(key, tree);
+    },
+    [trees],
+  );
+
+  const handleExportThread = useCallback(
+    (key: string) => {
+      const tree = trees[key];
+      if (!tree) return;
+      downloadStoryThreadText(key, tree);
+    },
+    [trees],
   );
 
   const cycleModelSort = useCallback((_delta: -1 | 1 = 1) => {
@@ -1104,6 +1126,8 @@ export const GamepadInterface = () => {
                       );
                     }
                   }}
+                  onExportJson={handleExportTree}
+                  onExportThread={handleExportThread}
                 />
               </MenuScreen>
             </>

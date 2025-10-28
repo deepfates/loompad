@@ -1693,6 +1693,38 @@ progress::-moz-progress-bar {
     white-space: nowrap;
 }
 
+.menu-item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.menu-item-action {
+    appearance: none;
+    background: transparent;
+    border: 0.125rem solid var(--font-color);
+    color: var(--font-color);
+    cursor: pointer;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.75rem;
+    text-transform: uppercase;
+    transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.menu-item-action:focus-visible,
+.menu-item-action:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 0.25rem var(--primary-color);
+    outline: none;
+}
+
+.menu-item-action:active {
+    transform: translateY(1px);
+}
+
 .models-menu {
     flex: 1;
     padding-right: 1rem;
