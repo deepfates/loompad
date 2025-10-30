@@ -20,6 +20,8 @@ interface MenuCallbacks {
   onNewTree?: () => void;
   onSelectTree?: (key: string) => void;
   onDeleteTree?: (key: string) => void;
+  onExportTreeJson?: (key: string) => void;
+  onExportTreeThread?: (key: string) => void;
   // Settings menu (theme)
   currentTheme?: Theme;
   onThemeChange?: (theme: Theme) => void;
@@ -42,6 +44,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const [activeMenu, setActiveMenu] = useState<MenuType>(null);
   const [selectedParam, setSelectedParam] = useState(0);
   const [selectedTreeIndex, setSelectedTreeIndex] = useState(0);
+  const [selectedTreeColumn, setSelectedTreeColumn] = useState(0);
   const [selectedModelIndex, setSelectedModelIndex] = useState(0);
   const [selectedModelField, setSelectedModelField] = useState(0);
   const [menuParams, setMenuParams] = useState<MenuParams>(defaultParams);
@@ -248,6 +251,18 @@ export function useMenuSystem(defaultParams: MenuParams) {
       } else if (activeMenu === "start") {
         const orderedKeys = orderKeysReverseChronological(trees);
         const totalItems = orderedKeys.length + 1; // +1 for New Story
+        const columnTypes: Array<"story" | "json" | "thread"> = ["story"];
+        if (callbacks.onExportTreeJson) {
+          columnTypes.push("json");
+        }
+        if (callbacks.onExportTreeThread) {
+          columnTypes.push("thread");
+        }
+
+        const getMaxColumnForIndex = (index: number) => {
+          if (index === 0) return 0;
+          return columnTypes.length - 1;
+        };
 
         switch (key) {
           case "ArrowUp":
@@ -263,6 +278,9 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   scrollMenuItemElIntoView(container, el);
                 }
               }
+              setSelectedTreeColumn((column) =>
+                Math.min(column, getMaxColumnForIndex(newIndex)),
+              );
               return newIndex;
             });
             break;
@@ -279,16 +297,37 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   scrollMenuItemElIntoView(container, el);
                 }
               }
+              setSelectedTreeColumn((column) =>
+                Math.min(column, getMaxColumnForIndex(newIndex)),
+              );
               return newIndex;
+            });
+            break;
+          case "ArrowLeft":
+            setSelectedTreeColumn((prev) => Math.max(0, prev - 1));
+            break;
+          case "ArrowRight":
+            setSelectedTreeColumn((prev) => {
+              const maxColumn = getMaxColumnForIndex(selectedTreeIndex);
+              return Math.min(maxColumn, prev + 1);
             });
             break;
           case "Enter": // A button
             if (selectedTreeIndex === 0) {
               callbacks.onNewTree?.();
-            } else {
+            } else if (selectedTreeColumn === 0) {
               const treeKey = orderedKeys[selectedTreeIndex - 1];
               touchStoryActive(treeKey);
               callbacks.onSelectTree?.(treeKey);
+            } else {
+              const treeKey = orderedKeys[selectedTreeIndex - 1];
+              const columnType = columnTypes[selectedTreeColumn];
+              if (columnType === "json") {
+                callbacks.onExportTreeJson?.(treeKey);
+              } else if (columnType === "thread") {
+                callbacks.onExportTreeThread?.(treeKey);
+              }
+              return;
             }
             break;
           case "Backspace": // B button
@@ -438,6 +477,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
       activeMenu,
       selectedParam,
       selectedTreeIndex,
+      selectedTreeColumn,
       selectedModelIndex,
       selectedModelField,
       menuParams,
@@ -452,6 +492,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
     setSelectedParam,
     selectedTreeIndex,
     setSelectedTreeIndex,
+    selectedTreeColumn,
+    setSelectedTreeColumn,
     selectedModelIndex,
     setSelectedModelIndex,
     selectedModelField,
