@@ -23,6 +23,7 @@ interface StoryParams {
   lengthMode: LengthMode;
   model: ModelId;
   textSplitting: boolean;
+  autoModeIterations: number;
 }
 
 export function useStoryTree(params: StoryParams) {
@@ -38,7 +39,8 @@ export function useStoryTree(params: StoryParams) {
   const [inFlight, setInFlight] = useState<InFlight>(new Set());
   const [generatingInfo, setGeneratingInfo] = useState<GeneratingInfo>({});
 
-  const { generateContinuation, error } = useStoryGeneration();
+  const { generateContinuation, chooseContinuation, error } =
+    useStoryGeneration();
 
   // Helper to check if a specific node is generating
   const isGeneratingAt = useCallback(
@@ -163,11 +165,12 @@ export function useStoryTree(params: StoryParams) {
 
   const addContinuations = useCallback(
     (
+      baseTree: { root: StoryNode },
       path: StoryNode[],
       newContinuations: StoryNode[],
       isNewChildren: boolean,
     ) => {
-      const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
+      const newTree = JSON.parse(JSON.stringify(baseTree)) as typeof baseTree;
       let current = newTree.root;
 
       // Navigate to the target node using path IDs to ensure we find the right node
@@ -202,7 +205,204 @@ export function useStoryTree(params: StoryParams) {
 
       return newTree;
     },
-    [storyTree],
+    [],
+  );
+
+  const autoExpandChildren = useCallback(
+    async (
+      baseTree: { root: StoryNode },
+      parentPath: StoryNode[],
+      generatedChildren: StoryNode[],
+      depth: number,
+      params: StoryParams,
+    ) => {
+      if (params.autoModeIterations <= 0) {
+        return baseTree;
+      }
+
+      if (!generatedChildren.length) {
+        return baseTree;
+      }
+
+      const resolvePath = (
+        tree: { root: StoryNode },
+        ids: string[],
+      ): StoryNode[] | null => {
+        if (!ids.length) return null;
+        const path: StoryNode[] = [];
+        let current: StoryNode | undefined = tree.root;
+        if (!current) return null;
+        path.push(current);
+        if (ids[0] !== current.id) {
+          return null;
+        }
+        for (let i = 1; i < ids.length; i++) {
+          const nextId = ids[i];
+          if (!current?.continuations) return null;
+          const nextNode = current.continuations.find(
+            (node) => node.id === nextId,
+          );
+          if (!nextNode) return null;
+          current = nextNode;
+          path.push(current);
+        }
+        return path;
+      };
+
+      let iterationsRemaining = params.autoModeIterations;
+      let workingTree = baseTree;
+      let currentDepth = depth;
+      let currentPathIds = parentPath.map((node) => node.id);
+      let currentChildIds = generatedChildren.map((node) => node.id);
+
+      while (iterationsRemaining > 0) {
+        const pathNodes = resolvePath(workingTree, currentPathIds);
+        if (!pathNodes) break;
+
+        const parentNode = pathNodes[pathNodes.length - 1];
+        if (!parentNode?.continuations?.length) break;
+
+        const candidateNodes = currentChildIds
+          .map((id) =>
+            parentNode.continuations?.find((node) => node.id === id) ?? null,
+          )
+          .filter((node): node is StoryNode => Boolean(node));
+
+        if (!candidateNodes.length) {
+          break;
+        }
+
+        const choiceIndex = await chooseContinuation(
+          pathNodes,
+          candidateNodes,
+          params,
+        );
+
+        if (
+          choiceIndex === null ||
+          choiceIndex < 0 ||
+          choiceIndex >= candidateNodes.length
+        ) {
+          break;
+        }
+
+        const selectedNode = candidateNodes[choiceIndex];
+        if (!selectedNode) break;
+
+        // Remember the model's preference so navigation follows the auto-expanded path
+        parentNode.lastSelectedIndex = choiceIndex;
+
+        // Align the user's explicit selection state with the model's choice so
+        // subsequent navigation (e.g. pressing ArrowDown) follows the
+        // auto-expanded branch instead of staying on the previously selected
+        // sibling.
+        setSelectedOptions((prev) => {
+          const next = [...prev];
+          if (next.length <= currentDepth) {
+            const fillCount = currentDepth - next.length + 1;
+            next.push(...Array(fillCount).fill(0));
+          }
+          next[currentDepth] = choiceIndex;
+          return next.slice(0, currentDepth + 1);
+        });
+
+        const selectedPathIds = [...currentPathIds, selectedNode.id];
+        const selectedPath = resolvePath(workingTree, selectedPathIds);
+        if (!selectedPath) break;
+
+        const extendPathToLeaf = (path: StoryNode[]): StoryNode[] => {
+          const extended = [...path];
+          let current = extended[extended.length - 1];
+          const seen = new Set<string>(extended.map((node) => node.id));
+          while (
+            current?.continuations &&
+            current.continuations.length === 1
+          ) {
+            const next = current.continuations[0];
+            if (!next || seen.has(next.id)) break;
+            extended.push(next);
+            seen.add(next.id);
+            current = next;
+          }
+          return extended;
+        };
+
+        const leafPath = extendPathToLeaf(selectedPath);
+        const targetNode = leafPath[leafPath.length - 1];
+        if (!targetNode) break;
+
+        if (targetNode.continuations?.length) {
+          break;
+        }
+
+        const targetDepth = leafPath.length - 1;
+
+        setInFlight((prev) => new Set(prev).add(targetNode.id));
+        setGeneratingInfo((prev) => ({
+          ...prev,
+          [targetNode.id]: {
+            depth: targetDepth,
+            index: null,
+          },
+        }));
+
+        let autoChildren: StoryNode[] = [];
+        try {
+          autoChildren = await Promise.all(
+            Array(3)
+              .fill(null)
+              .map(() =>
+                generateContinuation(leafPath, targetDepth, params),
+              ),
+          );
+        } catch (err) {
+          console.error("Auto-mode generation failed:", err);
+          break;
+        } finally {
+          setInFlight((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(targetNode.id);
+            return newSet;
+          });
+          setGeneratingInfo((prev) => {
+            const newInfo = { ...prev };
+            delete newInfo[targetNode.id];
+            return newInfo;
+          });
+        }
+
+        workingTree = addContinuations(
+          workingTree,
+          leafPath,
+          autoChildren,
+          true,
+        );
+
+        setStoryTree(workingTree);
+        setTrees((prev) => ({
+          ...prev,
+          [currentTreeKey]: workingTree,
+        }));
+
+        currentPathIds = leafPath.map((node) => node.id);
+        currentChildIds = autoChildren.map((child) => child.id);
+        currentDepth = targetDepth;
+        iterationsRemaining -= 1;
+      }
+
+      return workingTree;
+    },
+    [
+      chooseContinuation,
+      generateContinuation,
+      addContinuations,
+      setSelectedOptions,
+      setInFlight,
+      setGeneratingInfo,
+      setStoryTree,
+      setTrees,
+      currentTreeKey,
+    ],
   );
 
   const handleStoryNavigation = useCallback(
@@ -295,11 +495,23 @@ export function useStoryTree(params: StoryParams) {
           try {
             const newContinuations = await generateContinuations(count);
 
-            const updatedTree = addContinuations(
-              currentPath.slice(0, currentDepth + 1),
+            const parentPath = currentPath.slice(0, currentDepth + 1);
+            let updatedTree = addContinuations(
+              storyTree,
+              parentPath,
               newContinuations,
               !hasExistingContinuations,
             );
+
+            if (!hasExistingContinuations && params.autoModeIterations > 0) {
+              updatedTree = await autoExpandChildren(
+                updatedTree,
+                parentPath,
+                newContinuations,
+                currentDepth,
+                params,
+              );
+            }
 
             // Don't auto-jump to new nodes - let user navigate manually
             // The new nodes will be visible in the reader and minimap
@@ -340,11 +552,14 @@ export function useStoryTree(params: StoryParams) {
       selectedOptions,
       generateContinuations,
       addContinuations,
+      autoExpandChildren,
+      storyTree,
       currentTreeKey,
       setTrees,
       getLastSelectedIndex,
       updateLastSelectedIndex,
       isGeneratingAt,
+      params,
     ],
   );
 

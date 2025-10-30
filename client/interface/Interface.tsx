@@ -50,6 +50,7 @@ const DEFAULT_PARAMS = {
   lengthMode: DEFAULT_LENGTH_MODE,
   model: "meta-llama/llama-3.1-405b" as ModelId,
   textSplitting: true,
+  autoModeIterations: 0,
 };
 
 const createEmptyModelForm = (): ModelFormState => ({

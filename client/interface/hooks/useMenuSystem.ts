@@ -14,6 +14,7 @@ interface MenuParams {
   lengthMode: LengthMode;
   model: ModelId;
   textSplitting: boolean;
+  autoModeIterations: number;
 }
 
 interface MenuCallbacks {
@@ -68,6 +69,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
           | "model"
           | "theme"
           | "textSplitting"
+          | "autoModeIterations"
           | "manageModels"
         )[] = [
           "temperature",
@@ -75,6 +77,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
           "model",
           "theme",
           "textSplitting",
+          "autoModeIterations",
           "manageModels",
         ];
 
@@ -155,6 +158,13 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 textSplitting: !prev.textSplitting,
               }));
+            } else if (param === "autoModeIterations") {
+              setMenuParams((prev) => ({
+                ...prev,
+                autoModeIterations: Math.max(0, prev.autoModeIterations - 1),
+              }));
+            } else if (param === "manageModels") {
+              callbacks.onManageModels?.();
             }
             break;
           }
@@ -201,6 +211,13 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 textSplitting: !prev.textSplitting,
               }));
+            } else if (param === "autoModeIterations") {
+              setMenuParams((prev) => ({
+                ...prev,
+                autoModeIterations: Math.min(3, prev.autoModeIterations + 1),
+              }));
+            } else if (param === "manageModels") {
+              callbacks.onManageModels?.();
             }
             break;
           }

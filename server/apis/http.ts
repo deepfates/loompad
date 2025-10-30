@@ -5,6 +5,7 @@ import nocache from "nocache";
 import express, { Application } from "express";
 import { getMainProps } from "server/main_props";
 import { generateText } from "./generation";
+import { judgeContinuation } from "./judge";
 import {
   getModels,
   createModel,
@@ -28,6 +29,7 @@ export function setup_routes(app: Application) {
 
   // Text generation endpoints
   app.post("/api/generate", generateText);
+  app.post("/api/judge", judgeContinuation);
 
   // Get available models
   app.get("/api/models", (req, res) => {
