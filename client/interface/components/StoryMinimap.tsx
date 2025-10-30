@@ -60,7 +60,6 @@ interface StoryMinimapProps {
  * Size constants – tweak for aesthetics.
  */
 const LANE_WIDTH = 30;
-const ROW_HEIGHT = 40;
 // Node heights adapt to the amount of text so the minimap
 // conveys relative length at a glance.
 const MIN_NODE_HEIGHT = 15;
@@ -72,24 +71,39 @@ const LENGTH_EXPONENT = 0.75;
 const CONNECTOR_LENGTH = 12; // Fixed short connector between nodes
 const NODE_WIDTH = 14; // Width of the pill-shaped nodes - compact
 const NODE_RADIUS = 2; // Border radius for the pill shape - crisp corners
+const ANGLE_RANGE = Math.PI * 1.6; // Spread nodes across 288 degrees for readability
+const ANGLE_START = -ANGLE_RANGE / 2; // Center the spread around the vertical axis
+const RADIAL_PADDING = 120; // Extra breathing room around the outermost nodes
+
+type BaseCoord = {
+  x: number;
+  y: number;
+  lane: number;
+  depth: number;
+  path: StoryNode[];
+  length: number;
+  nodeHeight: number;
+};
+
+type PolarCoord = BaseCoord & {
+  angle: number;
+  radiusTop: number;
+  radiusCenter: number;
+  radiusBottom: number;
+};
+
+type DisplayCoord = PolarCoord & {
+  center: { x: number; y: number };
+  top: { x: number; y: number };
+  bottom: { x: number; y: number };
+};
 
 /**
  * Tidy tree layout using d3-hierarchy - no overlaps, optimal spacing
  */
-function useCoords(root: StoryNode) {
+function useCoords(root: StoryNode): Record<string, BaseCoord> {
   return useMemo(() => {
-    const coords: Record<
-      string,
-      {
-        x: number;
-        y: number;
-        lane: number;
-        depth: number;
-        path: StoryNode[];
-        length: number;
-        nodeHeight: number;
-      }
-    > = {};
+    const coords: Record<string, BaseCoord> = {};
 
     // Handle empty tree
     if (!root) return coords;
@@ -245,25 +259,80 @@ export const StoryMinimap = ({
     );
   })();
 
-  // Handle empty tree by rendering an empty viewport; dimensions below are guarded
+  // Pre-compute polar coordinates derived from the flextree layout
+  const { radialCoords, maxRadius } = useMemo(() => {
+    const entries = Object.entries(coords);
+    if (entries.length === 0) {
+      return { radialCoords: {} as Record<string, PolarCoord>, maxRadius: 0 };
+    }
 
-  // Bounds for <svg> viewBox - ensure it's wide enough for scrolling
-  const coordValues = Object.values(coords);
-  const xCoords = coordValues.map((c) => c.x);
-  const minX = Math.min(...xCoords);
-  const maxX = Math.max(...xCoords);
-  const maxY = Math.max(...coordValues.map((c) => c.y));
+    const xs = entries.map(([, c]) => c.x);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const xRange = maxX - minX || 1;
 
+    let maxRadius = 0;
+    const mapped: Record<string, PolarCoord> = {};
 
-  // Add padding around the tree
-  const padding = LANE_WIDTH * 2;
-  const svgWidth = Math.max(600, maxX - minX + padding * 2); // Ensure minimum width
-  const svgHeight = Math.max(maxY + MAX_NODE_HEIGHT, ROW_HEIGHT * 4);
+    entries.forEach(([id, c]) => {
+      const normalizedX = (c.x - minX) / xRange;
+      const angle = ANGLE_START + normalizedX * ANGLE_RANGE;
+      const radiusTop = c.y;
+      const radiusBottom = c.y + c.nodeHeight;
+      const radiusCenter = (radiusTop + radiusBottom) / 2;
 
-  // Center the tree horizontally - offset all x coords so tree is centered
-  const centerX = svgWidth / 2;
-  const treeCenter = (minX + maxX) / 2;
-  const rootOffset = centerX - treeCenter;
+      maxRadius = Math.max(maxRadius, radiusBottom);
+
+      mapped[id] = {
+        ...c,
+        angle,
+        radiusTop,
+        radiusCenter,
+        radiusBottom,
+      };
+    });
+
+    return { radialCoords: mapped, maxRadius };
+  }, [coords]);
+
+  const highlightedAngle =
+    highlightedNode && radialCoords[highlightedNode.id]
+      ? radialCoords[highlightedNode.id].angle
+      : 0;
+  const rotationOffset = useMemo(
+    () => -Math.PI / 2 - highlightedAngle,
+    [highlightedAngle],
+  );
+
+  const svgRadius = maxRadius + RADIAL_PADDING;
+  const svgDiameter = Math.max(600, svgRadius * 2);
+  const svgWidth = svgDiameter;
+  const svgHeight = svgDiameter;
+  const centerPoint = svgDiameter / 2;
+
+  const displayCoords = useMemo(() => {
+    const convert = (angle: number, radius: number) => {
+      const rotated = angle + rotationOffset;
+      return {
+        x: centerPoint + radius * Math.cos(rotated),
+        y: centerPoint + radius * Math.sin(rotated),
+      };
+    };
+
+    const mapped: Record<string, DisplayCoord> = {};
+
+    Object.entries(radialCoords).forEach(([id, c]) => {
+      const center = convert(c.angle, c.radiusCenter);
+      mapped[id] = {
+        ...c,
+        center,
+        top: convert(c.angle, Math.max(0, c.radiusTop)),
+        bottom: convert(c.angle, c.radiusBottom),
+      };
+    });
+
+    return mapped;
+  }, [centerPoint, radialCoords, rotationOffset]);
 
   // Track initial positioning so opening the map doesn't animate
   const hasPositionedRef = useRef(false);
@@ -280,7 +349,7 @@ export const StoryMinimap = ({
     if (
       !viewportRef.current ||
       !highlightedNode ||
-      !coords[highlightedNode.id]
+      !displayCoords[highlightedNode.id]
     ) {
       return;
     }
@@ -293,19 +362,19 @@ export const StoryMinimap = ({
       node: StoryNode,
       sibling: StoryNode | null,
     ) => {
-      const nodeCoord = coords[node.id];
-      const nodeX = nodeCoord.x + rootOffset;
-      const nodeY = nodeCoord.y;
+      const nodeCoord = displayCoords[node.id];
+      const nodeX = nodeCoord.center.x;
+      const nodeY = nodeCoord.center.y;
 
       let minX = nodeX,
         maxX = nodeX,
         minY = nodeY,
         maxY = nodeY;
 
-      if (sibling && coords[sibling.id]) {
-        const siblingCoord = coords[sibling.id];
-        const siblingX = siblingCoord.x + rootOffset;
-        const siblingY = siblingCoord.y;
+      if (sibling && displayCoords[sibling.id]) {
+        const siblingCoord = displayCoords[sibling.id];
+        const siblingX = siblingCoord.center.x;
+        const siblingY = siblingCoord.center.y;
         minX = Math.min(minX, siblingX);
         maxX = Math.max(maxX, siblingX);
         minY = Math.min(minY, siblingY);
@@ -334,7 +403,11 @@ export const StoryMinimap = ({
     if (isFirstPositioning) {
       hasPositionedRef.current = true; // Mark as positioned
 
-      if (nodeChangedSinceLastOpen && lastMapNodeId && coords[lastMapNodeId]) {
+      if (
+        nodeChangedSinceLastOpen &&
+        lastMapNodeId &&
+        displayCoords[lastMapNodeId]
+      ) {
         // This is the key: we just opened the map after navigating.
         // We need to animate from the LAST position to the NEW one.
         const lastNode = coords[lastMapNodeId].path.slice(-1)[0];
@@ -384,8 +457,8 @@ export const StoryMinimap = ({
   }, [
     highlightedNode.id,
     selectedSibling?.id,
+    displayCoords,
     coords,
-    rootOffset,
     isVisible,
     lastMapNodeId,
   ]);
@@ -411,56 +484,46 @@ export const StoryMinimap = ({
             </defs>
             {/* Render edges first so they sit behind nodes */}
             {edges.map(({ from, to, key }) => {
-              const a = coords[from.id];
-              const b = coords[to.id];
+              const a = displayCoords[from.id];
+              const b = displayCoords[to.id];
+              if (!a || !b) return null;
 
               // Check if this edge is part of the ancestor path
-              const isAncestorEdge = highlightedNode &&
-                currentPath.some(node => node.id === from.id) &&
-                currentPath.some(node => node.id === to.id);
+              const isAncestorEdge =
+                highlightedNode &&
+                currentPath.some((node) => node.id === from.id) &&
+                currentPath.some((node) => node.id === to.id);
 
-              const ax = a.x + rootOffset;
-              const bx = b.x + rootOffset;
+              const start = a.bottom;
+              const end = b.top;
 
-              // Start connector at bottom edge of parent pill (accounting for border radius)
-              const startY = a.y + a.nodeHeight - NODE_RADIUS/2;
-              // End connector at top edge of child pill (accounting for border radius)
-              const endY = b.y + NODE_RADIUS/2;
+              const midRadius = Math.max(a.radiusBottom, b.radiusTop) + CONNECTOR_LENGTH;
+              const midAngle = (a.angle + b.angle) / 2;
+              const rotatedMidAngle = midAngle + rotationOffset;
+              const midPoint = {
+                x: centerPoint + midRadius * Math.cos(rotatedMidAngle),
+                y: centerPoint + midRadius * Math.sin(rotatedMidAngle),
+              };
 
-              let path;
-
-              if (a.lane === b.lane) {
-                // Straight line for same lane
-                path = `M${ax},${startY} L${bx},${endY}`;
-              } else {
-                // Squircle-style branch: curve early then straight down
-                const branchPoint = startY + 6; // Fork happens just below parent node
-                const curveRadius = 4; // Radius of the rounded corner - tighter
-
-                if (bx > ax) {
-                  // Branching to the right
-                  path = `M${ax},${startY} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax + curveRadius},${branchPoint} L${bx - curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${endY}`;
-                } else {
-                  // Branching to the left
-                  path = `M${ax},${startY} L${ax},${branchPoint - curveRadius} Q${ax},${branchPoint} ${ax - curveRadius},${branchPoint} L${bx + curveRadius},${branchPoint} Q${bx},${branchPoint} ${bx},${branchPoint + curveRadius} L${bx},${endY}`;
-                }
-              }
+              const path = `M${start.x},${start.y} Q${midPoint.x},${midPoint.y} ${end.x},${end.y}`;
 
               return (
                 <path
                   key={key}
                   d={path}
-                  stroke={isAncestorEdge ? "var(--secondary-color)" : "var(--border-color)"}
+                  stroke={
+                    isAncestorEdge ? "var(--secondary-color)" : "var(--border-color)"
+                  }
                   strokeWidth={isAncestorEdge ? 1.2 : 0.8}
                   fill="none"
-                  strokeLinecap="square"
+                  strokeLinecap="round"
                   opacity={isAncestorEdge ? 0.8 : 0.4}
                 />
               );
             })}
 
             {/* Nodes */}
-            {Object.entries(coords).map(([id, c]) => {
+            {Object.entries(displayCoords).map(([id, c]) => {
               const node = c.path[c.path.length - 1];
               const isHighlighted = id === highlightedNode.id;
               const isSelected = selectedSibling && id === selectedSibling.id;
@@ -482,8 +545,8 @@ export const StoryMinimap = ({
                   {/* Draw node as an elongated pill/capsule shape */}
                   <rect
                     className={`minimap-node ${isGenerating ? "generating" : ""}`}
-                    x={c.x + rootOffset - NODE_WIDTH / 2}
-                    y={c.y}
+                    x={c.center.x - NODE_WIDTH / 2}
+                    y={c.center.y - c.nodeHeight / 2}
                     width={NODE_WIDTH}
                     height={c.nodeHeight}
                     rx={NODE_RADIUS}
