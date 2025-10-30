@@ -103,50 +103,51 @@ export const TreeListMenu = ({
                 </div>
               </div>
             </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {onExportJson ? (
+                <button
+                  type="button"
+                  className={`story-menu-action ${
+                    selectedIndex === rowIndex && selectedColumn === saveColumn
+                      ? "selected"
+                      : ""
+                  }`}
+                  title="Save story"
+                  aria-label="Save story"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExportJson(key);
+                    onHighlight?.(rowIndex, saveColumn);
+                  }}
+                  onMouseEnter={() => onHighlight?.(rowIndex, saveColumn)}
+                  onFocus={() => onHighlight?.(rowIndex, saveColumn)}
+                >
+                  <SaveIcon />
+                </button>
+              ) : null}
 
-            {onExportJson ? (
-              <button
-                type="button"
-                className={`story-menu-action ${
-                  selectedIndex === rowIndex && selectedColumn === saveColumn
-                    ? "selected"
-                    : ""
-                }`}
-                title="Save story"
-                aria-label="Save story"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onExportJson(key);
-                  onHighlight?.(rowIndex, saveColumn);
-                }}
-                onMouseEnter={() => onHighlight?.(rowIndex, saveColumn)}
-                onFocus={() => onHighlight?.(rowIndex, saveColumn)}
-              >
-                <SaveIcon />
-              </button>
-            ) : null}
-
-            {onExportThread ? (
-              <button
-                type="button"
-                className={`story-menu-action ${
-                  selectedIndex === rowIndex && selectedColumn === printColumn
-                    ? "selected"
-                    : ""
-                }`}
-                title="Print thread"
-                aria-label="Print thread"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onExportThread(key);
-                  onHighlight?.(rowIndex, printColumn);
-                }}
-                onMouseEnter={() => onHighlight?.(rowIndex, printColumn)}
-                onFocus={() => onHighlight?.(rowIndex, printColumn)}
-              >
-                <PrintIcon />
-              </button>
-            ) : null}
+              {onExportThread ? (
+                <button
+                  type="button"
+                  className={`story-menu-action ${
+                    selectedIndex === rowIndex && selectedColumn === printColumn
+                      ? "selected"
+                      : ""
+                  }`}
+                  title="Print thread"
+                  aria-label="Print thread"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExportThread(key);
+                    onHighlight?.(rowIndex, printColumn);
+                  }}
+                  onMouseEnter={() => onHighlight?.(rowIndex, printColumn)}
+                  onFocus={() => onHighlight?.(rowIndex, printColumn)}
+                >
+                  <PrintIcon />
+                </button>
+              ) : null}
+            </div>
           </div>
         );
       })}

@@ -1600,8 +1600,12 @@ progress::-moz-progress-bar {
 }
 
 @keyframes viewFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1743,7 +1747,10 @@ progress::-moz-progress-bar {
     letter-spacing: 0.05em;
     padding: 0.25rem 0.75rem;
     text-transform: uppercase;
-    transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .menu-item-action:focus-visible,
@@ -1761,7 +1768,7 @@ progress::-moz-progress-bar {
 .story-menu-action {
     appearance: none;
     background: transparent;
-    border: 0.125rem solid var(--font-color);
+    border: 0 solid var(--font-color);
     color: var(--font-color);
     cursor: pointer;
     display: inline-flex;
@@ -1770,7 +1777,10 @@ progress::-moz-progress-bar {
     width: 2.25rem;
     height: 2.25rem;
     padding: 0.25rem;
-    transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .story-menu-action .story-menu-icon {
