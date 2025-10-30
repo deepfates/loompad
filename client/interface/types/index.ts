@@ -59,9 +59,13 @@ export interface SettingsMenuProps {
 export interface TreeListProps {
   trees: { [key: string]: { root: StoryNode } };
   selectedIndex: number;
+  selectedColumn: number;
   onSelect: (key: string) => void;
   onDelete?: (key: string) => void;
   onNew?: () => void;
+  onExportJson?: (key: string) => void;
+  onExportThread?: (key: string) => void;
+  onHighlight?: (index: number, column: number) => void;
 }
 
 export interface GamepadButtonProps {

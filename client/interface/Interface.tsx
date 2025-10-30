@@ -40,6 +40,10 @@ import {
   touchStoryUpdated,
   touchStoryActive,
 } from "./utils/storyMeta";
+import {
+  downloadStoryThreadText,
+  downloadStoryTreeJson,
+} from "./utils/storyExport";
 
 const DEFAULT_PARAMS = {
   temperature: 0.7,
@@ -69,6 +73,8 @@ export const GamepadInterface = () => {
     setSelectedParam,
     selectedTreeIndex,
     setSelectedTreeIndex,
+    selectedTreeColumn,
+    setSelectedTreeColumn,
     selectedModelIndex,
     setSelectedModelIndex,
     selectedModelField,
@@ -243,6 +249,32 @@ export const GamepadInterface = () => {
       }
     },
     [currentTreeKey, trees, setTrees, setCurrentTreeKey],
+  );
+
+  const handleExportTree = useCallback(
+    (key: string) => {
+      const tree = trees[key];
+      if (!tree) return;
+      downloadStoryTreeJson(key, tree);
+    },
+    [trees],
+  );
+
+  const handleExportThread = useCallback(
+    (key: string) => {
+      const tree = trees[key];
+      if (!tree) return;
+      downloadStoryThreadText(key, tree);
+    },
+    [trees],
+  );
+
+  const handleStoryHighlight = useCallback(
+    (index: number, column: number) => {
+      setSelectedTreeIndex(index);
+      setSelectedTreeColumn(column);
+    },
+    [setSelectedTreeIndex, setSelectedTreeColumn],
   );
 
   const cycleModelSort = useCallback((_delta: -1 | 1 = 1) => {
@@ -711,6 +743,7 @@ export const GamepadInterface = () => {
           // Set selection to current story on open (reverse-chronological order)
           const currentIndex = Math.max(0, orderedKeys.indexOf(currentTreeKey));
           setSelectedTreeIndex(currentIndex + 1); // +1 for "+ New Story"
+          setSelectedTreeColumn(0);
           setLastMapNodeId(highlightedNode.id);
           setActiveMenu("start");
           return;
@@ -748,13 +781,22 @@ export const GamepadInterface = () => {
 
       if (activeMenu === "select") {
         handleMenuNavigation(key, trees, {
-          onNewTree: handleNewTree,
+          onNewTree: () => {
+            handleNewTree();
+            setSelectedTreeColumn(0);
+          },
           onSelectTree: (key) => {
             touchStoryActive(key);
             setCurrentTreeKey(key);
             setActiveMenu(null);
+            setSelectedTreeColumn(0);
           },
-          onDeleteTree: handleDeleteTree,
+          onDeleteTree: (key) => {
+            handleDeleteTree(key);
+            setSelectedTreeColumn(0);
+          },
+          onExportTreeJson: handleExportTree,
+          onExportTreeThread: handleExportThread,
           currentTheme: theme,
           onThemeChange: setTheme,
           modelOrder,
@@ -788,13 +830,22 @@ export const GamepadInterface = () => {
         }
       } else if (activeMenu && activeMenu !== "map") {
         handleMenuNavigation(key, trees, {
-          onNewTree: handleNewTree,
+          onNewTree: () => {
+            handleNewTree();
+            setSelectedTreeColumn(0);
+          },
           onSelectTree: (key) => {
             touchStoryActive(key);
             setCurrentTreeKey(key);
             setActiveMenu(null);
+            setSelectedTreeColumn(0);
           },
-          onDeleteTree: handleDeleteTree,
+          onDeleteTree: (key) => {
+            handleDeleteTree(key);
+            setSelectedTreeColumn(0);
+          },
+          onExportTreeJson: handleExportTree,
+          onExportTreeThread: handleExportThread,
         });
         // Allow START to back out from Trees to Map
         if (activeMenu === "start" && key === "Escape") {
@@ -854,6 +905,7 @@ export const GamepadInterface = () => {
       setCurrentTreeKey,
       setActiveMenu,
       setSelectedTreeIndex,
+      setSelectedTreeColumn,
       modelOrder,
       modelEditorFields,
       cycleModelSort,
@@ -863,6 +915,8 @@ export const GamepadInterface = () => {
       showModelsMenu,
       theme,
       setTheme,
+      handleExportTree,
+      handleExportThread,
     ],
   );
 
@@ -1087,13 +1141,16 @@ export const GamepadInterface = () => {
                 <TreeListMenu
                   trees={trees}
                   selectedIndex={selectedTreeIndex}
+                  selectedColumn={selectedTreeColumn}
                   onSelect={(key) => {
                     touchStoryActive(key);
                     setCurrentTreeKey(key);
                     setActiveMenu(null);
+                    setSelectedTreeColumn(0);
                   }}
                   onNew={() => {
                     handleNewTree();
+                    setSelectedTreeColumn(0);
                   }}
                   onDelete={(key) => {
                     handleDeleteTree(key);
@@ -1102,8 +1159,12 @@ export const GamepadInterface = () => {
                       setSelectedTreeIndex((prev) =>
                         Math.min(prev, Object.keys(trees).length - 1),
                       );
+                      setSelectedTreeColumn(0);
                     }
                   }}
+                  onExportJson={handleExportTree}
+                  onExportThread={handleExportThread}
+                  onHighlight={handleStoryHighlight}
                 />
               </MenuScreen>
             </>

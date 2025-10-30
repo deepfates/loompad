@@ -1600,8 +1600,12 @@ progress::-moz-progress-bar {
 }
 
 @keyframes viewFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1674,6 +1678,32 @@ progress::-moz-progress-bar {
     transition: all 0.2s ease;
 }
 
+.menu-item-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.story-menu-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.story-menu-row .story-menu-item {
+    flex: 1;
+}
+
+.story-menu-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.story-menu-item .menu-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
 .menu-item.selected {
     border-color: var(--primary-color);
     background: transparent;
@@ -1691,6 +1721,83 @@ progress::-moz-progress-bar {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.menu-item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.story-menu-item .menu-item-actions {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    margin-top: 0;
+}
+
+.menu-item-action {
+    appearance: none;
+    background: transparent;
+    border: 0.125rem solid var(--font-color);
+    color: var(--font-color);
+    cursor: pointer;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.75rem;
+    text-transform: uppercase;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.menu-item-action:focus-visible,
+.menu-item-action:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 0.25rem var(--primary-color);
+    outline: none;
+}
+
+.menu-item-action:active {
+    transform: translateY(1px);
+}
+
+.story-menu-action {
+    appearance: none;
+    background: transparent;
+    border: 0 solid var(--font-color);
+    color: var(--font-color);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0.25rem;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.story-menu-action .story-menu-icon {
+    display: block;
+}
+
+.story-menu-action.selected,
+.story-menu-action:focus-visible,
+.story-menu-action:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 0.25rem var(--primary-color);
+    outline: none;
+}
+
+.story-menu-action:active {
+    transform: translateY(1px);
 }
 
 .models-menu {
