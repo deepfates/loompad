@@ -102,50 +102,60 @@ export const TreeListMenu = ({
                   {(tree.root.text ?? "").slice(0, 50)}...
                 </div>
               </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {onExportJson ? (
-                <button
-                  type="button"
-                  className={`story-menu-action ${
-                    selectedIndex === rowIndex && selectedColumn === saveColumn
-                      ? "selected"
-                      : ""
-                  }`}
-                  title="Save story"
-                  aria-label="Save story"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onExportJson(key);
-                    onHighlight?.(rowIndex, saveColumn);
-                  }}
-                  onMouseEnter={() => onHighlight?.(rowIndex, saveColumn)}
-                  onFocus={() => onHighlight?.(rowIndex, saveColumn)}
-                >
-                  <SaveIcon />
-                </button>
-              ) : null}
 
-              {onExportThread ? (
-                <button
-                  type="button"
-                  className={`story-menu-action ${
-                    selectedIndex === rowIndex && selectedColumn === printColumn
-                      ? "selected"
-                      : ""
-                  }`}
-                  title="Print thread"
-                  aria-label="Print thread"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onExportThread(key);
-                    onHighlight?.(rowIndex, printColumn);
-                  }}
-                  onMouseEnter={() => onHighlight?.(rowIndex, printColumn)}
-                  onFocus={() => onHighlight?.(rowIndex, printColumn)}
+              {onExportJson || onExportThread ? (
+                <div
+                  className="story-menu-actions"
+                  role="group"
+                  aria-label="Story export options"
                 >
-                  <PrintIcon />
-                </button>
+                  {onExportJson ? (
+                    <button
+                      type="button"
+                      className={`story-menu-action ${
+                        selectedIndex === rowIndex && selectedColumn === saveColumn
+                          ? "selected"
+                          : ""
+                      }`}
+                      title="Save story"
+                      aria-label="Save story"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onExportJson(key);
+                        onHighlight?.(rowIndex, saveColumn);
+                      }}
+                      onMouseEnter={() => onHighlight?.(rowIndex, saveColumn)}
+                      onFocus={() => onHighlight?.(rowIndex, saveColumn)}
+                    >
+                      <SaveIcon />
+                      <span className="visually-hidden">Save story</span>
+                    </button>
+                  ) : null}
+
+                  {onExportThread ? (
+                    <button
+                      type="button"
+                      className={`story-menu-action ${
+                        selectedIndex === rowIndex &&
+                        selectedColumn === printColumn
+                          ? "selected"
+                          : ""
+                      }`}
+                      title="Print thread"
+                      aria-label="Print thread"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onExportThread(key);
+                        onHighlight?.(rowIndex, printColumn);
+                      }}
+                      onMouseEnter={() => onHighlight?.(rowIndex, printColumn)}
+                      onFocus={() => onHighlight?.(rowIndex, printColumn)}
+                    >
+                      <PrintIcon />
+                      <span className="visually-hidden">Print thread</span>
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           </div>
