@@ -1694,14 +1694,22 @@ progress::-moz-progress-bar {
 }
 
 .story-menu-item {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
     gap: 0.5rem;
 }
 
 .story-menu-item .menu-item-body {
-    flex: 1;
     min-width: 0;
+}
+
+.story-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    justify-content: center;
+    justify-self: end;
 }
 
 .menu-item.selected {
@@ -1798,6 +1806,30 @@ progress::-moz-progress-bar {
 
 .story-menu-action:active {
     transform: translateY(1px);
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 600px) {
+    .story-menu-item {
+        grid-template-columns: 1fr;
+    }
+
+    .story-menu-actions {
+        flex-direction: row;
+        justify-content: flex-start;
+        justify-self: start;
+    }
 }
 
 .models-menu {
