@@ -195,10 +195,14 @@ function useEdges(root: StoryNode) {
 /**
  * Terminal-style minibuffer at bottom of map
  */
-const Minibuffer = ({ text }: { text: string }) => (
+const Minibuffer = ({ text, isQuote = false }: { text: string; isQuote?: boolean }) => (
   <div className="minimap-minibuffer">
     <div className="minimap-minibuffer-text">
-      {text || "Navigate with arrow keys • A to generate • B to edit"}
+      {text
+        ? isQuote
+          ? `“${text}”`
+          : text
+        : "Navigate with arrow keys • A to generate • B to edit"}
     </div>
   </div>
 );
@@ -469,9 +473,60 @@ export const StoryMinimap = ({
                 (pathNode) => pathNode.id === id,
               );
               // Check if this node is an ancestor of the highlighted node
-              const isAncestor = coords[highlightedNode.id] &&
+              const isAncestor =
+                coords[highlightedNode.id] &&
                 id !== highlightedNode.id &&
-                coords[highlightedNode.id].path.some((pathNode: StoryNode) => pathNode.id === id);
+                coords[highlightedNode.id].path.some(
+                  (pathNode: StoryNode) => pathNode.id === id,
+                );
+
+              const centerX = c.x + rootOffset;
+              const baseClass = [
+                "minimap-node",
+                isGenerating ? "generating" : "",
+                isSelected ? "selected" : "",
+                isAncestor ? "ancestor" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              let fill = "var(--background-color)";
+              let stroke = "var(--font-color)";
+              let strokeWidth = 0.8;
+              let opacity = 0.4;
+
+              if (isOnFavoritePath) {
+                opacity = 0.5;
+              }
+
+              if (isAncestor) {
+                fill = "url(#ancestorPattern)";
+                opacity = 0.7;
+              }
+
+              if (isGenerating) {
+                fill = "url(#ancestorPattern)";
+                stroke = "var(--primary-color)";
+                strokeWidth = 1.1;
+                opacity = 0.85;
+              }
+
+              if (isSelected) {
+                fill = "var(--background-color)";
+                stroke = "var(--primary-color)";
+                strokeWidth = 1.6;
+                opacity = 1;
+              }
+
+              if (isHighlighted) {
+                fill = "var(--surface-color)";
+                stroke = "var(--font-color)";
+                strokeWidth = 1.6;
+                opacity = 1;
+              }
+
+              const pointerStartY = c.y + c.nodeHeight;
+              const pointerEndY = svgHeight - 10;
 
               return (
                 <g
@@ -479,43 +534,38 @@ export const StoryMinimap = ({
                   onClick={() => onSelectNode?.(c.path)}
                   style={{ cursor: "pointer" }}
                 >
+                  {isSelected && pointerStartY < pointerEndY && (
+                    <g className="minimap-node-pointer">
+                      <path
+                        d={`M${centerX},${pointerStartY} L${centerX},${pointerEndY - 4}`}
+                        stroke="var(--primary-color)"
+                        strokeWidth={0.8}
+                        strokeDasharray="2 2"
+                        fill="none"
+                      />
+                      <path
+                        d={`M${centerX - 2},${pointerEndY - 6} L${centerX},${pointerEndY} L${centerX + 2},${pointerEndY - 6}`}
+                        stroke="var(--primary-color)"
+                        strokeWidth={0.8}
+                        fill="none"
+                        strokeLinejoin="round"
+                      />
+                    </g>
+                  )}
                   {/* Draw node as an elongated pill/capsule shape */}
                   <rect
-                    className={`minimap-node ${isGenerating ? "generating" : ""}`}
-                    x={c.x + rootOffset - NODE_WIDTH / 2}
+                    className={baseClass}
+                    x={centerX - NODE_WIDTH / 2}
                     y={c.y}
                     width={NODE_WIDTH}
                     height={c.nodeHeight}
                     rx={NODE_RADIUS}
                     ry={NODE_RADIUS}
-                    fill={
-                      isHighlighted
-                        ? "var(--surface-color)"  // Current - white/bright text color in dark mode
-                        : isSelected
-                          ? "var(--primary-color)"  // Next option - blue/primary
-                          : isGenerating
-                              ? "var(--primary-color)"  // Generating - pulsing blue
-                              : isAncestor || isOnFavoritePath
-                                ? "var(--surface-color)"  // Already read or on breadcrumb trail
-                                : "var(--background-color)"  // Unvisited - empty
-                    }
-                    stroke="var(--font-color)"
-                    strokeWidth={
-                      isHighlighted || isSelected ? 1.5 : 0.8
-                    }
-                    opacity={
-                      isHighlighted
-                        ? 1  // Current - full brightness
-                        : isSelected
-                          ? 0.9  // Next - prominent but not current
-                        : isGenerating
-                            ? 1  // Generating - full brightness with pulse animation
-                            : isAncestor
-                              ? 0.6 // Already read - visible but less prominent
-                              : isOnFavoritePath
-                                ? 0.5  // Path - semi-visible
-                                : 0.4  // Unvisited - barely visible
-                    }
+                    fill={fill}
+                    stroke={stroke}
+                    strokeWidth={strokeWidth}
+                    opacity={opacity}
+                    strokeDasharray={isSelected ? "3 2" : undefined}
                   />
                 </g>
               );
@@ -529,6 +579,7 @@ export const StoryMinimap = ({
             ? selectedSibling.text.split("\n")[0]
             : highlightedNode.text.split("\n")[0]
         }
+        isQuote={Boolean(selectedSibling)}
       />
     </div>
   );

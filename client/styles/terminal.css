@@ -1935,3 +1935,11 @@ progress::-moz-progress-bar {
 .minimap-node.generating {
     animation: minimap-pulse 1s infinite;
 }
+
+.minimap-node.selected {
+    filter: drop-shadow(0 0 2px var(--primary-color));
+}
+
+.minimap-node-pointer path {
+    stroke-linecap: round;
+}
