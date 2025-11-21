@@ -20,6 +20,11 @@ const DEFAULT_MODELS: AvailableModels = {
     maxTokens: 1024,
     defaultTemp: 0.7,
   },
+  "google/gemini-3-pro-preview": {
+    name: "Gemini 3 Pro (preview)",
+    maxTokens: 1024,
+    defaultTemp: 0.7,
+  },
 };
 
 let cachedModels: AvailableModels | null = null;

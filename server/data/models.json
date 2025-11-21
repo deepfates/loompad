@@ -13,5 +13,10 @@
     "name": "Kimi K2 0711",
     "maxTokens": 1024,
     "defaultTemp": 0.7
+  },
+  "google/gemini-3-pro-preview": {
+    "name": "Gemini 3 Pro (preview)",
+    "maxTokens": 1024,
+    "defaultTemp": 0.7
   }
 }
