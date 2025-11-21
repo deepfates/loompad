@@ -17,13 +17,6 @@ import {
   normalizeJoin as helperNormalizeJoin,
 } from "./generation.helpers";
 
-/**
- * Design note:
- * We intentionally omit 'stop' sequences from upstream OpenAI requests.
- * Instead, semantic stopping is enforced server-side using boundary detection
- * (see getBoundaryRegex and findBoundaryCutoff in this module). This preserves
- * delimiters exactly as generated and gives us more flexible control.
- */
 import { openai } from "./openaiClient";
 
 interface GenerateRequest {
@@ -45,7 +38,7 @@ const OVERLAP = 32;
 function findBoundaryCutoff(
   accumulated: string,
   sentIndex: number,
-  rx: RegExp,
+  rx: RegExp
 ): number | null {
   return helperFindBoundaryCutoff(accumulated, sentIndex, rx);
 }
@@ -81,17 +74,26 @@ export async function generateText(req: Request, res: Response) {
     const preset = LENGTH_PRESETS[mode] ?? LENGTH_PRESETS[DEFAULT_LENGTH_MODE];
 
     const modelMaxTokens = modelConfig.maxTokens;
-    const maxTokensToUse = Math.min(
-      preset.maxTokens,
-      modelMaxTokens,
-      maxTokens ?? preset.maxTokens,
-    );
+
+    // If we have a boundary regex (or word mode), we rely on semantic stopping.
+    // We use the model's max capacity (or the preset's max if larger?) to allow for reasoning traces.
+    // We generally ignore the strict preset limits for the API call itself to avoid cutting off "thinking" models.
+    const maxTokensToUse = modelMaxTokens;
 
     // Build boundary matcher (server-side semantic stopping)
     const boundaryRegex = getBoundaryRegex(mode);
 
     // Prepare upstream stream with abort support
     const abortController = new AbortController();
+
+    console.log("[OpenRouter] Request:", {
+      model,
+      max_tokens: maxTokensToUse,
+      temperature: temperature ?? modelConfig.defaultTemp,
+      prompt_length: prompt.length,
+      prompt_preview: prompt.slice(-100),
+    });
+
     const stream = await openai.completions.create(
       {
         model,
@@ -101,7 +103,7 @@ export async function generateText(req: Request, res: Response) {
         // Omit upstream 'stop'; semantic stopping is handled server-side via boundary detection.
         stream: true,
       },
-      { signal: abortController.signal },
+      { signal: abortController.signal }
     );
 
     // Set up SSE headers
@@ -134,6 +136,8 @@ export async function generateText(req: Request, res: Response) {
       endedWithNewline: false,
     };
 
+    console.log("[OpenRouter] Stream started");
+
     // Whether we've emitted at least one non-whitespace character
     let hasEmittedNonWhitespace = false;
 
@@ -141,7 +145,17 @@ export async function generateText(req: Request, res: Response) {
     let wordModeBuffer = "";
 
     for await (const chunk of stream) {
+      // Log usage if present (often in final chunk)
+      if ((chunk as any).usage) {
+        console.log("[OpenRouter] Usage:", (chunk as any).usage);
+      }
+
       const delta = chunk.choices?.[0]?.text ?? "";
+      if (delta) {
+        // Debug logging for content flow
+        // console.log(`[OpenRouter] Chunk: ${JSON.stringify(delta)}`);
+      }
+
       if (!delta) continue;
 
       accumulated += delta;
@@ -163,6 +177,7 @@ export async function generateText(req: Request, res: Response) {
             joinState.endedWithWhitespace = ENDING_WHITESPACE_RE.test(toSend);
 
             // Abort and end - we've emitted one word
+            console.log("[OpenRouter] Word mode satisfied, aborting");
             abortController.abort();
             endEarly();
             return;
@@ -176,9 +191,11 @@ export async function generateText(req: Request, res: Response) {
         const cutoff = findBoundaryCutoff(
           accumulated,
           sentIndex,
-          boundaryRegex,
+          boundaryRegex
         );
         if (cutoff !== null) {
+          console.log("[OpenRouter] Hit boundary match at index:", cutoff);
+
           let toSend = accumulated.slice(sentIndex, cutoff);
 
           // Normalize join across seam
@@ -195,6 +212,7 @@ export async function generateText(req: Request, res: Response) {
           }
 
           // Abort upstream and end stream
+          console.log("[OpenRouter] Aborting stream due to boundary");
           abortController.abort();
           endEarly();
           return;
@@ -227,6 +245,7 @@ export async function generateText(req: Request, res: Response) {
 
     // Upstream finished without hitting our boundary; flush remaining buffer (if any) then close out
     if (!ended) {
+      console.log("[OpenRouter] Stream finished naturally");
       const remaining = accumulated.slice(sentIndex);
       if (remaining) {
         const segment = normalizeJoin(joinState, remaining);

@@ -16,7 +16,12 @@
   },
   "google/gemini-3-pro-preview": {
     "name": "Gemini 3 Pro (preview)",
-    "maxTokens": 1024,
+    "maxTokens": 8192,
     "defaultTemp": 0.7
+  },
+  "google/gemini-2.5-flash": {
+    "name": "gemflash",
+    "maxTokens": 1024,
+    "defaultTemp": 1
   }
 }
