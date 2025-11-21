@@ -109,49 +109,39 @@ export function useStoryGeneration() {
     }
 
     const context = joinSegments(path.map((node) => node.text));
-    const options = candidates
-      .map((candidate, index) => {
-        const text = flattenNodeText(candidate).trim() || "(empty)";
-        return `${index + 1}. """\n${text}\n"""`;
-      })
-      .join("\n\n");
-
-    const rankingPrompt = [
-      "You are evaluating possible continuations for an interactive fiction story.",
-      "Story so far:",
-      `"""\n${context.trim()}\n"""`,
-      "Select exactly one option number to expand next. If none should be expanded, respond with 0.",
-      "Respond ONLY with JSON of the form {\"choice\": <number>} with no extra text.",
-      "Options:",
-      options,
-    ].join("\n\n");
+    const optionTexts = candidates.map(
+      (candidate) => flattenNodeText(candidate).trim() || "(empty)",
+    );
 
     try {
+      console.log(`[AutoMode] Requesting judge from ${params.model} for ${candidates.length} candidates`);
+
       const response = await fetch("/api/judge", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: rankingPrompt,
+          context: context.trim(),
+          options: optionTexts,
           model: params.model,
           temperature: Math.max(0.1, Math.min(params.temperature, 0.8)),
-          maxTokens: 96,
-          candidateCount: candidates.length,
         }),
       });
 
       if (!response.ok) {
-        console.error("Judge request failed", await response.text());
+        console.error("[AutoMode] Judge request failed", await response.text());
         return null;
       }
 
-      const payload = (await response.json()) as { choice: number | null };
+      const payload = (await response.json()) as { choice: number | null; raw?: string };
+      console.log("[AutoMode] Judge response:", payload);
+      
       if (typeof payload.choice === "number") {
         return payload.choice;
       }
     } catch (err) {
-      console.error("Auto-mode judge error", err);
+      console.error("[AutoMode] Judge error", err);
     }
 
     return null;
