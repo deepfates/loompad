@@ -1,5 +1,11 @@
 @import "../../node_modules/srcl/global.css";
 @import "../../node_modules/srcl/src/assets/fonts/google/google.css";
+
+/* Tone down heavy mono weights from SRCL so every font feels lighter */
+[class*="font-use-"] {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
 @import "tailwindcss";
 
 @theme {
