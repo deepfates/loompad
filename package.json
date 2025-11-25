@@ -1,5 +1,5 @@
 {
-  "name": "spiel-bun",
+  "name": "loompad",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -29,6 +29,7 @@
     "openai": "^4.77.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "srcl": "github:deepfates/srcl",
     "styled-components": "^6.1.8",
     "wouter": "^3.3.5",
     "yargs": "^17.7.2"
