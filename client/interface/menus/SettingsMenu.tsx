@@ -1,12 +1,11 @@
+import ActionListItem from "srcl/components/ActionListItem.tsx";
 import { SettingsMenuProps } from "../types";
 import { MenuKnob } from "../components/MenuKnob";
 import { MenuSelect } from "../components/MenuSelect";
 import { MenuToggle } from "../components/MenuToggle";
 import type { ModelId } from "../../../shared/models";
-import {
-  LENGTH_PRESETS,
-  type LengthMode,
-} from "../../../shared/lengthPresets";
+import { LENGTH_PRESETS, type LengthMode } from "../../../shared/lengthPresets";
+import { THEME_PRESETS } from "../components/ThemeToggle";
 
 export const SettingsMenu = ({
   params,
@@ -18,8 +17,8 @@ export const SettingsMenu = ({
   modelsError,
   getModelName,
   onManageModels,
+  fonts,
 }: SettingsMenuProps) => {
-
   // Get model options
   const modelOptions = models ? (Object.keys(models) as ModelId[]) : [];
   const modelNames = modelOptions.map(getModelName);
@@ -27,9 +26,39 @@ export const SettingsMenu = ({
 
   const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
   const lengthModeLabels = lengthModes.map(
-    (mode) => LENGTH_PRESETS[mode].label,
+    (mode) => LENGTH_PRESETS[mode].label
   );
   const currentLengthLabel = LENGTH_PRESETS[params.lengthMode].label;
+  const themeModeOptions = ["Light", "Dark", "System"];
+
+  const themeOptionLabels: string[] = THEME_PRESETS.map(
+    (preset) => preset.label
+  );
+  const themeOptionIds = THEME_PRESETS.map((preset) => preset.id);
+  const getThemeLabel = (themeId: string) => {
+    const preset = THEME_PRESETS.find((preset) => preset.id === themeId);
+    return preset ? preset.label : themeId;
+  };
+
+  const lightThemePresets = THEME_PRESETS.filter(
+    (preset) => preset.tone === "light"
+  );
+  const lightThemeLabels = lightThemePresets.map(
+    (preset) => preset.label
+  ) as string[];
+  const lightThemeIds = lightThemePresets.map((preset) => preset.id);
+
+  const darkThemePresets = THEME_PRESETS.filter(
+    (preset) => preset.tone === "dark"
+  );
+  const darkThemeLabels = darkThemePresets.map(
+    (preset) => preset.label
+  ) as string[];
+  const darkThemeIds = darkThemePresets.map((preset) => preset.id);
+  const fontLabels = fonts.map((font) => font.label);
+  const fontIds = fonts.map((font) => font.id);
+  const currentFontLabel =
+    fontLabels[fontIds.indexOf(params.font)] ?? params.font;
 
   return (
     <div className="menu-content">
@@ -68,31 +97,63 @@ export const SettingsMenu = ({
         selected={selectedParam === 2}
       />
       <MenuSelect
-        label="Theme"
+        label="Theme Mode"
         value={
-          params.theme === "matrix"
+          params.themeMode === "light"
+            ? "Light"
+            : params.themeMode === "dark"
             ? "Dark"
-            : params.theme === "light"
-              ? "Light"
-              : "System"
+            : "System"
         }
-        options={["Dark", "Light", "System"]}
+        options={themeModeOptions}
         onChange={(value) => {
-          const themeValue =
-            value === "Dark"
-              ? "matrix"
-              : value === "Light"
-                ? "light"
-                : "system";
-          onParamChange("theme", themeValue);
+          const mode =
+            value === "Light" ? "light" : value === "Dark" ? "dark" : "system";
+          onParamChange("themeMode", mode);
         }}
         selected={selectedParam === 3}
+      />
+      <MenuSelect
+        label="Light Theme"
+        value={getThemeLabel(params.lightTheme)}
+        options={lightThemeLabels}
+        onChange={(value) => {
+          const index = lightThemeLabels.indexOf(value);
+          if (index >= 0) {
+            onParamChange("lightTheme", lightThemeIds[index]);
+          }
+        }}
+        selected={selectedParam === 4}
+      />
+      <MenuSelect
+        label="Dark Theme"
+        value={getThemeLabel(params.darkTheme)}
+        options={darkThemeLabels}
+        onChange={(value) => {
+          const index = darkThemeLabels.indexOf(value);
+          if (index >= 0) {
+            onParamChange("darkTheme", darkThemeIds[index]);
+          }
+        }}
+        selected={selectedParam === 5}
+      />
+      <MenuSelect
+        label="Font"
+        value={currentFontLabel}
+        options={fontLabels}
+        onChange={(value) => {
+          const index = fontLabels.indexOf(value);
+          if (index >= 0) {
+            onParamChange("font", fontIds[index]);
+          }
+        }}
+        selected={selectedParam === 6}
       />
       <MenuToggle
         label="Text Splitting"
         value={params.textSplitting}
         onChange={(value) => onParamChange("textSplitting", value)}
-        selected={selectedParam === 4}
+        selected={selectedParam === 7}
       />
       <MenuKnob
         label="Auto Mode"
@@ -103,25 +164,14 @@ export const SettingsMenu = ({
         onChange={(value) =>
           onParamChange("autoModeIterations", Math.round(value))
         }
-        selected={selectedParam === 5}
+        selected={selectedParam === 8}
       />
-      <div
-        className={`menu-item ${selectedParam === 6 ? "selected" : ""}`}
-        role="button"
-        tabIndex={0}
+      <ActionListItem
+        icon={selectedParam === 9 ? "▸" : "⭢"}
         onClick={() => onManageModels?.()}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onManageModels?.();
-          }
-        }}
       >
-        <div className="menu-item-label">Manage Models</div>
-        <div className="menu-item-preview">
-          Add, edit, or remove OpenRouter models
-        </div>
-      </div>
+        Manage Models
+      </ActionListItem>
       {modelsError && (
         <output className="error-message">
           Failed to load models: {modelsError}

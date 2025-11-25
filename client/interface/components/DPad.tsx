@@ -1,5 +1,4 @@
 import { DPadProps } from "../types";
-import { GamepadButton } from "./GamepadButton";
 
 export const DPad = ({
   activeDirection,
@@ -7,40 +6,53 @@ export const DPad = ({
   onControlRelease,
 }: DPadProps) => (
   <div className="terminal-grid" role="group" aria-label="Direction Controls">
-    <div className="terminal-grid-cell up-arrow">
-      <GamepadButton
-        label="▴"
-        active={activeDirection === "up"}
-        onMouseDown={() => onControlPress("ArrowUp")}
-        onMouseUp={() => onControlRelease("ArrowUp")}
-      />
-    </div>
-    <div className="terminal-grid-cell left-arrow">
-      <GamepadButton
-        label="◂"
-        active={activeDirection === "left"}
-        onMouseDown={() => onControlPress("ArrowLeft")}
-        onMouseUp={() => onControlRelease("ArrowLeft")}
-      />
-    </div>
-    <div className="terminal-grid-cell">
-      <div />
-    </div>
-    <div className="terminal-grid-cell right-arrow">
-      <GamepadButton
-        label="▸"
-        active={activeDirection === "right"}
-        onMouseDown={() => onControlPress("ArrowRight")}
-        onMouseUp={() => onControlRelease("ArrowRight")}
-      />
-    </div>
-    <div className="terminal-grid-cell down-arrow">
-      <GamepadButton
-        label="▾"
-        active={activeDirection === "down"}
-        onMouseDown={() => onControlPress("ArrowDown")}
-        onMouseUp={() => onControlRelease("ArrowDown")}
-      />
-    </div>
+    {/* Up */}
+    <button
+      className={`terminal-grid-cell gamepad-btn ${
+        activeDirection === "up" ? "active" : ""
+      }`}
+      onMouseDown={() => onControlPress("ArrowUp")}
+      onMouseUp={() => onControlRelease("ArrowUp")}
+      onMouseLeave={() => onControlRelease("ArrowUp")}
+      aria-label="Up"
+    >
+      ▴
+    </button>
+    {/* Left */}
+    <button
+      className={`terminal-grid-cell gamepad-btn ${
+        activeDirection === "left" ? "active" : ""
+      }`}
+      onMouseDown={() => onControlPress("ArrowLeft")}
+      onMouseUp={() => onControlRelease("ArrowLeft")}
+      onMouseLeave={() => onControlRelease("ArrowLeft")}
+      aria-label="Left"
+    >
+      ◂
+    </button>
+    {/* Right */}
+    <button
+      className={`terminal-grid-cell gamepad-btn ${
+        activeDirection === "right" ? "active" : ""
+      }`}
+      onMouseDown={() => onControlPress("ArrowRight")}
+      onMouseUp={() => onControlRelease("ArrowRight")}
+      onMouseLeave={() => onControlRelease("ArrowRight")}
+      aria-label="Right"
+    >
+      ▸
+    </button>
+    {/* Down */}
+    <button
+      className={`terminal-grid-cell gamepad-btn ${
+        activeDirection === "down" ? "active" : ""
+      }`}
+      onMouseDown={() => onControlPress("ArrowDown")}
+      onMouseUp={() => onControlRelease("ArrowDown")}
+      onMouseLeave={() => onControlRelease("ArrowDown")}
+      aria-label="Down"
+    >
+      ▾
+    </button>
   </div>
 );

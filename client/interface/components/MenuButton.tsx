@@ -7,9 +7,10 @@ export const MenuButton = ({
   onMouseUp,
 }: MenuButtonProps) => (
   <button
-    className={`btn ${active ? "btn-primary" : "btn-ghost"}`}
+    className={`gamepad-btn ${active ? "active" : ""}`}
     onMouseDown={onMouseDown}
     onMouseUp={onMouseUp}
+    onMouseLeave={onMouseUp}
     aria-pressed={active}
   >
     {label}

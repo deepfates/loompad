@@ -48,6 +48,24 @@
         <!--ssr-head-->
         <script>
             window.__INITIAL_STATE__ = "<!--ssr-state-->";
+                        // Apply theme class before React hydrates to prevent flash
+                        (function () {
+                            var theme = localStorage.getItem('theme') || 'system';
+                            var themeClass;
+                            if (theme === 'system' || !theme) {
+                                // Follow user's OS/browser preference
+                                themeClass = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-black-green' : 'theme-light';
+                            } else if (theme === 'light') {
+                                themeClass = 'theme-light';
+                            } else {
+                                themeClass = 'theme-black-green';
+                            }
+                            // Add to both html and body for CSS variable inheritance
+                            document.documentElement.classList.add(themeClass, 'font-use-iosevka-term');
+                            document.addEventListener('DOMContentLoaded', function () {
+                                document.body.classList.add(themeClass, 'font-use-iosevka-term');
+                            });
+                        })();
         </script>
     </head>
     <body>

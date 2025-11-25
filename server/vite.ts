@@ -5,6 +5,7 @@ import express, { type Response } from "express";
 import http from "http";
 import { createServer as createViteServer } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/postcss";
 
 // app specific imports
 import args from "server/args";
@@ -47,6 +48,24 @@ export async function createServer() {
       root: path.resolve(__dirname, "../"),
       appType: "custom",
       plugins: [react()],
+      css: {
+        postcss: {
+          plugins: [tailwindcss()],
+        },
+      },
+      resolve: {
+        alias: {
+          srcl: path.resolve(__dirname, "../node_modules/srcl"),
+          "@": path.resolve(__dirname, "../node_modules/srcl/src"),
+          "@common": path.resolve(__dirname, "../node_modules/srcl/common"),
+          "@components": path.resolve(__dirname, "../node_modules/srcl/components"),
+          "@lib": path.resolve(__dirname, "../node_modules/srcl/lib"),
+          "@modules": path.resolve(__dirname, "../node_modules/srcl/modules"),
+        },
+      },
+      optimizeDeps: {
+        exclude: ["srcl"],
+      },
       server: {
         middlewareMode: true,
         hmr: {

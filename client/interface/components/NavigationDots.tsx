@@ -24,11 +24,12 @@ export const NavigationDots = ({
 }: NavigationDotsProps) => {
   // Check if any node at this depth is generating
   const isGeneratingAtDepth = Object.values(generatingInfo).some(
-    (info) => info.depth === currentDepth,
+    (info) => info.depth === currentDepth
   );
 
-  // Only hide if there are no options AND we're not generating at this depth
-  if (!options.length && !isGeneratingAtDepth) return null;
+  // Only show dots if there are siblings (more than 1 option) OR generating
+  // If there's only one option, no need to show dots
+  if (options.length <= 1 && !isGeneratingAtDepth) return null;
 
   // Get which option is currently selected
   const currentIndex = selectedOptions[currentDepth] ?? 0;
@@ -49,32 +50,25 @@ export const NavigationDots = ({
 
   return (
     <div className="navigation-dots">
-      {/* Show existing options */}
       {options.map((option, index) => {
         const isSelected = index === currentIndex;
         const isGenerating = inFlight.has(option.id);
         const shouldBump = isSelected && isEdgePress;
 
-        return (
-          <div
-            key={`dot-${option.id}`}
-            className={`navigation-dot ${shouldBump ? "edge-bump" : ""} ${
-              isGenerating ? "generating" : ""
-            }`}
-            style={{
-              background: isSelected ? "var(--primary-color)" : "transparent",
-            }}
-          />
-        );
+        const classes = ["navigation-dot"];
+        if (isSelected) classes.push("active");
+        if (isGenerating) classes.push("generating");
+        if (shouldBump) classes.push("bump");
+
+        return <div key={`dot-${option.id}`} className={classes.join(" ")} />;
       })}
-      {/* Show loading dots for new options */}
       {loadingCount > 0 &&
         Array(loadingCount)
           .fill(null)
           .map((_, i) => (
             <div
               key={`loading-${currentDepth}-${i}`}
-              className="navigation-dot generating"
+              className="navigation-dot loading generating"
             />
           ))}
     </div>
