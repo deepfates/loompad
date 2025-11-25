@@ -5,10 +5,9 @@ interface ModeBarProps {
 
 export const ModeBar = ({ title, hint }: ModeBarProps) => (
   <div className="mode-bar" role="region" aria-label={`${title} mode`}>
-    <div className="mode-title">{title}</div>
-    {hint && <div className="mode-hint">{hint}</div>}
+    <strong className="mode-title">{title}</strong>
+    {hint && <span className="mode-hint">{hint}</span>}
   </div>
 );
 
 export default ModeBar;
-

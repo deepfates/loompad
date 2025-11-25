@@ -2,6 +2,7 @@ import path from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import tailwindcss from "@tailwindcss/postcss";
 
 if (process.env.NODE_ENV !== "production") {
   console.log("Loading vite config from config/vite.config.ts...");
@@ -45,6 +46,11 @@ export default defineConfig({
       },
     }),
   ],
+  css: {
+    postcss: {
+      plugins: [tailwindcss()],
+    },
+  },
   base: "/",
   root: path.resolve(__dirname, "../"),
   build: {
@@ -69,5 +75,18 @@ export default defineConfig({
       // Allow serving files from node_modules
       allow: [".."],
     },
+  },
+  resolve: {
+    alias: {
+      srcl: path.resolve(__dirname, "../node_modules/srcl"),
+      "@": path.resolve(__dirname, "../node_modules/srcl/src"),
+      "@common": path.resolve(__dirname, "../node_modules/srcl/common"),
+      "@components": path.resolve(__dirname, "../node_modules/srcl/components"),
+      "@lib": path.resolve(__dirname, "../node_modules/srcl/lib"),
+      "@modules": path.resolve(__dirname, "../node_modules/srcl/modules"),
+    },
+  },
+  optimizeDeps: {
+    exclude: ["srcl"],
   },
 });

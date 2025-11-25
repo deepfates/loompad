@@ -147,8 +147,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 }
               }
             } else if (param === "theme") {
-              const themes: Theme[] = ["matrix", "light", "system"];
-              const currentTheme = callbacks.currentTheme ?? "system";
+              const themes: Theme[] = ["phosphor", "light", "system"];
+              const currentTheme = callbacks.currentTheme ?? "phosphor";
               const idx = themes.indexOf(currentTheme);
               const nextTheme =
                 themes[(idx - 1 + themes.length) % themes.length];
@@ -201,8 +201,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 }
               }
             } else if (param === "theme") {
-              const themes: Theme[] = ["matrix", "light", "system"];
-              const currentTheme = callbacks.currentTheme ?? "system";
+              const themes: Theme[] = ["phosphor", "light", "system"];
+              const currentTheme = callbacks.currentTheme ?? "phosphor";
               const idx = themes.indexOf(currentTheme);
               const nextTheme = themes[(idx + 1) % themes.length];
               callbacks.onThemeChange?.(nextTheme);
@@ -247,8 +247,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 lengthMode: cycleLengthMode(prev.lengthMode, +1),
               }));
             } else if (param === "theme") {
-              const themes: Theme[] = ["matrix", "light", "system"];
-              const currentTheme = callbacks.currentTheme ?? "system";
+              const themes: Theme[] = ["phosphor", "light", "system"];
+              const currentTheme = callbacks.currentTheme ?? "phosphor";
               const idx = themes.indexOf(currentTheme);
               const nextTheme = themes[(idx + 1) % themes.length];
               callbacks.onThemeChange?.(nextTheme);

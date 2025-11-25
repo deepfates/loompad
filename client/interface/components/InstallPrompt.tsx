@@ -51,16 +51,22 @@ export const InstallPrompt = () => {
   }
 
   return (
-    <div className="install-prompt">
-      <div>📱 Install LoomPad</div>
-      <div style={{ fontSize: "0.8rem", margin: "0.5rem 0", opacity: 0.8 }}>
+    <div className="fixed top-2 left-2 right-2 z-50 p-3 bg-theme-bg-modal border border-theme-border rounded shadow-lg">
+      <div className="font-bold">📱 Install LoomPad</div>
+      <div className="text-sm my-2 text-theme-border">
         Add to your home screen for the best experience
       </div>
-      <div>
-        <button className="btn btn-primary" onClick={handleInstall}>
+      <div className="flex gap-2">
+        <button 
+          className="px-3 py-1.5 bg-theme-button text-theme-button-text border border-theme-border rounded text-sm" 
+          onClick={handleInstall}
+        >
           Install
         </button>
-        <button className="btn btn-ghost" onClick={handleDismiss}>
+        <button 
+          className="px-3 py-1.5 bg-theme-bg text-theme-text border border-theme-border rounded text-sm hover:bg-theme-button-bg" 
+          onClick={handleDismiss}
+        >
           Later
         </button>
       </div>

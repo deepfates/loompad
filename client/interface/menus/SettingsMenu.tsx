@@ -1,12 +1,10 @@
+import ActionListItem from "srcl/components/ActionListItem.tsx";
 import { SettingsMenuProps } from "../types";
 import { MenuKnob } from "../components/MenuKnob";
 import { MenuSelect } from "../components/MenuSelect";
 import { MenuToggle } from "../components/MenuToggle";
 import type { ModelId } from "../../../shared/models";
-import {
-  LENGTH_PRESETS,
-  type LengthMode,
-} from "../../../shared/lengthPresets";
+import { LENGTH_PRESETS, type LengthMode } from "../../../shared/lengthPresets";
 
 export const SettingsMenu = ({
   params,
@@ -19,7 +17,6 @@ export const SettingsMenu = ({
   getModelName,
   onManageModels,
 }: SettingsMenuProps) => {
-
   // Get model options
   const modelOptions = models ? (Object.keys(models) as ModelId[]) : [];
   const modelNames = modelOptions.map(getModelName);
@@ -27,7 +24,7 @@ export const SettingsMenu = ({
 
   const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
   const lengthModeLabels = lengthModes.map(
-    (mode) => LENGTH_PRESETS[mode].label,
+    (mode) => LENGTH_PRESETS[mode].label
   );
   const currentLengthLabel = LENGTH_PRESETS[params.lengthMode].label;
 
@@ -70,20 +67,20 @@ export const SettingsMenu = ({
       <MenuSelect
         label="Theme"
         value={
-          params.theme === "matrix"
+          params.theme === "phosphor"
             ? "Dark"
             : params.theme === "light"
-              ? "Light"
-              : "System"
+            ? "Light"
+            : "System"
         }
         options={["Dark", "Light", "System"]}
         onChange={(value) => {
           const themeValue =
             value === "Dark"
-              ? "matrix"
+              ? "phosphor"
               : value === "Light"
-                ? "light"
-                : "system";
+              ? "light"
+              : "system";
           onParamChange("theme", themeValue);
         }}
         selected={selectedParam === 3}
@@ -105,23 +102,12 @@ export const SettingsMenu = ({
         }
         selected={selectedParam === 5}
       />
-      <div
-        className={`menu-item ${selectedParam === 6 ? "selected" : ""}`}
-        role="button"
-        tabIndex={0}
+      <ActionListItem
+        icon={selectedParam === 6 ? "▸" : "⭢"}
         onClick={() => onManageModels?.()}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onManageModels?.();
-          }
-        }}
       >
-        <div className="menu-item-label">Manage Models</div>
-        <div className="menu-item-preview">
-          Add, edit, or remove OpenRouter models
-        </div>
-      </div>
+        Manage Models
+      </ActionListItem>
       {modelsError && (
         <output className="error-message">
           Failed to load models: {modelsError}

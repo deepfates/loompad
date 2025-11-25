@@ -24,11 +24,12 @@ export const NavigationDots = ({
 }: NavigationDotsProps) => {
   // Check if any node at this depth is generating
   const isGeneratingAtDepth = Object.values(generatingInfo).some(
-    (info) => info.depth === currentDepth,
+    (info) => info.depth === currentDepth
   );
 
-  // Only hide if there are no options AND we're not generating at this depth
-  if (!options.length && !isGeneratingAtDepth) return null;
+  // Only show dots if there are siblings (more than 1 option) OR generating
+  // If there's only one option, no need to show dots
+  if (options.length <= 1 && !isGeneratingAtDepth) return null;
 
   // Get which option is currently selected
   const currentIndex = selectedOptions[currentDepth] ?? 0;
@@ -48,7 +49,7 @@ export const NavigationDots = ({
   });
 
   return (
-    <div className="navigation-dots">
+    <div className="flex items-center gap-1.5">
       {/* Show existing options */}
       {options.map((option, index) => {
         const isSelected = index === currentIndex;
@@ -58,12 +59,17 @@ export const NavigationDots = ({
         return (
           <div
             key={`dot-${option.id}`}
-            className={`navigation-dot ${shouldBump ? "edge-bump" : ""} ${
-              isGenerating ? "generating" : ""
-            }`}
-            style={{
-              background: isSelected ? "var(--primary-color)" : "transparent",
-            }}
+            className={`
+              w-2 h-2 rounded-full border border-theme-text
+              transition-all duration-75
+              ${
+                isSelected
+                  ? "bg-theme-focused border-theme-focused"
+                  : "bg-transparent"
+              }
+              ${shouldBump ? "scale-125" : ""}
+              ${isGenerating ? "animate-pulse" : ""}
+            `}
           />
         );
       })}
@@ -74,7 +80,7 @@ export const NavigationDots = ({
           .map((_, i) => (
             <div
               key={`loading-${currentDepth}-${i}`}
-              className="navigation-dot generating"
+              className="w-2 h-2 rounded-full border border-theme-text animate-pulse bg-theme-focused-subdued"
             />
           ))}
     </div>

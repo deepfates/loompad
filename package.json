@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ax-llm/ax": "^14.0.39",
+    "@tailwindcss/postcss": "^4.1.17",
     "@types/d3-flextree": "^2.1.4",
     "@types/express": "^4.17.21",
     "@types/node": "^24.6.2",
@@ -31,6 +32,7 @@
     "react-dom": "^18.2.0",
     "srcl": "github:deepfates/srcl",
     "styled-components": "^6.1.8",
+    "tailwindcss": "^4.1.17",
     "wouter": "^3.3.5",
     "yargs": "^17.7.2"
   },

@@ -1031,24 +1031,29 @@ export const GamepadInterface = () => {
     const currentPath = getCurrentPath();
 
     return (
-      <div ref={storyTextRef} className="story-text view-fade">
+      <div ref={storyTextRef} className="story-text">
         {currentPath.map((segment, index) => {
           const isCurrentDepth = index === currentDepth;
           const isNextDepth = index === currentDepth + 1;
           const isLoading = isGeneratingAt(segment.id);
 
+          // Determine opacity based on depth - all use same text color
+          let opacityClass = "";
+          if (isCurrentDepth) {
+            opacityClass = "opacity-100"; // Current node - full opacity
+          } else if (isNextDepth) {
+            opacityClass = "opacity-80"; // Selected option at next depth - slightly faded
+          } else {
+            opacityClass = "opacity-50"; // Past nodes - more faded
+          }
+
           return (
             <span
               key={segment.id}
               data-node-id={segment.id}
-              style={{
-                color: isCurrentDepth
-                  ? "var(--font-color)"
-                  : isNextDepth
-                    ? "var(--primary-color)"
-                    : "var(--secondary-color)",
-              }}
-              className={isLoading ? "opacity-50" : ""}
+              className={`text-theme-text ${
+                isNextDepth ? "cursor-node" : ""
+              } ${opacityClass} ${isLoading ? "opacity-50" : ""}`}
             >
               {segment.text}
             </span>
@@ -1059,9 +1064,17 @@ export const GamepadInterface = () => {
   };
 
   return (
-    <main className="terminal" aria-label="Story Interface">
+    <main
+      className="gamepad-main bg-theme-bg text-theme-text font-mono"
+      aria-label="Story Interface"
+    >
       <InstallPrompt />
-      <div ref={containerRef} className={`container ${layout}`}>
+      <div
+        ref={containerRef}
+        className={`gamepad-container ${
+          layout === "landscape" ? "landscape" : "portrait"
+        }`}
+      >
         {/* Screen area */}
         <section className="terminal-screen" aria-label="Story Display">
           {/* Unified top mode bar */}
@@ -1095,7 +1108,7 @@ export const GamepadInterface = () => {
                   params={{ ...menuParams, theme }}
                   onParamChange={(param, value) => {
                     if (param === "theme") {
-                      setTheme(value as "matrix" | "light" | "system");
+                      setTheme(value as "phosphor" | "light" | "system");
                     } else {
                       setMenuParams((prev) => ({ ...prev, [param]: value }));
                     }
@@ -1158,7 +1171,7 @@ export const GamepadInterface = () => {
                     // Adjust selected index if needed
                     if (selectedTreeIndex > 0) {
                       setSelectedTreeIndex((prev) =>
-                        Math.min(prev, Object.keys(trees).length - 1),
+                        Math.min(prev, Object.keys(trees).length - 1)
                       );
                       setSelectedTreeColumn(0);
                     }
@@ -1281,32 +1294,50 @@ export const GamepadInterface = () => {
             </MenuScreen>
           ) : null}
 
-          {/* Keep LOOM mounted; hide when a menu is active. Use display: contents to preserve flex context */}
-          <div style={{ display: activeMenu ? "none" : ("contents" as const) }}>
+          {/* Keep LOOM mounted; hide when a menu is active */}
+          <div
+            style={{ display: activeMenu ? "none" : "flex" }}
+            className="flex-1 flex flex-col min-h-0 overflow-hidden"
+          >
             {renderStoryText()}
-            <NavigationDots
-              options={getOptionsAtDepth(currentDepth)}
-              currentDepth={currentDepth}
-              selectedOptions={selectedOptions}
-              activeControls={activeControls}
-              inFlight={inFlight}
-              generatingInfo={generatingInfo}
-            />
-            {isOffline && (
-              <output className="offline-message">
-                ⚡ Offline - Stories saved locally, generation unavailable
-              </output>
-            )}
-            {error && (
-              <output className="error-message">
-                Generation error: {error.message}
-              </output>
+          </div>
+
+          {/* Navigation bar - always visible at bottom of screen */}
+          <div className="navigation-bar">
+            {activeMenu ? (
+              // Show status messages in menus
+              <>
+                {isOffline && (
+                  <span className="text-theme-focused text-sm">⚡ Offline</span>
+                )}
+                {error && (
+                  <span className="text-red-500 text-sm">
+                    Error: {error.message}
+                  </span>
+                )}
+              </>
+            ) : (
+              // Show navigation dots in LOOM mode
+              <>
+                <NavigationDots
+                  options={getOptionsAtDepth(currentDepth)}
+                  currentDepth={currentDepth}
+                  selectedOptions={selectedOptions}
+                  activeControls={activeControls}
+                  inFlight={inFlight}
+                  generatingInfo={generatingInfo}
+                />
+                {isOffline && (
+                  <span className="text-theme-focused text-xs ml-2">⚡</span>
+                )}
+              </>
             )}
           </div>
         </section>
 
         {/* Controls */}
-        <div className="terminal-controls" aria-label="Game Controls">
+        <div className="gamepad-controls" aria-label="Game Controls">
+          {/* Top row: D-pad and A/B buttons */}
           <div className="controls-top">
             <DPad
               activeDirection={activeControls.direction}
@@ -1333,6 +1364,7 @@ export const GamepadInterface = () => {
             </div>
           </div>
 
+          {/* Bottom row: Start/Select */}
           <div className="terminal-menu">
             <MenuButton
               label="SELECT"
