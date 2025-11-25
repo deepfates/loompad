@@ -49,38 +49,26 @@ export const NavigationDots = ({
   });
 
   return (
-    <div className="flex items-center gap-1.5">
-      {/* Show existing options */}
+    <div className="navigation-dots">
       {options.map((option, index) => {
         const isSelected = index === currentIndex;
         const isGenerating = inFlight.has(option.id);
         const shouldBump = isSelected && isEdgePress;
 
-        return (
-          <div
-            key={`dot-${option.id}`}
-            className={`
-              w-2 h-2 rounded-full border border-theme-text
-              transition-all duration-75
-              ${
-                isSelected
-                  ? "bg-theme-focused border-theme-focused"
-                  : "bg-transparent"
-              }
-              ${shouldBump ? "scale-125" : ""}
-              ${isGenerating ? "animate-pulse" : ""}
-            `}
-          />
-        );
+        const classes = ["navigation-dot"];
+        if (isSelected) classes.push("active");
+        if (isGenerating) classes.push("generating");
+        if (shouldBump) classes.push("bump");
+
+        return <div key={`dot-${option.id}`} className={classes.join(" ")} />;
       })}
-      {/* Show loading dots for new options */}
       {loadingCount > 0 &&
         Array(loadingCount)
           .fill(null)
           .map((_, i) => (
             <div
               key={`loading-${currentDepth}-${i}`}
-              className="w-2 h-2 rounded-full border border-theme-text animate-pulse bg-theme-focused-subdued"
+              className="navigation-dot loading generating"
             />
           ))}
     </div>
