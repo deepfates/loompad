@@ -14,6 +14,11 @@ import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { StoryMinimap } from "./components/StoryMinimap";
 import { useTheme } from "./components/ThemeToggle";
+import type {
+  ThemeClass,
+  ThemeMode,
+  FontOption,
+} from "./components/ThemeToggle";
 import {
   ModelEditor,
   type ModelFormState,
@@ -62,7 +67,19 @@ const createEmptyModelForm = (): ModelFormState => ({
 
 export const GamepadInterface = () => {
   const { isOnline, isOffline, wasOffline } = useOfflineStatus();
-  const { theme, setTheme } = useTheme();
+  const {
+    themeMode,
+    setThemeMode,
+    lightTheme,
+    setLightTheme,
+    darkTheme,
+    setDarkTheme,
+    resolvedTheme,
+    resolvedTone,
+    font,
+    setFont,
+    availableFonts,
+  } = useTheme();
   const [lastMapNodeId, setLastMapNodeId] = useState<string | null>(null);
 
   // (select menu navigation now handled in useMenuSystem)
@@ -98,10 +115,10 @@ export const GamepadInterface = () => {
 
   const [modelSort, setModelSort] = useState<ModelSortOption>("name-asc");
   const [modelForm, setModelForm] = useState<ModelFormState>(() =>
-    createEmptyModelForm(),
+    createEmptyModelForm()
   );
   const [modelEditorMode, setModelEditorMode] = useState<"create" | "edit">(
-    "create",
+    "create"
   );
   const [editingModelId, setEditingModelId] = useState<ModelId | null>(null);
   const [modelFormError, setModelFormError] = useState<string | null>(null);
@@ -131,7 +148,7 @@ export const GamepadInterface = () => {
   // Compute reverse-chronologically ordered trees for menus
   const orderedKeys = useMemo(
     () => orderKeysReverseChronological(trees),
-    [trees],
+    [trees]
   );
   // Use orderedKeys directly where needed; no reordered trees object required
 
@@ -149,7 +166,7 @@ export const GamepadInterface = () => {
 
   const modelOrder = useMemo(
     () => sortedModelEntries.map(([modelId]) => modelId),
-    [sortedModelEntries],
+    [sortedModelEntries]
   );
 
   const modelEditorFields = useMemo<ModelEditorField[]>(() => {
@@ -240,7 +257,7 @@ export const GamepadInterface = () => {
         // If we deleted the current tree, switch to another one
         if (key === currentTreeKey) {
           const remaining = orderKeysReverseChronological(trees).filter(
-            (k) => k !== key,
+            (k) => k !== key
           );
           if (remaining.length > 0) {
             setCurrentTreeKey(remaining[0]);
@@ -249,7 +266,7 @@ export const GamepadInterface = () => {
         }
       }
     },
-    [currentTreeKey, trees, setTrees, setCurrentTreeKey],
+    [currentTreeKey, trees, setTrees, setCurrentTreeKey]
   );
 
   const handleExportTree = useCallback(
@@ -258,7 +275,7 @@ export const GamepadInterface = () => {
       if (!tree) return;
       downloadStoryTreeJson(key, tree);
     },
-    [trees],
+    [trees]
   );
 
   const handleExportThread = useCallback(
@@ -267,7 +284,7 @@ export const GamepadInterface = () => {
       if (!tree) return;
       downloadStoryThreadText(key, tree);
     },
-    [trees],
+    [trees]
   );
 
   const handleStoryHighlight = useCallback(
@@ -275,7 +292,7 @@ export const GamepadInterface = () => {
       setSelectedTreeIndex(index);
       setSelectedTreeColumn(column);
     },
-    [setSelectedTreeIndex, setSelectedTreeColumn],
+    [setSelectedTreeIndex, setSelectedTreeColumn]
   );
 
   const cycleModelSort = useCallback((_delta: -1 | 1 = 1) => {
@@ -290,14 +307,14 @@ export const GamepadInterface = () => {
   const handleModelFormChange = useCallback(
     <Key extends keyof ModelFormState>(
       field: Key,
-      value: ModelFormState[Key],
+      value: ModelFormState[Key]
     ) => {
       setModelForm((prev) => ({
         ...prev,
         [field]: value,
       }));
     },
-    [],
+    []
   );
 
   const handleStartNewModel = useCallback(() => {
@@ -325,7 +342,7 @@ export const GamepadInterface = () => {
       setSelectedModelField(0);
       setActiveMenu("model-editor");
     },
-    [models, setActiveMenu, setSelectedModelField],
+    [models, setActiveMenu, setSelectedModelField]
   );
 
   const showModelsMenu = useCallback(
@@ -344,17 +361,15 @@ export const GamepadInterface = () => {
       setModelFormError(null);
       setActiveMenu("models");
     },
-    [
-      menuParams.model,
-      modelOrder,
-      models,
-      setActiveMenu,
-      setSelectedModelIndex,
-    ],
+    [menuParams.model, modelOrder, models, setActiveMenu, setSelectedModelIndex]
   );
 
   const handleCancelModelEdit = useCallback(() => {
-    if (modelEditorMode === "edit" && editingModelId && models?.[editingModelId]) {
+    if (
+      modelEditorMode === "edit" &&
+      editingModelId &&
+      models?.[editingModelId]
+    ) {
       const config = models[editingModelId];
       setModelForm({
         id: editingModelId,
@@ -369,12 +384,7 @@ export const GamepadInterface = () => {
     }
     setModelFormError(null);
     showModelsMenu(editingModelId);
-  }, [
-    editingModelId,
-    modelEditorMode,
-    models,
-    showModelsMenu,
-  ]);
+  }, [editingModelId, modelEditorMode, models, showModelsMenu]);
 
   const handleModelEditorHighlight = useCallback(
     (field: ModelEditorField) => {
@@ -383,7 +393,7 @@ export const GamepadInterface = () => {
         setSelectedModelField(index);
       }
     },
-    [modelEditorFields, setSelectedModelField],
+    [modelEditorFields, setSelectedModelField]
   );
 
   const handleDeleteModel = useCallback(
@@ -411,10 +421,9 @@ export const GamepadInterface = () => {
         }
 
         if (editingModelId === modelId) {
-          const remainingEntries = Object.entries(updated) as Array<[
-            ModelId,
-            ModelConfig,
-          ]>;
+          const remainingEntries = Object.entries(updated) as Array<
+            [ModelId, ModelConfig]
+          >;
           if (remainingEntries.length > 0) {
             const [firstId, config] = remainingEntries[0];
             setEditingModelId(firstId);
@@ -436,7 +445,7 @@ export const GamepadInterface = () => {
         }
       } catch (err) {
         setModelFormError(
-          err instanceof Error ? err.message : "Failed to delete model",
+          err instanceof Error ? err.message : "Failed to delete model"
         );
       }
     },
@@ -447,7 +456,7 @@ export const GamepadInterface = () => {
       models,
       setMenuParams,
       setPendingModelSelection,
-    ],
+    ]
   );
 
   const handleSubmitModel = useCallback(async () => {
@@ -513,7 +522,7 @@ export const GamepadInterface = () => {
       showModelsMenu(nextFocusId);
     } catch (err) {
       setModelFormError(
-        err instanceof Error ? err.message : "Failed to save model",
+        err instanceof Error ? err.message : "Failed to save model"
       );
     }
   }, [
@@ -541,7 +550,7 @@ export const GamepadInterface = () => {
         setModelForm((prev) => {
           const next = Math.max(
             0,
-            Math.min(2, Number((prev.defaultTemp + delta * 0.1).toFixed(1))),
+            Math.min(2, Number((prev.defaultTemp + delta * 0.1).toFixed(1)))
           );
           return {
             ...prev,
@@ -551,7 +560,7 @@ export const GamepadInterface = () => {
         setModelFormError(null);
       }
     },
-    [],
+    []
   );
 
   const handleModelEditorActivate = useCallback(
@@ -563,7 +572,7 @@ export const GamepadInterface = () => {
           }
           const input = window.prompt(
             "Model ID",
-            `${modelForm.id ?? "provider/model"}`.trim(),
+            `${modelForm.id ?? "provider/model"}`.trim()
           );
           if (input === null) return;
           const trimmed = input.trim();
@@ -603,7 +612,7 @@ export const GamepadInterface = () => {
         case "defaultTemp": {
           const input = window.prompt(
             "Default Temperature",
-            modelForm.defaultTemp.toFixed(1),
+            modelForm.defaultTemp.toFixed(1)
           );
           if (input === null) return;
           const parsed = Number.parseFloat(input);
@@ -648,7 +657,7 @@ export const GamepadInterface = () => {
       modelForm.maxTokens,
       modelForm.name,
       setModelForm,
-    ],
+    ]
   );
 
   useEffect(() => {
@@ -663,11 +672,7 @@ export const GamepadInterface = () => {
     if (selectedModelField >= modelEditorFields.length) {
       setSelectedModelField(0);
     }
-  }, [
-    modelEditorFields,
-    selectedModelField,
-    setSelectedModelField,
-  ]);
+  }, [modelEditorFields, selectedModelField, setSelectedModelField]);
 
   useEffect(() => {
     if (!pendingModelSelection) return;
@@ -682,9 +687,7 @@ export const GamepadInterface = () => {
     if (!editingModelId) return;
     const index = modelOrder.indexOf(editingModelId);
     if (index >= 0) {
-      setSelectedModelIndex((prev) =>
-        prev === index + 2 ? prev : index + 2,
-      );
+      setSelectedModelIndex((prev) => (prev === index + 2 ? prev : index + 2));
     }
   }, [editingModelId, modelOrder, setSelectedModelIndex]);
 
@@ -798,8 +801,15 @@ export const GamepadInterface = () => {
           },
           onExportTreeJson: handleExportTree,
           onExportTreeThread: handleExportThread,
-          currentTheme: theme,
-          onThemeChange: setTheme,
+          currentThemeMode: themeMode,
+          currentLightTheme: lightTheme,
+          currentDarkTheme: darkTheme,
+          onThemeModeChange: setThemeMode,
+          onLightThemeChange: setLightTheme,
+          onDarkThemeChange: setDarkTheme,
+          currentFont: font,
+          onFontChange: setFont,
+          fontOptions: availableFonts.map((option) => option.id),
           modelOrder,
           onManageModels: () => showModelsMenu(),
         });
@@ -914,11 +924,18 @@ export const GamepadInterface = () => {
       editingModelId,
       highlightedNode,
       showModelsMenu,
-      theme,
-      setTheme,
+      themeMode,
+      setThemeMode,
+      lightTheme,
+      setLightTheme,
+      darkTheme,
+      setDarkTheme,
+      font,
+      setFont,
+      availableFonts,
       handleExportTree,
       handleExportThread,
-    ],
+    ]
   );
 
   const { activeControls, handleControlPress, handleControlRelease } =
@@ -926,6 +943,7 @@ export const GamepadInterface = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<"portrait" | "landscape">("portrait");
+  const isLightTheme = resolvedTone === "light";
 
   useEffect(() => {
     const checkLayout = () => {
@@ -958,13 +976,13 @@ export const GamepadInterface = () => {
       const container = storyTextRef.current;
       if (!container || !nodeId) return;
       const el = container.querySelector(
-        `[data-node-id="${nodeId}"]`,
+        `[data-node-id="${nodeId}"]`
       ) as HTMLElement | null;
       if (!el) return;
       // Use a small edge buffer, but only scroll when offscreen
       scrollElementIntoViewIfNeeded(container, el, 8, "smooth");
     },
-    [],
+    []
   );
 
   // Scroll to current depth when navigation changes
@@ -1037,23 +1055,37 @@ export const GamepadInterface = () => {
           const isNextDepth = index === currentDepth + 1;
           const isLoading = isGeneratingAt(segment.id);
 
-          // Determine opacity based on depth - all use same text color
-          let opacityClass = "";
-          if (isCurrentDepth) {
-            opacityClass = "opacity-100"; // Current node - full opacity
-          } else if (isNextDepth) {
-            opacityClass = "opacity-80"; // Selected option at next depth - slightly faded
+          const spanClasses = ["story-node"];
+          if (isNextDepth) {
+            spanClasses.push(
+              "cursor-node",
+              "font-semibold",
+              "py-[0.125ch]",
+              "rounded-[0.125ch]"
+            );
+            // Use special color if we're in light mode, else use theme-button-foreground
+            if (isLightTheme) {
+              spanClasses.push(
+                "bg-theme-focused-subdued",
+                "text-theme-background"
+              );
+            } else {
+              spanClasses.push("text-theme-focused");
+            }
+          } else if (isCurrentDepth) {
+            spanClasses.push("font-semibold", "text-theme-text");
           } else {
-            opacityClass = "opacity-50"; // Past nodes - more faded
+            spanClasses.push("text-theme-background-modal-footer");
+          }
+          if (isLoading) {
+            spanClasses.push("opacity-50");
           }
 
           return (
             <span
               key={segment.id}
               data-node-id={segment.id}
-              className={`text-theme-text ${
-                isNextDepth ? "cursor-node" : ""
-              } ${opacityClass} ${isLoading ? "opacity-50" : ""}`}
+              className={spanClasses.join(" ")}
             >
               {segment.text}
             </span>
@@ -1094,6 +1126,10 @@ export const GamepadInterface = () => {
                 hint: "↵: EDIT • ⌫: DELETE • SELECT: SETTINGS",
               },
               edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
+              "model-editor": {
+                title: "MODEL EDITOR",
+                hint: "SELECT: BACK • START: SAVE",
+              },
             } as const;
             const key = (activeMenu ?? "null") as keyof typeof map;
             const entry = map[key];
@@ -1105,13 +1141,31 @@ export const GamepadInterface = () => {
             <>
               <MenuScreen>
                 <SettingsMenu
-                  params={{ ...menuParams, theme }}
+                  params={{
+                    ...menuParams,
+                    themeMode,
+                    lightTheme,
+                    darkTheme,
+                    font,
+                  }}
                   onParamChange={(param, value) => {
-                    if (param === "theme") {
-                      setTheme(value as "phosphor" | "light" | "system");
-                    } else {
-                      setMenuParams((prev) => ({ ...prev, [param]: value }));
+                    if (param === "themeMode") {
+                      setThemeMode(value as ThemeMode);
+                      return;
                     }
+                    if (param === "lightTheme") {
+                      setLightTheme(value as ThemeClass);
+                      return;
+                    }
+                    if (param === "darkTheme") {
+                      setDarkTheme(value as ThemeClass);
+                      return;
+                    }
+                    if (param === "font") {
+                      setFont(value as FontOption);
+                      return;
+                    }
+                    setMenuParams((prev) => ({ ...prev, [param]: value }));
                   }}
                   selectedParam={selectedParam}
                   isLoading={isAnyGenerating}
@@ -1120,6 +1174,7 @@ export const GamepadInterface = () => {
                   modelsError={modelsError}
                   getModelName={getModelName}
                   onManageModels={() => showModelsMenu()}
+                  fonts={availableFonts.map(({ id, label }) => ({ id, label }))}
                 />
               </MenuScreen>
             </>

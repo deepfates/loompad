@@ -3,7 +3,12 @@ import { MenuType } from "../types";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import { scrollMenuItemElIntoView } from "../utils/scrolling";
-import type { Theme } from "../components/ThemeToggle";
+import {
+  THEME_PRESETS,
+  type ThemeClass,
+  type ThemeMode,
+  type FontOption,
+} from "../components/ThemeToggle";
 import {
   orderKeysReverseChronological,
   touchStoryActive,
@@ -23,9 +28,16 @@ interface MenuCallbacks {
   onDeleteTree?: (key: string) => void;
   onExportTreeJson?: (key: string) => void;
   onExportTreeThread?: (key: string) => void;
-  // Settings menu (theme)
-  currentTheme?: Theme;
-  onThemeChange?: (theme: Theme) => void;
+  // Settings menu (themes)
+  currentThemeMode?: ThemeMode;
+  currentLightTheme?: ThemeClass;
+  currentDarkTheme?: ThemeClass;
+  onThemeModeChange?: (mode: ThemeMode) => void;
+  onLightThemeChange?: (theme: ThemeClass) => void;
+  onDarkThemeChange?: (theme: ThemeClass) => void;
+  currentFont?: FontOption;
+  onFontChange?: (font: FontOption) => void;
+  fontOptions?: FontOption[];
   onManageModels?: () => void;
   modelOrder?: ModelId[];
   onNewModel?: () => void;
@@ -50,24 +62,61 @@ export function useMenuSystem(defaultParams: MenuParams) {
   const [selectedModelField, setSelectedModelField] = useState(0);
   const [menuParams, setMenuParams] = useState<MenuParams>(defaultParams);
   const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
+  const themeModes: ThemeMode[] = ["light", "dark", "system"];
+  const themeOptions = THEME_PRESETS.map((preset) => preset.id);
+  const lightThemeOptions = THEME_PRESETS.filter(
+    (preset) => preset.tone === "light"
+  ).map((preset) => preset.id);
+  const darkThemeOptions = THEME_PRESETS.filter(
+    (preset) => preset.tone === "dark"
+  ).map((preset) => preset.id);
+  const cycleOption = <T>(
+    list: T[],
+    current: T | undefined,
+    delta: number
+  ): T => {
+    if (!list.length) {
+      throw new Error("cycleOption requires at least one option");
+    }
+    const idx = current ? list.indexOf(current) : -1;
+    const normalized = idx === -1 ? 0 : idx;
+    const nextIndex = (normalized + delta + list.length) % list.length;
+    return list[nextIndex];
+  };
+
   const cycleLengthMode = (current: LengthMode, delta: number): LengthMode => {
     const index = lengthModes.indexOf(current);
     const nextIndex = (index + delta + lengthModes.length) % lengthModes.length;
     return lengthModes[nextIndex];
   };
 
+  const cycleThemeClass = (
+    current: ThemeClass | undefined,
+    delta: number,
+    options: ThemeClass[] = themeOptions
+  ): ThemeClass => {
+    const list = options.length ? options : themeOptions;
+    const currentIndex = current ? list.indexOf(current) : 0;
+    const fallbackIndex = currentIndex === -1 ? 0 : currentIndex;
+    const nextIndex = (fallbackIndex + delta + list.length) % list.length;
+    return list[nextIndex] ?? themeOptions[0];
+  };
+
   const handleMenuNavigation = useCallback(
     (
       key: string,
       trees: Record<string, unknown> = {},
-      callbacks: MenuCallbacks = {},
+      callbacks: MenuCallbacks = {}
     ) => {
       if (activeMenu === "select") {
         const params: (
           | "temperature"
           | "lengthMode"
           | "model"
-          | "theme"
+          | "themeMode"
+          | "lightTheme"
+          | "darkTheme"
+          | "font"
           | "textSplitting"
           | "autoModeIterations"
           | "manageModels"
@@ -75,7 +124,10 @@ export function useMenuSystem(defaultParams: MenuParams) {
           "temperature",
           "lengthMode",
           "model",
-          "theme",
+          "themeMode",
+          "lightTheme",
+          "darkTheme",
+          "font",
           "textSplitting",
           "autoModeIterations",
           "manageModels",
@@ -146,13 +198,36 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   }
                 }
               }
-            } else if (param === "theme") {
-              const themes: Theme[] = ["phosphor", "light", "system"];
-              const currentTheme = callbacks.currentTheme ?? "phosphor";
-              const idx = themes.indexOf(currentTheme);
-              const nextTheme =
-                themes[(idx - 1 + themes.length) % themes.length];
-              callbacks.onThemeChange?.(nextTheme);
+            } else if (param === "themeMode") {
+              const currentMode = callbacks.currentThemeMode ?? "system";
+              const idx = themeModes.indexOf(currentMode);
+              const nextMode =
+                themeModes[(idx - 1 + themeModes.length) % themeModes.length];
+              callbacks.onThemeModeChange?.(nextMode);
+            } else if (param === "lightTheme") {
+              const nextTheme = cycleThemeClass(
+                callbacks.currentLightTheme,
+                -1,
+                lightThemeOptions
+              );
+              callbacks.onLightThemeChange?.(nextTheme);
+            } else if (param === "darkTheme") {
+              const nextTheme = cycleThemeClass(
+                callbacks.currentDarkTheme,
+                -1,
+                darkThemeOptions
+              );
+              callbacks.onDarkThemeChange?.(nextTheme);
+            } else if (param === "font") {
+              const options = callbacks.fontOptions ?? [];
+              if (options.length) {
+                const nextFont = cycleOption(
+                  options,
+                  callbacks.currentFont,
+                  -1
+                );
+                callbacks.onFontChange?.(nextFont);
+              }
             } else if (param === "textSplitting") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -200,12 +275,35 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   }
                 }
               }
-            } else if (param === "theme") {
-              const themes: Theme[] = ["phosphor", "light", "system"];
-              const currentTheme = callbacks.currentTheme ?? "phosphor";
-              const idx = themes.indexOf(currentTheme);
-              const nextTheme = themes[(idx + 1) % themes.length];
-              callbacks.onThemeChange?.(nextTheme);
+            } else if (param === "themeMode") {
+              const currentMode = callbacks.currentThemeMode ?? "system";
+              const idx = themeModes.indexOf(currentMode);
+              const nextMode = themeModes[(idx + 1) % themeModes.length];
+              callbacks.onThemeModeChange?.(nextMode);
+            } else if (param === "lightTheme") {
+              const nextTheme = cycleThemeClass(
+                callbacks.currentLightTheme,
+                +1,
+                lightThemeOptions
+              );
+              callbacks.onLightThemeChange?.(nextTheme);
+            } else if (param === "darkTheme") {
+              const nextTheme = cycleThemeClass(
+                callbacks.currentDarkTheme,
+                +1,
+                darkThemeOptions
+              );
+              callbacks.onDarkThemeChange?.(nextTheme);
+            } else if (param === "font") {
+              const options = callbacks.fontOptions ?? [];
+              if (options.length) {
+                const nextFont = cycleOption(
+                  options,
+                  callbacks.currentFont,
+                  +1
+                );
+                callbacks.onFontChange?.(nextFont);
+              }
             } else if (param === "textSplitting") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -228,9 +326,8 @@ export function useMenuSystem(defaultParams: MenuParams) {
               const modelIds = callbacks.modelOrder ?? [];
               if (modelIds.length) {
                 const currentIndex = modelIds.indexOf(menuParams.model);
-                const nextIndex = currentIndex >= 0
-                  ? (currentIndex + 1) % modelIds.length
-                  : 0;
+                const nextIndex =
+                  currentIndex >= 0 ? (currentIndex + 1) % modelIds.length : 0;
                 const newModel = modelIds[nextIndex];
                 if (newModel) {
                   setMenuParams((prev) => ({
@@ -246,12 +343,35 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 lengthMode: cycleLengthMode(prev.lengthMode, +1),
               }));
-            } else if (param === "theme") {
-              const themes: Theme[] = ["phosphor", "light", "system"];
-              const currentTheme = callbacks.currentTheme ?? "phosphor";
-              const idx = themes.indexOf(currentTheme);
-              const nextTheme = themes[(idx + 1) % themes.length];
-              callbacks.onThemeChange?.(nextTheme);
+            } else if (param === "themeMode") {
+              const currentMode = callbacks.currentThemeMode ?? "system";
+              const idx = themeModes.indexOf(currentMode);
+              const nextMode = themeModes[(idx + 1) % themeModes.length];
+              callbacks.onThemeModeChange?.(nextMode);
+            } else if (param === "lightTheme") {
+              const nextTheme = cycleThemeClass(
+                callbacks.currentLightTheme,
+                +1,
+                lightThemeOptions
+              );
+              callbacks.onLightThemeChange?.(nextTheme);
+            } else if (param === "darkTheme") {
+              const nextTheme = cycleThemeClass(
+                callbacks.currentDarkTheme,
+                +1,
+                darkThemeOptions
+              );
+              callbacks.onDarkThemeChange?.(nextTheme);
+            } else if (param === "font") {
+              const options = callbacks.fontOptions ?? [];
+              if (options.length) {
+                const nextFont = cycleOption(
+                  options,
+                  callbacks.currentFont,
+                  +1
+                );
+                callbacks.onFontChange?.(nextFont);
+              }
             } else if (param === "textSplitting") {
               setMenuParams((prev) => ({
                 ...prev,
@@ -296,7 +416,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 }
               }
               setSelectedTreeColumn((column) =>
-                Math.min(column, getMaxColumnForIndex(newIndex)),
+                Math.min(column, getMaxColumnForIndex(newIndex))
               );
               return newIndex;
             });
@@ -315,7 +435,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 }
               }
               setSelectedTreeColumn((column) =>
-                Math.min(column, getMaxColumnForIndex(newIndex)),
+                Math.min(column, getMaxColumnForIndex(newIndex))
               );
               return newIndex;
             });
@@ -499,7 +619,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
       selectedModelField,
       menuParams,
       scrollMenuItemElIntoView,
-    ],
+    ]
   );
 
   return {

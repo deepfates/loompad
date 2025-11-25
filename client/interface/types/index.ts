@@ -1,6 +1,10 @@
 import type { AvailableModels, ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
-import type { Theme } from "../components/ThemeToggle";
+import type {
+  ThemeClass,
+  ThemeMode,
+  FontOption,
+} from "../components/ThemeToggle";
 
 export interface StoryNode {
   id: string;
@@ -45,7 +49,10 @@ export interface SettingsMenuProps {
     model: ModelId;
     textSplitting: boolean;
     autoModeIterations: number;
-    theme: Theme;
+    themeMode: ThemeMode;
+    lightTheme: ThemeClass;
+    darkTheme: ThemeClass;
+    font: FontOption;
   };
   onParamChange: (param: string, value: number | string | boolean) => void;
   selectedParam: number;
@@ -55,6 +62,7 @@ export interface SettingsMenuProps {
   modelsError?: string | null;
   getModelName: (modelId: ModelId) => string;
   onManageModels?: () => void;
+  fonts: Array<{ id: FontOption; label: string }>;
 }
 
 export interface TreeListProps {
