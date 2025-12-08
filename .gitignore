@@ -25,5 +25,7 @@ dist-ssr
 
 bun.lockb
 **/credentials/*.json
+server/data/stories.json
+server/data/stories.db
 
 .env

@@ -13,6 +13,15 @@ import {
   deleteModel,
 } from "../modelsStore";
 import type { ModelConfig } from "../../shared/models";
+import {
+  createChildHandler,
+  createStoryHandler,
+  getNodeHandler,
+  getStoryHandler,
+  getWindowHandler,
+  listStoriesHandler,
+  updateNodeHandler,
+} from "./stories";
 
 export function setup_routes(app: Application) {
   // Scope API middleware to /api to avoid affecting static/SSR caching
@@ -137,4 +146,19 @@ export function setup_routes(app: Application) {
       return res.status(400).json({ error: message });
     }
   });
+
+  // Persistent stories
+  app.get("/api/stories", listStoriesHandler);
+  app.post("/api/stories", createStoryHandler);
+  app.get("/api/stories/:storyId", getStoryHandler);
+  app.get("/api/stories/:storyId/nodes/:nodeId", getNodeHandler);
+  app.get(
+    "/api/stories/:storyId/nodes/:nodeId/window",
+    getWindowHandler,
+  );
+  app.post(
+    "/api/stories/:storyId/nodes/:nodeId/children",
+    createChildHandler,
+  );
+  app.patch("/api/stories/:storyId/nodes/:nodeId", updateNodeHandler);
 }

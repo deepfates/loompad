@@ -27,6 +27,11 @@ interface GenerateRequest {
   lengthMode?: LengthMode;
 }
 
+type CompletionStreamChunk = {
+  usage?: unknown;
+  choices?: Array<{ text?: string }>;
+};
+
 // Boundary regex is provided by helpers to keep API lean
 function getBoundaryRegex(mode: LengthMode): RegExp | null {
   return helperGetBoundaryRegex(mode);
@@ -144,10 +149,12 @@ export async function generateText(req: Request, res: Response) {
     // Track if we've seen any non-whitespace in word mode
     let wordModeBuffer = "";
 
-    for await (const chunk of stream) {
+    const chunkStream = stream as AsyncIterable<CompletionStreamChunk>;
+
+    for await (const chunk of chunkStream) {
       // Log usage if present (often in final chunk)
-      if ((chunk as any).usage) {
-        console.log("[OpenRouter] Usage:", (chunk as any).usage);
+      if (chunk.usage) {
+        console.log("[OpenRouter] Usage:", chunk.usage);
       }
 
       const delta = chunk.choices?.[0]?.text ?? "";

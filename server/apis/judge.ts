@@ -36,7 +36,7 @@ export async function judgeContinuation(req: Request, res: Response) {
           "HTTP-Referer": "https://loompad.dev",
           "X-Title": "LoomPad",
         },
-      } as any,
+      } as unknown as AxAI["config"],
       model: model,
     });
 
@@ -51,7 +51,7 @@ export async function judgeContinuation(req: Request, res: Response) {
         maxRetries: 2,
         modelConfig: {
           temperature: temperature ?? 0.1,
-        } as any,
+        } as unknown as AxAI["config"],
       }
     );
 
