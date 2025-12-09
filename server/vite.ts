@@ -10,6 +10,7 @@ import tailwindcss from "@tailwindcss/postcss";
 // app specific imports
 import args from "server/args";
 import { setup_routes } from "server/apis/http";
+import { getPrimaryStory, getStory } from "./storyStore";
 import { getMainProps } from "server/main_props";
 
 const port: number = args.port;
@@ -106,6 +107,23 @@ export async function createServer() {
   if (mode === "development") {
     app.use(vite.middlewares);
   }
+
+  // Server-side redirects to land users on the persistent loom even before JS loads
+  app.get("/stories/:storyId", (req, res, next) => {
+    const story = getStory(req.params.storyId);
+    if (story) {
+      return res.redirect(302, `/stories/${story.slug}/${story.rootId}`);
+    }
+    return next();
+  });
+
+  app.get("/", (_req, res, next) => {
+    const primary = getPrimaryStory();
+    if (primary) {
+      return res.redirect(302, `/stories/${primary.slug}/${primary.rootId}`);
+    }
+    return next();
+  });
 
   // vite exposes all files at root by default, this is to prevent accessing server files
   app.use(async (req, res, next) => {

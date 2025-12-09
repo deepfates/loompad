@@ -267,6 +267,14 @@ export function listStories(): StorySummary[] {
   return rows.map(buildSummary);
 }
 
+export function getPrimaryStory(): StorySummary | null {
+  const database = getDb();
+  const row = database
+    .query<StoryRow>("SELECT * FROM stories ORDER BY updatedAt DESC LIMIT 1")
+    .get();
+  return row ? buildSummary(row) : null;
+}
+
 export function getStory(storyIdOrSlug: string): StoryRecord | null {
   return hydrateStoryRecord(storyIdOrSlug);
 }
