@@ -1,6 +1,6 @@
-import Interface from "./interface/Interface";
 import PersistentStoryRoutes from "./interface/persistent/PersistentStoryRoutes";
 import { Router, Switch, Route } from "wouter";
+import PersistentHome from "./interface/persistent/PersistentHome";
 import { default as SrclProvider } from "srcl/components/Providers.tsx";
 
 function App() {
@@ -19,11 +19,8 @@ function App() {
           <Route path="/stories/:storyId">
             {(params) => <PersistentStoryRoutes storyId={params.storyId} />}
           </Route>
-          <Route path="/">
-            <Interface />
-          </Route>
           <Route>
-            <PersistentStoryRoutes />
+            <PersistentHome />
           </Route>
         </Switch>
       </Router>

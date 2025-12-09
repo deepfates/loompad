@@ -181,7 +181,7 @@ export function PersistentStoryView({
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-wider text-[#7a7166]">
-              Loompad persistent
+              Loompad
             </p>
             <h1 className="text-2xl font-bold leading-tight">
               {windowData.story.title}
@@ -191,10 +191,12 @@ export function PersistentStoryView({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setLocation("/")}
+              onClick={() =>
+                setLocation(`/stories/${windowData.story.slug}/${windowData.story.rootId}`)
+              }
               className="rounded border border-[#d4c7ba] bg-white px-3 py-2 text-sm font-semibold text-[#1e1b16] shadow-sm transition hover:-translate-y-0.5 hover:shadow"
             >
-              Open local loom
+              Jump to root
             </button>
             <button
               type="button"
