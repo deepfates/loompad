@@ -25,6 +25,7 @@ export interface MenuKnobProps {
   step: number;
   onChange: (value: number) => void;
   selected: boolean;
+  formatValue?: (value: number) => string;
 }
 
 export interface MenuSelectProps {

@@ -159,11 +159,12 @@ export const SettingsMenu = ({
         label="Auto Mode"
         value={params.autoModeIterations}
         min={0}
-        max={3}
+        max={4}
         step={1}
         onChange={(value) =>
           onParamChange("autoModeIterations", Math.round(value))
         }
+        formatValue={(value) => (value >= 4 ? "∞" : value.toString())}
         selected={selectedParam === 8}
       />
       <ActionListItem

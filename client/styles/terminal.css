@@ -427,6 +427,21 @@ html, body {
   white-space: nowrap;
 }
 
+.menu-knob__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-knob__value {
+  color: var(--theme-muted);
+  font-size: 0.85em;
+}
+
+.menu-knob__slider label {
+  display: none;
+}
+
 /* Story menu */
 .story-menu-row {
   display: flex;

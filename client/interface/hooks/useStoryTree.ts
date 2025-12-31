@@ -249,7 +249,10 @@ export function useStoryTree(params: StoryParams) {
         return path;
       };
 
-      let iterationsRemaining = params.autoModeIterations;
+      let iterationsRemaining =
+        params.autoModeIterations >= 4
+          ? Number.POSITIVE_INFINITY
+          : params.autoModeIterations;
       let workingTree = baseTree;
       let currentDepth = depth;
       let currentPathIds = parentPath.map((node) => node.id);
