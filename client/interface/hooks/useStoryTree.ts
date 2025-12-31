@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
 import { useLocalStorage } from "./useLocalStorage";
@@ -17,6 +17,9 @@ export const INITIAL_STORY = {
 const DEFAULT_TREES = {
   "Story 1": INITIAL_STORY,
 };
+
+const AUTO_MODE_INFINITY_VALUE = 4;
+const MAX_AUTO_MODE_ITERATIONS = 25;
 
 interface StoryParams {
   temperature: number;
@@ -38,6 +41,7 @@ export function useStoryTree(params: StoryParams) {
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
   const [inFlight, setInFlight] = useState<InFlight>(new Set());
   const [generatingInfo, setGeneratingInfo] = useState<GeneratingInfo>({});
+  const autoModeIterationsRef = useRef(params.autoModeIterations);
 
   const { generateContinuation, chooseContinuation, error } =
     useStoryGeneration();
@@ -54,6 +58,10 @@ export function useStoryTree(params: StoryParams) {
   useEffect(() => {
     setStoryTree(trees[currentTreeKey] || INITIAL_STORY);
   }, [trees, currentTreeKey]);
+
+  useEffect(() => {
+    autoModeIterationsRef.current = params.autoModeIterations;
+  }, [params.autoModeIterations]);
 
   // Helper to get the last selected index for a node
   const getLastSelectedIndex = useCallback(
@@ -249,16 +257,23 @@ export function useStoryTree(params: StoryParams) {
         return path;
       };
 
-      let iterationsRemaining =
-        params.autoModeIterations >= 4
-          ? Number.POSITIVE_INFINITY
-          : params.autoModeIterations;
+      const isInfiniteMode =
+        params.autoModeIterations >= AUTO_MODE_INFINITY_VALUE;
+      let iterationsRemaining = isInfiniteMode
+        ? MAX_AUTO_MODE_ITERATIONS
+        : params.autoModeIterations;
       let workingTree = baseTree;
       let currentDepth = depth;
       let currentPathIds = parentPath.map((node) => node.id);
       let currentChildIds = generatedChildren.map((node) => node.id);
 
       while (iterationsRemaining > 0) {
+        if (
+          isInfiniteMode &&
+          autoModeIterationsRef.current < AUTO_MODE_INFINITY_VALUE
+        ) {
+          break;
+        }
         const pathNodes = resolvePath(workingTree, currentPathIds);
         if (!pathNodes) break;
 
