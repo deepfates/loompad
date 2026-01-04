@@ -312,7 +312,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
             } else if (param === "autoModeIterations") {
               setMenuParams((prev) => ({
                 ...prev,
-                autoModeIterations: Math.min(3, prev.autoModeIterations + 1),
+                autoModeIterations: Math.min(4, prev.autoModeIterations + 1),
               }));
             } else if (param === "manageModels") {
               callbacks.onManageModels?.();
