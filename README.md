@@ -2,8 +2,6 @@
 
 Loompad is a loom for language models. You generate text, branch from any point, and navigate the full tree of what's possible.
 
-**Live at [loompad.lol](https://loompad.lol)** (invite-only while I sort out auth)
-
 ## What's a loom?
 
 Language models don't give you one answer. They give you a probability distribution over all possible continuations. Most chat interfaces hide this - they sample once and show you a single thread, even though the model could have gone a thousand different ways.
