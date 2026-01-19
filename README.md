@@ -1,137 +1,89 @@
-# LoomPad: Interactive Story Tree Explorer
+# Loompad
 
-A gamepad-style interface for exploring branching narratives with AI text generation.
+Loompad is a loom for language models. You generate text, branch from any point, and navigate the full tree of what's possible.
 
-## Features
+**Live at [loompad.lol](https://loompad.lol)** (invite-only while I sort out auth)
 
-- 🎮 Gamepad-style interface with keyboard controls
-- 🌳 Multiple story trees with branching narratives
-- 🤖 AI-powered text generation
-- 💾 Automatic local storage
-- 🎯 Focus-driven navigation
-- 📱 **Progressive Web App (PWA)** - Install to home screen, works offline
+## What's a loom?
 
-## Quick Start
+Language models don't give you one answer. They give you a probability distribution over all possible continuations. Most chat interfaces hide this - they sample once and show you a single thread, even though the model could have gone a thousand different ways.
 
-1. Install dependencies:
+A loom makes that branching visible. Generate multiple continuations from any point. Navigate between them to compare. Backtrack and try different paths. Watch the tree grow as you explore.
+
+Every conversation with an AI is a reasoning trace - a path through possibility space that develops its own character. But chat interfaces treat these as disposable. You can't branch, you can't see alternatives, and sharing means losing the structure. A loom makes the tree first-class. Every branch is preserved.
+
+## What Loompad does
+
+Loompad looks like a GameBoy. You navigate with a d-pad and buttons, or with your keyboard: arrow keys, Enter, Backspace, Escape, backtick. Works on desktop and mobile. 
+
+It connects to [OpenRouter](https://openrouter.ai/), so you can use whatever model they have: Llama, DeepSeek, Gemini, Claude, GPT-4, Mistral.
+
+**Branching:** Press Enter to generate continuations - 3 branches from a fresh node, 1 if you're adding to an existing set. Arrow keys move through the tree: up/down for depth, left/right for siblings. A minimap shows your full story tree. Dots at the bottom show how many branches exist at your current position.
+
+**Auto-loom:** Set iterations to 1, 2, 3, or infinite. The model generates branches, judges which to continue from, generates more. Watch a story write itself. Infinite mode caps at 25 iterations.
+
+**Length control:**
+- Word: single words, 12 tokens max
+- Sentence: stops at punctuation, 120 tokens
+- Paragraph: stops at blank lines, 400 tokens  
+- Page: longer chunks, 900 tokens
+
+**Storage:** Stories save to your browser automatically. Switch between them, create new ones, delete old ones. Export as JSON (full tree) or plain text (current branch).
+
+**Theming:** 14 color schemes - terminal greens, amber phosphor, LCARS, outrun pink, classic Mac, Win95 blue screen, more. 16 monospace fonts. Light mode, dark mode, or system.
+
+**PWA:** Install to your home screen. Reading and navigation work offline. Generation needs a connection.
+
+## Controls
+
+| Key | Action |
+|-----|--------|
+| Arrows | Navigate the tree |
+| Enter | Generate |
+| Backspace | Edit current node |
+| Escape | Toggle minimap |
+| ` | Open settings |
+
+Same mappings on the touchscreen d-pad.
+
+## Running locally
+
+Requires [Bun](https://bun.sh).
+
 ```bash
-bun i
-```
-
-2. Set up environment variables:
-- Create a `.env` file
-- Add your OpenRouter API key: `OPENROUTER_API_KEY=your_key_here`
-
-3. Start development server:
-```bash
+bun install
+echo "OPENROUTER_API_KEY=your_key" > .env
 bun run dev
 ```
 
-## Usage Guide
+Dev server runs at `localhost:4000`.
 
-### Interface
-The interface is designed around a gamepad metaphor:
-```
-┌───────────────────┐
-│    Story Text     │
-│                   │
-│  [Navigation Dots]│
-├───────┬─────┬────┤
-│ D-Pad │ A B │ ···│
-└───────┴─────┴────┘
-```
-
-### Controls
-- **Arrow Keys/D-Pad**: Navigate through story tree
-  - Up/Down: Move through story progression
-  - Left/Right: Switch between branches
-- **Enter/A Button**: Generate new continuation
-- **Backspace/B Button**: Edit current text
-- **~/Select**: Open settings menu
-- **Escape/Start**: Switch between stories
-
-### Story Management
-Press Enter/Start to:
-- Create new stories
-- Switch between stories
-- Delete stories
-- All changes auto-save
-
-### Generation Settings
-Press Tab/Select to adjust:
-- Model selection
-- Temperature (randomness)
-- Max tokens (length)
-- Top P (variety)
-
-### Tips
-- Use Up/Down to follow main thread
-- Use Left/Right to explore alternatives
-- Watch navigation dots for branch locations
-
-
-## Development
-
-### Project Structure
-- `client/` - Frontend React code
-  - `interface/` - UI components and hooks
-  - `assets/` - Static resources
-- `server/` - Backend API and services
-  - `apis/` - HTTP and WebSocket endpoints
-- `shared/` - Common types and utilities
-
-### Available Scripts
-- `bun run dev` - Start development server with hot reload
-- `bun run build` - Build for production
-- `bun run prod` - Run production server
-- `bun run lint` - Run ESLint
-
-### Technical Details
-- Built with Bun + React + Vite
-- TypeScript throughout
-- OpenRouter API for text generation
-- Local storage for persistence
-- Server-side rendering enabled
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## Progressive Web App (PWA)
-
-LoomPad is now a full PWA with:
-
-### 📱 Installation
-- Install to home screen on mobile/desktop
-- Runs in standalone mode (no browser UI)
-- Custom app icons and splash screen
-
-### ⚡ Offline Support
-- Works offline for reading saved stories
-- Automatic service worker caching
-- Network detection with graceful degradation
-
-### 🔄 Auto-Updates
-- Background updates download automatically
-- Seamless version management
-
-### Testing PWA Features
+For production:
 ```bash
-# Build and run production server
 bun run build
 bun run prod
-
-# Open http://localhost:4000
-# Look for install prompt in browser
-# Test offline mode in DevTools
 ```
 
-See `docs/PWA.md` for detailed implementation guide.
+## Project layout
+
+```
+loompad/
+├── client/           # React frontend
+│   ├── interface/    # Components, hooks, menus
+│   └── styles/       # CSS
+├── server/           # Express backend
+│   ├── apis/         # Generation, judging, models
+│   └── data/         # Model configs
+├── shared/           # Shared types
+└── config/           # Vite config
+```
+
+React, Vite, Express, TypeScript, Tailwind. OpenAI SDK pointed at OpenRouter. d3-flextree for tree layout. vite-plugin-pwa for offline support.
+
+## Why the GameBoy thing
+
+D-pad navigation maps naturally to tree traversal. Up/down for depth, left/right for siblings. The aesthetic is fun but the controls are genuinely good for this.
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT
