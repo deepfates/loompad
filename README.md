@@ -1,5 +1,10 @@
 # Loompad
 
+<p align="center">
+  <img src="client/assets/screenshot-1.png" width="300" alt="Loompad reading view" />
+  <img src="client/assets/screenshot-2.png" width="300" alt="Loompad minimap view" />
+</p>
+
 Loompad is a loom for language models. You generate text, branch from any point, and navigate the full tree of what's possible.
 
 ## What's a loom?
