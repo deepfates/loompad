@@ -58,7 +58,10 @@ export async function createServer() {
           srcl: path.resolve(__dirname, "../node_modules/srcl"),
           "@": path.resolve(__dirname, "../node_modules/srcl/src"),
           "@common": path.resolve(__dirname, "../node_modules/srcl/common"),
-          "@components": path.resolve(__dirname, "../node_modules/srcl/components"),
+          "@components": path.resolve(
+            __dirname,
+            "../node_modules/srcl/components",
+          ),
           "@lib": path.resolve(__dirname, "../node_modules/srcl/lib"),
           "@modules": path.resolve(__dirname, "../node_modules/srcl/modules"),
         },
@@ -99,7 +102,10 @@ export async function createServer() {
     app.use(express.static(client_dir_prod, { setHeaders: staticHeaders }));
 
     // Preserve the previous /client mount for any legacy asset references
-    app.use("/client", express.static(client_dir_prod, { setHeaders: staticHeaders }));
+    app.use(
+      "/client",
+      express.static(client_dir_prod, { setHeaders: staticHeaders }),
+    );
   }
 
   // Add Vite middleware BEFORE catch-all routes in development
@@ -114,7 +120,14 @@ export async function createServer() {
     // remove leading slashes
     cleaned_url = cleaned_url.replace(/^\/+/, "");
 
-    const allowed_prefixes = ["client", "shared", "node_modules", "@vite", "@react-refresh", "@fs"];
+    const allowed_prefixes = [
+      "client",
+      "shared",
+      "node_modules",
+      "@vite",
+      "@react-refresh",
+      "@fs",
+    ];
     if (
       cleaned_url == "" ||
       allowed_prefixes.some((prefix) => cleaned_url.startsWith(prefix))
@@ -174,22 +187,27 @@ export async function createServer() {
         html = template
           .replace(`<!--ssr-outlet-->`, body)
           .replace(`<!--ssr-head-->`, head)
-          .replace(`'<!--ssr-state-->'`, JSON.stringify(initial_state));
+          .replace(`<!--ssr-state-->`, JSON.stringify(initial_state));
       } else if (ssr_enabled && mode === "production") {
         const mod = await import(ssr_path_prod);
-        const { render } = mod as { render: (url: string, initial: unknown) => Promise<{ body: string; head: string }> };
+        const { render } = mod as {
+          render: (
+            url: string,
+            initial: unknown,
+          ) => Promise<{ body: string; head: string }>;
+        };
         const ssr_parts = await render(url, initial_state);
         const { body, head } = ssr_parts;
 
         html = template
           .replace(`<!--ssr-outlet-->`, body)
           .replace(`<!--ssr-head-->`, head)
-          .replace(`'<!--ssr-state-->'`, JSON.stringify(initial_state));
+          .replace(`<!--ssr-state-->`, JSON.stringify(initial_state));
       } else {
         html = template
           .replace(`<!--ssr-outlet-->`, "")
           .replace(`<!--ssr-head-->`, "")
-          .replace(`"<!--ssr-state-->"`, "{}");
+          .replace(`<!--ssr-state-->`, "{}");
       }
 
       res.status(200).set({ "Content-Type": "text/html" }).end(html);
