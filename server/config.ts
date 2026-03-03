@@ -1,7 +1,7 @@
 interface Config {
   openRouterApiKey: string;
   isDevelopment: boolean;
-  corsAllowedOrigins: string[];
+  corsAllowedOrigins: string[] | null;
   apiAuthToken: string | null;
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
@@ -14,14 +14,9 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
-function parseAllowedOrigins(raw: string | undefined): string[] {
+function parseAllowedOrigins(raw: string | undefined): string[] | null {
   if (!raw) {
-    return [
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-      "http://localhost:5000",
-      "http://127.0.0.1:5000",
-    ];
+    return null;
   }
 
   return raw

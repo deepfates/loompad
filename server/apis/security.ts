@@ -8,11 +8,17 @@ function normalizeOrigin(origin: string): string {
 }
 
 const allowedOrigins = new Set(
-  config.corsAllowedOrigins.map((origin) => normalizeOrigin(origin)),
+  (config.corsAllowedOrigins ?? []).map((origin) => normalizeOrigin(origin)),
 );
 
 export const apiCors = cors({
   origin(origin, callback) {
+    // If no allowlist is configured, preserve default permissive behavior.
+    if (!config.corsAllowedOrigins || config.corsAllowedOrigins.length === 0) {
+      callback(null, true);
+      return;
+    }
+
     // Same-origin and non-browser requests may not set Origin.
     if (!origin) {
       callback(null, true);
@@ -51,7 +57,32 @@ function secureEquals(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-export function requireApiAuth(req: Request, res: Response, next: NextFunction) {
+function isSameOriginRequest(req: Request): boolean {
+  const host = req.get("host");
+  if (!host) return false;
+
+  const expectedOrigin = `${req.protocol}://${host}`;
+  const origin = req.get("origin");
+  if (origin && normalizeOrigin(origin) === normalizeOrigin(expectedOrigin)) {
+    return true;
+  }
+
+  const referer = req.get("referer");
+  if (
+    referer &&
+    normalizeOrigin(referer).startsWith(normalizeOrigin(expectedOrigin))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function requireApiAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const expected = config.apiAuthToken;
   if (!expected) {
     next();
@@ -59,6 +90,17 @@ export function requireApiAuth(req: Request, res: Response, next: NextFunction) 
   }
 
   const provided = getAuthToken(req);
+  if (provided && secureEquals(provided, expected)) {
+    next();
+    return;
+  }
+
+  // Preserve first-party browser functionality when auth is enabled.
+  if (isSameOriginRequest(req)) {
+    next();
+    return;
+  }
+
   if (!provided || !secureEquals(provided, expected)) {
     res.status(401).json({ error: "Unauthorized" });
     return;
