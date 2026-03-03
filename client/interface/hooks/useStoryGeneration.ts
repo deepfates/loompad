@@ -81,6 +81,10 @@ export function useStoryGeneration() {
       },
     );
 
+    if (!fullText.length) {
+      throw new Error("Generation returned no content");
+    }
+
     // Conditionally split the generated text based on settings
     if (params.textSplitting) {
       const nodeChain = splitTextToNodes(fullText);
@@ -94,7 +98,7 @@ export function useStoryGeneration() {
     // Fallback to single node (if splitting disabled or failed)
     return {
       id: Math.random().toString(36).substring(2, 15),
-      text: fullText || "...",
+      text: fullText,
       continuations: [],
     };
   };
@@ -114,7 +118,9 @@ export function useStoryGeneration() {
     );
 
     try {
-      console.log(`[AutoMode] Requesting judge from ${params.model} for ${candidates.length} candidates`);
+      console.log(
+        `[AutoMode] Requesting judge from ${params.model} for ${candidates.length} candidates`,
+      );
 
       const response = await fetch("/api/judge", {
         method: "POST",
@@ -134,9 +140,12 @@ export function useStoryGeneration() {
         return null;
       }
 
-      const payload = (await response.json()) as { choice: number | null; raw?: string };
+      const payload = (await response.json()) as {
+        choice: number | null;
+        raw?: string;
+      };
       console.log("[AutoMode] Judge response:", payload);
-      
+
       if (typeof payload.choice === "number") {
         return payload.choice;
       }
