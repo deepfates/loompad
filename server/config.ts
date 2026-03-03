@@ -1,17 +1,68 @@
 interface Config {
   openRouterApiKey: string;
   isDevelopment: boolean;
+  corsAllowedOrigins: string[];
+  apiAuthToken: string | null;
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+function parseAllowedOrigins(raw: string | undefined): string[] {
+  if (!raw) {
+    return [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:5000",
+      "http://127.0.0.1:5000",
+    ];
+  }
+
+  return raw
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 }
 
 function validateConfig(): Config {
   const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  const isDevelopment = process.env.NODE_ENV !== "production";
+  const apiAuthToken = process.env.LOOMPAD_API_AUTH_TOKEN?.trim() || null;
+  const corsAllowedOrigins = parseAllowedOrigins(
+    process.env.CORS_ALLOWED_ORIGINS,
+  );
+  const rateLimitWindowMs = parsePositiveInt(
+    process.env.LOOMPAD_RATE_LIMIT_WINDOW_MS,
+    60_000,
+  );
+  const rateLimitMaxRequests = parsePositiveInt(
+    process.env.LOOMPAD_RATE_LIMIT_MAX_REQUESTS,
+    30,
+  );
+
+  if (!isDevelopment && !apiAuthToken) {
+    console.warn(
+      "⚠️ LOOMPAD_API_AUTH_TOKEN is not set. Cost-bearing APIs are unauthenticated.",
+    );
+  }
+
   if (!openRouterApiKey) {
     // Treat any non-production environment as development
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevelopment) {
       console.warn("⚠️ Using placeholder OpenRouter API key for development");
       return {
         openRouterApiKey: "sk-or-placeholder-key",
-        isDevelopment: true,
+        isDevelopment,
+        corsAllowedOrigins,
+        apiAuthToken,
+        rateLimitWindowMs,
+        rateLimitMaxRequests,
       };
     }
     throw new Error("OPENROUTER_API_KEY environment variable is required");
@@ -19,7 +70,11 @@ function validateConfig(): Config {
 
   return {
     openRouterApiKey,
-    isDevelopment: process.env.NODE_ENV !== "production",
+    isDevelopment,
+    corsAllowedOrigins,
+    apiAuthToken,
+    rateLimitWindowMs,
+    rateLimitMaxRequests,
   };
 }
 

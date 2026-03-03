@@ -1,20 +1,19 @@
 import type { Request, Response } from "express";
 import { ax, ai, type AxAI } from "@ax-llm/ax";
 import { config } from "../config";
+import { validateJudgeRequestBody } from "./validators";
 
 export async function judgeContinuation(req: Request, res: Response) {
   try {
-    const { context, options, model, temperature } = req.body;
-
-    if (!context || !options || !Array.isArray(options) || !model) {
+    const parsed = validateJudgeRequestBody(req.body);
+    if (!parsed.ok) {
       console.error("[Judge] Invalid request body:", req.body);
-      return res
-        .status(400)
-        .json({ error: "Missing or invalid required parameters" });
+      return res.status(400).json({ error: parsed.error });
     }
+    const { context, options, model, temperature } = parsed.value;
 
     console.log(
-      `[Judge] Evaluating ${options.length} options with model ${model}`
+      `[Judge] Evaluating ${options.length} options with model ${model}`,
     );
 
     // Define the signature for the judge
@@ -36,7 +35,7 @@ export async function judgeContinuation(req: Request, res: Response) {
           "HTTP-Referer": "https://loompad.dev",
           "X-Title": "LoomPad",
         },
-      } as any,
+      } as unknown as Record<string, unknown>,
       model: model,
     });
 
@@ -51,8 +50,8 @@ export async function judgeContinuation(req: Request, res: Response) {
         maxRetries: 2,
         modelConfig: {
           temperature: temperature ?? 0.1,
-        } as any,
-      }
+        } as unknown as Record<string, unknown>,
+      },
     );
 
     console.log("[Judge] Result:", result);
