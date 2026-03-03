@@ -27,10 +27,10 @@ export function useTextGeneration() {
 
       // Check if we're offline
       if (!navigator.onLine) {
-        setError({
-          message: "No internet connection - generation requires online access",
-        });
-        return;
+        const offlineMessage =
+          "No internet connection - generation requires online access";
+        setError({ message: offlineMessage });
+        throw new Error(offlineMessage);
       }
 
       try {
@@ -77,12 +77,23 @@ export function useTextGeneration() {
               continue;
             }
 
+            let payload: { content?: string; error?: string };
             try {
-              const { content, error } = JSON.parse(message);
-              if (error) throw new Error(error);
-              if (content) onToken(content);
+              payload = JSON.parse(message) as {
+                content?: string;
+                error?: string;
+              };
             } catch (e) {
               console.error("Failed to parse SSE message:", e);
+              continue;
+            }
+
+            if (payload.error) {
+              throw new Error(payload.error);
+            }
+
+            if (payload.content) {
+              onToken(payload.content);
             }
           }
         }
@@ -99,6 +110,7 @@ export function useTextGeneration() {
 
         setError({ message: errorMessage });
         console.error("Generation error:", error);
+        throw new Error(errorMessage);
       }
     },
     [],

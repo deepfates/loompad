@@ -1,6 +1,5 @@
 import compression from "compression";
 import cookieParser from "cookie-parser";
-import cors from "cors";
 import nocache from "nocache";
 import express, { Application } from "express";
 import { getMainProps } from "server/main_props";
@@ -12,11 +11,16 @@ import {
   updateModel,
   deleteModel,
 } from "../modelsStore";
-import type { ModelConfig } from "../../shared/models";
+import { createRateLimitMiddleware, requireApiAuth, apiCors } from "./security";
+import { validateModelPayload } from "./validators";
+
+const generateRateLimit = createRateLimitMiddleware("generate");
+const judgeRateLimit = createRateLimitMiddleware("judge");
+const modelMutationRateLimit = createRateLimitMiddleware("models");
 
 export function setup_routes(app: Application) {
   // Scope API middleware to /api to avoid affecting static/SSR caching
-  app.use("/api", cors());
+  app.use("/api", apiCors);
   app.use("/api", express.json());
   app.use("/api", cookieParser());
   app.use("/api", nocache());
@@ -28,113 +32,79 @@ export function setup_routes(app: Application) {
   });
 
   // Text generation endpoints
-  app.post("/api/generate", generateText);
-  app.post("/api/judge", judgeContinuation);
+  app.post("/api/generate", requireApiAuth, generateRateLimit, generateText);
+  app.post("/api/judge", requireApiAuth, judgeRateLimit, judgeContinuation);
 
   // Get available models
   app.get("/api/models", (req, res) => {
     res.json(getModels());
   });
 
-  app.post("/api/models", (req, res) => {
-    const { id, name, maxTokens, defaultTemp } = req.body ?? {};
-    if (typeof id !== "string" || !id.trim()) {
-      return res.status(400).json({ error: "Model ID is required" });
-    }
-    if (typeof name !== "string" || !name.trim()) {
-      return res.status(400).json({ error: "Model name is required" });
-    }
-    if (
-      typeof maxTokens !== "number" ||
-      !Number.isFinite(maxTokens) ||
-      maxTokens <= 0 ||
-      !Number.isInteger(maxTokens)
-    ) {
-      return res
-        .status(400)
-        .json({ error: "maxTokens must be a positive integer" });
-    }
-    if (
-      typeof defaultTemp !== "number" ||
-      !Number.isFinite(defaultTemp) ||
-      defaultTemp < 0 ||
-      defaultTemp > 2
-    ) {
-      return res
-        .status(400)
-        .json({ error: "defaultTemp must be between 0 and 2" });
-    }
+  app.post(
+    "/api/models",
+    requireApiAuth,
+    modelMutationRateLimit,
+    (req, res) => {
+      const parsed = validateModelPayload(req.body, { requireId: true });
+      if (!parsed.ok) {
+        return res.status(400).json({ error: parsed.error });
+      }
+      const { id, config } = parsed.value;
 
-    try {
-      const updated = createModel(id.trim(), {
-        name: name.trim(),
-        maxTokens,
-        defaultTemp,
-      });
-      return res.status(201).json(updated);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to create model";
-      return res.status(400).json({ error: message });
-    }
-  });
+      try {
+        const updated = createModel(id!, config);
+        return res.status(201).json(updated);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to create model";
+        return res.status(400).json({ error: message });
+      }
+    },
+  );
 
-  app.put("/api/models/:id", (req, res) => {
-    const targetId = req.params.id;
-    const { name, maxTokens, defaultTemp } = req.body ?? ({} as ModelConfig);
-    if (!targetId) {
-      return res.status(400).json({ error: "Model ID is required" });
-    }
-    if (typeof name !== "string" || !name.trim()) {
-      return res.status(400).json({ error: "Model name is required" });
-    }
-    if (
-      typeof maxTokens !== "number" ||
-      !Number.isFinite(maxTokens) ||
-      maxTokens <= 0 ||
-      !Number.isInteger(maxTokens)
-    ) {
-      return res
-        .status(400)
-        .json({ error: "maxTokens must be a positive integer" });
-    }
-    if (
-      typeof defaultTemp !== "number" ||
-      !Number.isFinite(defaultTemp) ||
-      defaultTemp < 0 ||
-      defaultTemp > 2
-    ) {
-      return res
-        .status(400)
-        .json({ error: "defaultTemp must be between 0 and 2" });
-    }
+  app.put(
+    "/api/models/:id",
+    requireApiAuth,
+    modelMutationRateLimit,
+    (req, res) => {
+      const targetId = req.params.id;
+      if (!targetId) {
+        return res.status(400).json({ error: "Model ID is required" });
+      }
+      const parsed = validateModelPayload(req.body, { requireId: false });
+      if (!parsed.ok) {
+        return res.status(400).json({ error: parsed.error });
+      }
+      const { config } = parsed.value;
 
-    try {
-      const updated = updateModel(targetId, {
-        name: name.trim(),
-        maxTokens,
-        defaultTemp,
-      });
-      return res.json(updated);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to update model";
-      return res.status(400).json({ error: message });
-    }
-  });
+      try {
+        const updated = updateModel(targetId, config);
+        return res.json(updated);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to update model";
+        return res.status(400).json({ error: message });
+      }
+    },
+  );
 
-  app.delete("/api/models/:id", (req, res) => {
-    const targetId = req.params.id;
-    if (!targetId) {
-      return res.status(400).json({ error: "Model ID is required" });
-    }
-    try {
-      const updated = deleteModel(targetId);
-      return res.json(updated);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to delete model";
-      return res.status(400).json({ error: message });
-    }
-  });
+  app.delete(
+    "/api/models/:id",
+    requireApiAuth,
+    modelMutationRateLimit,
+    (req, res) => {
+      const targetId = req.params.id;
+      if (!targetId) {
+        return res.status(400).json({ error: "Model ID is required" });
+      }
+      try {
+        const updated = deleteModel(targetId);
+        return res.json(updated);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to delete model";
+        return res.status(400).json({ error: message });
+      }
+    },
+  );
 }

@@ -16,29 +16,20 @@ import {
   findBoundaryCutoff as helperFindBoundaryCutoff,
   normalizeJoin as helperNormalizeJoin,
 } from "./generation.helpers";
+import { validateGenerateRequestBody } from "./validators";
 
 import { openai } from "./openaiClient";
-
-interface GenerateRequest {
-  prompt: string;
-  model: ModelId;
-  temperature?: number;
-  maxTokens?: number;
-  lengthMode?: LengthMode;
-}
 
 // Boundary regex is provided by helpers to keep API lean
 function getBoundaryRegex(mode: LengthMode): RegExp | null {
   return helperGetBoundaryRegex(mode);
 }
 
-const OVERLAP = 32;
-
 // Find the first boundary whose end is beyond sentIndex (delegated to helpers)
 function findBoundaryCutoff(
   accumulated: string,
   sentIndex: number,
-  rx: RegExp
+  rx: RegExp,
 ): number | null {
   return helperFindBoundaryCutoff(accumulated, sentIndex, rx);
 }
@@ -58,14 +49,13 @@ function normalizeJoin(prev: JoinState, segment: string): string {
 
 export async function generateText(req: Request, res: Response) {
   try {
-    const { prompt, model, temperature, maxTokens, lengthMode } =
-      req.body as GenerateRequest;
-
-    if (!prompt || !model) {
-      return res.status(400).json({ error: "Missing required parameters" });
+    const parsed = validateGenerateRequestBody(req.body);
+    if (!parsed.ok) {
+      return res.status(400).json({ error: parsed.error });
     }
+    const { prompt, model, temperature, maxTokens, lengthMode } = parsed.value;
 
-    const modelConfig = getModel(model);
+    const modelConfig = getModel(model as ModelId);
     if (!modelConfig) {
       return res.status(400).json({ error: "Invalid model specified" });
     }
@@ -75,10 +65,12 @@ export async function generateText(req: Request, res: Response) {
 
     const modelMaxTokens = modelConfig.maxTokens;
 
-    // If we have a boundary regex (or word mode), we rely on semantic stopping.
-    // We use the model's max capacity (or the preset's max if larger?) to allow for reasoning traces.
-    // We generally ignore the strict preset limits for the API call itself to avoid cutting off "thinking" models.
-    const maxTokensToUse = modelMaxTokens;
+    const presetMaxTokens = preset.maxTokens;
+    const requestedMaxTokens = maxTokens ?? presetMaxTokens;
+    const maxTokensToUse = Math.max(
+      1,
+      Math.min(modelMaxTokens, presetMaxTokens, requestedMaxTokens),
+    );
 
     // Build boundary matcher (server-side semantic stopping)
     const boundaryRegex = getBoundaryRegex(mode);
@@ -103,7 +95,7 @@ export async function generateText(req: Request, res: Response) {
         // Omit upstream 'stop'; semantic stopping is handled server-side via boundary detection.
         stream: true,
       },
-      { signal: abortController.signal }
+      { signal: abortController.signal },
     );
 
     // Set up SSE headers
@@ -146,8 +138,9 @@ export async function generateText(req: Request, res: Response) {
 
     for await (const chunk of stream) {
       // Log usage if present (often in final chunk)
-      if ((chunk as any).usage) {
-        console.log("[OpenRouter] Usage:", (chunk as any).usage);
+      const usage = (chunk as { usage?: unknown }).usage;
+      if (usage !== undefined) {
+        console.log("[OpenRouter] Usage:", usage);
       }
 
       const delta = chunk.choices?.[0]?.text ?? "";
@@ -191,7 +184,7 @@ export async function generateText(req: Request, res: Response) {
         const cutoff = findBoundaryCutoff(
           accumulated,
           sentIndex,
-          boundaryRegex
+          boundaryRegex,
         );
         if (cutoff !== null) {
           console.log("[OpenRouter] Hit boundary match at index:", cutoff);
