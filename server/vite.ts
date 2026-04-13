@@ -53,22 +53,6 @@ export async function createServer() {
           plugins: [tailwindcss()],
         },
       },
-      resolve: {
-        alias: {
-          srcl: path.resolve(__dirname, "../node_modules/srcl"),
-          "@": path.resolve(__dirname, "../node_modules/srcl/src"),
-          "@common": path.resolve(__dirname, "../node_modules/srcl/common"),
-          "@components": path.resolve(
-            __dirname,
-            "../node_modules/srcl/components",
-          ),
-          "@lib": path.resolve(__dirname, "../node_modules/srcl/lib"),
-          "@modules": path.resolve(__dirname, "../node_modules/srcl/modules"),
-        },
-      },
-      optimizeDeps: {
-        exclude: ["srcl"],
-      },
       server: {
         middlewareMode: true,
         hmr: {

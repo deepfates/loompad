@@ -1,5 +1,3 @@
-import RowSpaceBetween from "srcl/components/RowSpaceBetween.tsx";
-import NumberRangeSlider from "srcl/components/NumberRangeSlider.tsx";
 import { MenuKnobProps } from "../types";
 
 export const MenuKnob = ({
@@ -19,7 +17,8 @@ export const MenuKnob = ({
     : displayValue.toString();
 
   return (
-    <RowSpaceBetween
+    <div
+      className={`menu-item ${selected ? "selected" : ""}`}
       role="slider"
       aria-label={label}
       aria-valuemin={min}
@@ -27,19 +26,25 @@ export const MenuKnob = ({
       aria-valuenow={value}
       aria-valuetext={displayText}
       tabIndex={selected ? 0 : -1}
-      style={{ background: selected ? "var(--theme-focused-foreground-subdued)" : undefined }}
+      style={{
+        background: selected
+          ? "var(--theme-focused-foreground-subdued)"
+          : undefined,
+      }}
     >
       <div className="menu-knob__meta">
         <span className="menu-knob__label">{label}</span>
         <span className="menu-knob__value">{displayText}</span>
       </div>
-      <NumberRangeSlider
-        defaultValue={value}
+      <input
+        type="range"
+        value={value}
         min={min}
         max={max}
         step={step}
         className="menu-knob__slider"
+        onChange={(event) => onChange(Number(event.target.value))}
       />
-    </RowSpaceBetween>
+    </div>
   );
 };

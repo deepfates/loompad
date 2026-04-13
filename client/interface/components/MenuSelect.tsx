@@ -1,4 +1,3 @@
-import ActionListItem from "srcl/components/ActionListItem.tsx";
 import { MenuSelectProps } from "../types";
 
 export const MenuSelect = ({
@@ -8,8 +7,9 @@ export const MenuSelect = ({
   onChange,
   selected,
 }: MenuSelectProps) => (
-  <ActionListItem
-    icon={selected ? "▸" : " "}
+  <button
+    type="button"
+    className={`menu-item text-left ${selected ? "selected" : ""}`}
     onClick={() => {
       if (!options || options.length === 0) return;
       const i = options.indexOf(value);
@@ -17,6 +17,11 @@ export const MenuSelect = ({
       onChange?.(next);
     }}
   >
-    {label}: {value}
-  </ActionListItem>
+    <div className="menu-item-body">
+      <div className="menu-item-label">
+        {selected ? "▸" : " "} {label}
+      </div>
+      <div className="menu-item-preview">{value}</div>
+    </div>
+  </button>
 );

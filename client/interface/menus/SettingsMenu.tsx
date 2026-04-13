@@ -1,4 +1,3 @@
-import ActionListItem from "srcl/components/ActionListItem.tsx";
 import { SettingsMenuProps } from "../types";
 import { MenuKnob } from "../components/MenuKnob";
 import { MenuSelect } from "../components/MenuSelect";
@@ -167,12 +166,17 @@ export const SettingsMenu = ({
         formatValue={(value) => (value >= 4 ? "∞" : value.toString())}
         selected={selectedParam === 8}
       />
-      <ActionListItem
-        icon={selectedParam === 9 ? "▸" : "⭢"}
+      <button
+        type="button"
+        className={`menu-item text-left ${selectedParam === 9 ? "selected" : ""}`}
         onClick={() => onManageModels?.()}
       >
-        Manage Models
-      </ActionListItem>
+        <div className="menu-item-body">
+          <div className="menu-item-label">
+            {selectedParam === 9 ? "▸" : "⭢"} Manage Models
+          </div>
+        </div>
+      </button>
       {modelsError && (
         <output className="error-message">
           Failed to load models: {modelsError}

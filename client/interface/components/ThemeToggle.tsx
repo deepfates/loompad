@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { onHandleThemeChange } from "srcl/common/utilities.ts";
+import { onHandleThemeChange } from "../../utils/theme";
 
 export type ThemeMode = "light" | "dark" | "system";
 export const THEME_PRESETS = [

@@ -40,6 +40,85 @@
   --min-width: 20rem;
   --max-width: 60rem;
   --install-banner-offset: 0px;
+  --font-family-mono:
+    "Iosevka Term",
+    "SFMono-Regular",
+    ui-monospace,
+    "Menlo",
+    "Monaco",
+    "Consolas",
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+}
+
+/* Minimal in-repo theme variable replacements for former SRCL classes */
+.theme-light,
+.theme-aperture,
+.theme-blue,
+.theme-macos9,
+.theme-win95,
+.theme-westworld {
+  --theme-background: #f4f4f5;
+  --theme-background-modal: #e4e4e7;
+  --theme-background-modal-footer: #d4d4d8;
+  --theme-background-input: #ffffff;
+  --theme-border: #52525b;
+  --theme-border-subdued: #71717a;
+  --theme-text: #18181b;
+  --theme-text-muted: #3f3f46;
+  --theme-button: #18181b;
+  --theme-button-text: #fafafa;
+  --theme-button-foreground: #18181b;
+  --theme-button-background: #d4d4d8;
+  --theme-focused-foreground: #0f766e;
+  --theme-focused-foreground-subdued: #99f6e4;
+  --theme-overlay: rgba(24, 24, 27, 0.55);
+  --theme-muted: #52525b;
+}
+
+.theme-black-green,
+.theme-dark,
+.theme-black-red,
+.theme-black-amber,
+.theme-hologram,
+.theme-nerv,
+.theme-lcars,
+.theme-outrun {
+  --theme-background: #090d0b;
+  --theme-background-modal: #101513;
+  --theme-background-modal-footer: #161f1a;
+  --theme-background-input: #0e1410;
+  --theme-border: #3f5c4b;
+  --theme-border-subdued: #6a8f7a;
+  --theme-text: #d9ffe7;
+  --theme-text-muted: #9fceb1;
+  --theme-button: #22c55e;
+  --theme-button-text: #04110a;
+  --theme-button-foreground: #86efac;
+  --theme-button-background: #163325;
+  --theme-focused-foreground: #4ade80;
+  --theme-focused-foreground-subdued: rgba(74, 222, 128, 0.28);
+  --theme-overlay: rgba(2, 8, 4, 0.72);
+  --theme-muted: #86a892;
+}
+
+.font-use-anonymous-pro, .font-use-atkinson-hyperlegible-mono,
+.font-use-berkeley-mono, .font-use-fira-code, .font-use-iosevka-term,
+.font-use-monaspace-argon, .font-use-monaspace-krypton,
+.font-use-monaspace-neon, .font-use-monaspace-radon,
+.font-use-monaspace-xenon, .font-use-serious-shanns,
+.font-use-sfmono-square, .font-use-share-tech-mono,
+.font-use-space-mono, .font-use-tt2020, .font-use-xanh-mono {
+  --font-family-mono:
+    ui-monospace,
+    "SFMono-Regular",
+    "Menlo",
+    "Monaco",
+    "Consolas",
+    "Liberation Mono",
+    "Courier New",
+    monospace;
 }
 
 /* ===== BASE STYLES ===== */

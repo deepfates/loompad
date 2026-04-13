@@ -30,7 +30,6 @@
     "openai": "^4.77.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "srcl": "github:deepfates/srcl",
     "styled-components": "^6.1.8",
     "tailwindcss": "^4.1.17",
     "wouter": "^3.3.5",
