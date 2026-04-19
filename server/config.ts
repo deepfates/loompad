@@ -1,5 +1,5 @@
 interface Config {
-  openRouterApiKey: string;
+  completionsApiKey: string;
   isDevelopment: boolean;
   corsAllowedOrigins: string[] | null;
   apiAuthToken: string | null;
@@ -26,7 +26,8 @@ function parseAllowedOrigins(raw: string | undefined): string[] | null {
 }
 
 function validateConfig(): Config {
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  const completionsApiKey =
+    process.env.LOOMPAD_COMPLETIONS_API_KEY?.trim() || "not-required";
   const isDevelopment = process.env.NODE_ENV !== "production";
   const apiAuthToken = process.env.LOOMPAD_API_AUTH_TOKEN?.trim() || null;
   const corsAllowedOrigins = parseAllowedOrigins(
@@ -47,24 +48,8 @@ function validateConfig(): Config {
     );
   }
 
-  if (!openRouterApiKey) {
-    // Treat any non-production environment as development
-    if (isDevelopment) {
-      console.warn("⚠️ Using placeholder OpenRouter API key for development");
-      return {
-        openRouterApiKey: "sk-or-placeholder-key",
-        isDevelopment,
-        corsAllowedOrigins,
-        apiAuthToken,
-        rateLimitWindowMs,
-        rateLimitMaxRequests,
-      };
-    }
-    throw new Error("OPENROUTER_API_KEY environment variable is required");
-  }
-
   return {
-    openRouterApiKey,
+    completionsApiKey,
     isDevelopment,
     corsAllowedOrigins,
     apiAuthToken,

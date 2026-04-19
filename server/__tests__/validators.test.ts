@@ -9,7 +9,6 @@ describe("validateGenerateRequestBody", () => {
   it("accepts a valid payload", () => {
     const result = validateGenerateRequestBody({
       prompt: "Hello",
-      model: "meta-llama/llama-3.1-405b",
       temperature: 0.7,
       maxTokens: 120,
       lengthMode: "sentence",
@@ -20,7 +19,7 @@ describe("validateGenerateRequestBody", () => {
 
   it("rejects missing prompt", () => {
     const result = validateGenerateRequestBody({
-      model: "meta-llama/llama-3.1-405b",
+      temperature: 0.4,
     });
 
     expect(result).toEqual({
@@ -32,13 +31,24 @@ describe("validateGenerateRequestBody", () => {
   it("rejects invalid length mode", () => {
     const result = validateGenerateRequestBody({
       prompt: "Hello",
-      model: "meta-llama/llama-3.1-405b",
       lengthMode: "chapter",
     });
 
     expect(result).toEqual({
       ok: false,
       error: "lengthMode is invalid",
+    });
+  });
+
+  it("rejects non-string model when provided", () => {
+    const result = validateGenerateRequestBody({
+      prompt: "Hello",
+      model: 123,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "model must be a non-empty string when provided",
     });
   });
 });

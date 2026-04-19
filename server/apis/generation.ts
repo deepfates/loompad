@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { ModelId } from "../../shared/models";
-import { getModel } from "../modelsStore";
+import { getModel, getModels } from "../modelsStore";
 import {
   DEFAULT_LENGTH_MODE,
   LENGTH_PRESETS,
@@ -54,10 +54,12 @@ export async function generateText(req: Request, res: Response) {
       return res.status(400).json({ error: parsed.error });
     }
     const { prompt, model, temperature, maxTokens, lengthMode } = parsed.value;
-
-    const modelConfig = getModel(model as ModelId);
+    const availableModels = getModels();
+    const fallbackModelId = Object.keys(availableModels)[0] as ModelId | undefined;
+    const selectedModelId = (model as ModelId | undefined) ?? fallbackModelId;
+    const modelConfig = selectedModelId ? getModel(selectedModelId) : undefined;
     if (!modelConfig) {
-      return res.status(400).json({ error: "Invalid model specified" });
+      return res.status(500).json({ error: "No models configured" });
     }
 
     const mode = lengthMode ?? DEFAULT_LENGTH_MODE;
@@ -80,6 +82,7 @@ export async function generateText(req: Request, res: Response) {
 
     console.log("[OpenRouter] Request:", {
       model,
+      selectedModelId,
       max_tokens: maxTokensToUse,
       temperature: temperature ?? modelConfig.defaultTemp,
       prompt_length: prompt.length,
@@ -88,7 +91,6 @@ export async function generateText(req: Request, res: Response) {
 
     const stream = await openai.completions.create(
       {
-        model,
         prompt,
         temperature: temperature ?? modelConfig.defaultTemp,
         max_tokens: maxTokensToUse,

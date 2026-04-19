@@ -28,7 +28,7 @@ export async function judgeContinuation(req: Request, res: Response) {
     // Ax expects 'apiURL' at the top level for the OpenAI provider to override the default host
     const llm = ai({
       name: "openai",
-      apiKey: config.openRouterApiKey,
+      apiKey: config.completionsApiKey,
       apiURL: "https://openrouter.ai/api/v1",
       config: {
         defaultHeaders: {

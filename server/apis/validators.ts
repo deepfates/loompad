@@ -32,7 +32,7 @@ function parseOptionalFiniteNumber(value: unknown): number | undefined {
 
 export interface GenerateRequestBody {
   prompt: string;
-  model: string;
+  model?: string;
   temperature?: number;
   maxTokens?: number;
   lengthMode?: LengthMode;
@@ -55,8 +55,8 @@ export function validateGenerateRequestBody(
     return { ok: false, error: "prompt must be a non-empty string" };
   }
 
-  if (typeof model !== "string" || !model.trim()) {
-    return { ok: false, error: "model must be a non-empty string" };
+  if (model !== undefined && (typeof model !== "string" || !model.trim())) {
+    return { ok: false, error: "model must be a non-empty string when provided" };
   }
 
   if (
@@ -85,7 +85,7 @@ export function validateGenerateRequestBody(
     ok: true,
     value: {
       prompt,
-      model,
+      model: typeof model === "string" ? model.trim() : undefined,
       temperature,
       maxTokens,
       lengthMode: lengthMode as LengthMode | undefined,

@@ -2,10 +2,7 @@ import OpenAI from "openai";
 import { config } from "../config";
 
 export const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: config.openRouterApiKey,
-  defaultHeaders: {
-    "HTTP-Referer": "https://loompad.dev",
-    "X-Title": "LoomPad",
-  },
+  baseURL: "https://xob3rm6bnyl1j1-8000.proxy.runpod.net/v1",
+  // This endpoint does not require model routing or OpenRouter headers.
+  apiKey: config.completionsApiKey,
 });
