@@ -158,11 +158,6 @@ export const FONT_OPTIONS = [
     className: "font-use-serious-shanns",
   },
   {
-    id: "sfmono",
-    label: "SF Mono Square",
-    className: "font-use-sfmono-square",
-  },
-  {
     id: "share-tech",
     label: "Share Tech Mono",
     className: "font-use-share-tech-mono",
@@ -255,15 +250,14 @@ export const useTheme = () => {
       if (typeof document === "undefined") return;
       onHandleThemeChange(themeClass);
       const html = document.documentElement;
-      const body = document.body;
       removeThemeClasses(html);
-      removeThemeClasses(body);
       removeFontClasses(html);
-      removeFontClasses(body);
       html.classList.add(themeClass);
-      body.classList.add(themeClass);
       html.classList.add(fontClass);
-      body.classList.add(fontClass);
+      // Body may still carry a stale class from an older pre-hydration
+      // script; strip it so the cascade flows from html only.
+      removeThemeClasses(document.body);
+      removeFontClasses(document.body);
     },
     []
   );
