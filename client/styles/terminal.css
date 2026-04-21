@@ -1141,23 +1141,3 @@ html, body {
 .font-mono {
   font-family: var(--font-family-mono, "IosevkaTerm-Regular", monospace);
 }
-
-/* Tailwind-style theme utility shims */
-.text-theme-text { color: var(--theme-text); }
-.text-theme-border-subdued { color: var(--theme-border-subdued); }
-.text-theme-button { color: var(--theme-button); }
-.text-theme-button-text { color: var(--theme-button-text); }
-.text-theme-focused { color: var(--theme-focused-foreground); }
-.text-theme-focused-subdued { color: var(--theme-focused-foreground-subdued); }
-
-
-.bg-theme-bg { background-color: var(--theme-background); }
-.bg-theme-bg-modal { background-color: var(--theme-background-modal); }
-.bg-theme-background-modal-footer { background-color: var(--theme-background-modal-footer); }
-.bg-theme-button { background-color: var(--theme-button); }
-.bg-theme-button-bg { background-color: var(--theme-button-background); }
-.hover\:bg-theme-button-bg:hover { background-color: var(--theme-button-background); }
-
-.border-theme-border { border-color: var(--theme-border); }
-.border-theme-focused { border-color: var(--theme-focused-foreground); }
-.border-theme-focused-subdued { border-color: var(--theme-focused-foreground-subdued); }
