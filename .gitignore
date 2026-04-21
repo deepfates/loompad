@@ -27,3 +27,5 @@ bun.lockb
 **/credentials/*.json
 
 .env
+
+scripts/parity/shots/
