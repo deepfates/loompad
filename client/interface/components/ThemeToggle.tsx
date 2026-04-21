@@ -255,12 +255,15 @@ export const useTheme = () => {
       if (typeof document === "undefined") return;
       onHandleThemeChange(themeClass);
       const html = document.documentElement;
+      const body = document.body;
       removeThemeClasses(html);
+      removeThemeClasses(body);
       removeFontClasses(html);
-      removeFontClasses(document.body);
+      removeFontClasses(body);
       html.classList.add(themeClass);
+      body.classList.add(themeClass);
       html.classList.add(fontClass);
-      document.body.classList.add(fontClass);
+      body.classList.add(fontClass);
     },
     []
   );
