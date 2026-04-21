@@ -9,7 +9,7 @@ export const MenuSelect = ({
 }: MenuSelectProps) => (
   <button
     type="button"
-    className={`menu-item text-left ${selected ? "selected" : ""}`}
+    className={`menu-item menu-item--inline text-left ${selected ? "selected" : ""}`}
     onClick={() => {
       if (!options || options.length === 0) return;
       const i = options.indexOf(value);
@@ -17,11 +17,7 @@ export const MenuSelect = ({
       onChange?.(next);
     }}
   >
-    <div className="menu-item-body">
-      <div className="menu-item-label">
-        {selected ? "▸" : " "} {label}
-      </div>
-      <div className="menu-item-preview">{value}</div>
-    </div>
+    <span className="menu-item-label">{label}:</span>
+    <span className="menu-item-preview">{value}</span>
   </button>
 );

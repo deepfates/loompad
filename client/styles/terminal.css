@@ -1,5 +1,125 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "AnonymousPro-Regular";
+  src: url("../assets/fonts/AnonymousPro-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AtkinsonHyperlegibleMono-Regular";
+  src: url("../assets/fonts/AtkinsonHyperlegibleMono-Regular.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TX02Mono-Regular";
+  src: url("../assets/fonts/TX02Mono-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "FiraCode-Regular";
+  src: url("../assets/fonts/FiraCode-Regular.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GeistMono-Regular";
+  src: url("../assets/fonts/GeistMono-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IosevkaTerm-Regular";
+  src: url("../assets/fonts/IosevkaTerm-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MonaspaceArgon-Regular";
+  src: url("../assets/fonts/MonaspaceArgon-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MonaspaceKrypton-Regular";
+  src: url("../assets/fonts/MonaspaceKrypton-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MonaspaceNeon-Regular";
+  src: url("../assets/fonts/MonaspaceNeon-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MonaspaceRadon-Regular";
+  src: url("../assets/fonts/MonaspaceRadon-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MonaspaceXenon-Regular";
+  src: url("../assets/fonts/MonaspaceXenon-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SeriousShanns";
+  src: url("../assets/fonts/SeriousShanns-Regular.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SFMonoSquare-Regular";
+  src: url("../assets/fonts/SFMonoSquare-Regular.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ShareTechMono-Regular";
+  src: url("../assets/fonts/ShareTechMono-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SpaceMono-Regular";
+  src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TT2020";
+  src: url("../assets/fonts/TT2020-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "XanhMono-Regular";
+  src: url("../assets/fonts/XanhMono-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Tone down heavy mono weights from SRCL so every font feels lighter */
 [class*="font-use-"] {
   font-weight: 400;
@@ -41,7 +161,7 @@
   --max-width: 60rem;
   --install-banner-offset: 0px;
   --font-family-mono:
-    "Iosevka Term",
+    "IosevkaTerm-Regular",
     "SFMono-Regular",
     ui-monospace,
     "Menlo",
@@ -52,73 +172,336 @@
     monospace;
 }
 
-/* Minimal in-repo theme variable replacements for former SRCL classes */
-.theme-light,
-.theme-aperture,
-.theme-blue,
-.theme-macos9,
-.theme-win95,
+/* Theme palettes extracted from SRCL — 14 themes across light/dark tones */
+
+.theme-light {
+  --theme-background: rgba(255, 255, 255, 1);
+  --theme-background-modal: rgba(224, 224, 224, 1);
+  --theme-background-modal-footer: rgba(168, 168, 168, 1);
+  --theme-background-input: rgba(244, 244, 244, 1);
+  --theme-border: rgba(224, 224, 224, 1);
+  --theme-border-subdued: rgba(168, 168, 168, 0.2);
+  --theme-text: rgba(0, 0, 0, 1);
+  --theme-text-muted: rgba(0, 0, 0, 0.6);
+  --theme-button: rgba(0, 0, 0, 1);
+  --theme-button-text: rgba(255, 255, 255, 1);
+  --theme-button-foreground: rgba(198, 198, 198, 1);
+  --theme-button-background: rgba(224, 224, 224, 1);
+  --theme-focused-foreground: rgba(92, 255, 59, 1);
+  --theme-focused-foreground-subdued: rgba(92, 255, 59, 0.5);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(82, 82, 91, 1);
+}
+
+.theme-dark {
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(57, 57, 57, 1);
+  --theme-background-modal-footer: rgba(82, 82, 82, 1);
+  --theme-background-input: rgba(111, 111, 111, 1);
+  --theme-border: rgba(57, 57, 57, 1);
+  --theme-border-subdued: rgba(82, 82, 82, 0.3);
+  --theme-text: rgba(255, 255, 255, 1);
+  --theme-text-muted: rgba(255, 255, 255, 0.6);
+  --theme-button: rgba(255, 255, 255, 1);
+  --theme-button-text: rgba(0, 0, 0, 1);
+  --theme-button-foreground: rgba(38, 38, 38, 1);
+  --theme-button-background: rgba(57, 57, 57, 1);
+  --theme-focused-foreground: rgba(239, 99, 0, 1);
+  --theme-focused-foreground-subdued: rgba(239, 99, 0, 0.5);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(198, 198, 198, 1);
+}
+
+.theme-blue {
+  --theme-background: rgba(0, 45, 156, 1);
+  --theme-background-modal: rgba(0, 67, 206, 1);
+  --theme-background-modal-footer: rgba(0, 29, 108, 1);
+  --theme-background-input: rgba(15, 98, 254, 1);
+  --theme-border: rgba(0, 67, 206, 1);
+  --theme-border-subdued: rgba(15, 98, 254, 0.2);
+  --theme-text: rgba(237, 245, 255, 1);
+  --theme-text-muted: rgba(237, 245, 255, 0.7);
+  --theme-button: rgba(237, 245, 255, 1);
+  --theme-button-text: rgba(0, 45, 156, 1);
+  --theme-button-foreground: rgba(15, 98, 254, 1);
+  --theme-button-background: rgba(0, 67, 206, 1);
+  --theme-focused-foreground: rgba(69, 137, 255, 1);
+  --theme-focused-foreground-subdued: rgba(69, 137, 255, 0.5);
+  --theme-overlay: rgba(208, 226, 255, 0.5);
+  --theme-muted: rgba(166, 200, 255, 1);
+}
+
+.theme-black-red {
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(162, 25, 31, 1);
+  --theme-background-modal-footer: rgba(117, 14, 19, 1);
+  --theme-background-input: rgba(218, 30, 40, 1);
+  --theme-border: rgba(218, 30, 40, 0.7);
+  --theme-border-subdued: rgba(218, 30, 40, 0.3);
+  --theme-text: rgba(255, 179, 184, 1);
+  --theme-text-muted: rgba(255, 179, 184, 0.7);
+  --theme-button: rgba(45, 7, 9, 1);
+  --theme-button-text: rgba(255, 215, 217, 1);
+  --theme-button-foreground: rgba(117, 14, 19, 1);
+  --theme-button-background: rgba(82, 4, 8, 1);
+  --theme-focused-foreground: rgba(82, 82, 82, 1);
+  --theme-focused-foreground-subdued: rgba(162, 25, 31, 0.4);
+  --theme-overlay: rgba(45, 7, 9, 0.4);
+  --theme-muted: rgba(255, 131, 137, 1);
+}
+
+.theme-black-green {
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(38, 38, 38, 1);
+  --theme-background-modal-footer: rgba(57, 57, 57, 1);
+  --theme-background-input: rgba(82, 82, 82, 1);
+  --theme-border: rgba(57, 57, 57, 1);
+  --theme-border-subdued: rgba(82, 82, 82, 0.3);
+  --theme-text: rgba(36, 161, 72, 1);
+  --theme-text-muted: rgba(36, 161, 72, 0.7);
+  --theme-button: rgba(36, 161, 72, 1);
+  --theme-button-text: rgba(4, 67, 23, 1);
+  --theme-button-foreground: rgba(4, 67, 23, 1);
+  --theme-button-background: rgba(2, 45, 13, 1);
+  --theme-focused-foreground: rgba(198, 198, 198, 1);
+  --theme-focused-foreground-subdued: rgba(168, 168, 168, 1);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(111, 220, 140, 1);
+}
+
+.theme-black-amber {
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(51, 31, 0, 1);
+  --theme-background-modal-footer: rgba(82, 49, 0, 1);
+  --theme-background-input: rgba(112, 68, 0, 1);
+  --theme-border: rgba(82, 49, 0, 1);
+  --theme-border-subdued: rgba(112, 68, 0, 0.3);
+  --theme-text: rgba(255, 191, 0, 1);
+  --theme-text-muted: rgba(255, 191, 0, 0.7);
+  --theme-button: rgba(255, 191, 0, 1);
+  --theme-button-text: rgba(82, 49, 0, 1);
+  --theme-button-foreground: rgba(82, 49, 0, 1);
+  --theme-button-background: rgba(51, 31, 0, 1);
+  --theme-focused-foreground: rgba(255, 217, 102, 1);
+  --theme-focused-foreground-subdued: rgba(255, 230, 153, 1);
+  --theme-overlay: rgba(20, 12, 0, 0.4);
+  --theme-muted: rgba(255, 204, 51, 1);
+}
+
+.theme-lcars {
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(57, 57, 57, 1);
+  --theme-background-modal-footer: rgba(82, 82, 82, 1);
+  --theme-background-input: rgba(0, 0, 0, 1);
+  --theme-border: rgba(255, 153, 0, 1);
+  --theme-border-subdued: rgba(153, 153, 204, 0.3);
+  --theme-text: rgba(255, 204, 0, 1);
+  --theme-text-muted: rgba(255, 204, 153, 1);
+  --theme-button: rgba(255, 153, 0, 1);
+  --theme-button-text: rgba(0, 0, 0, 1);
+  --theme-button-foreground: rgba(204, 153, 255, 1);
+  --theme-button-background: rgba(102, 102, 153, 1);
+  --theme-focused-foreground: rgba(153, 204, 255, 1);
+  --theme-focused-foreground-subdued: rgba(255, 153, 204, 1);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(153, 153, 204, 1);
+}
+
+.theme-hologram {
+  --theme-background: rgba(0, 5, 15, 1);
+  --theme-background-modal: rgba(0, 20, 40, 1);
+  --theme-background-modal-footer: rgba(0, 15, 30, 1);
+  --theme-background-input: rgba(0, 40, 80, 1);
+  --theme-border: rgba(0, 150, 255, 1);
+  --theme-border-subdued: rgba(0, 150, 255, 0.3);
+  --theme-text: rgba(0, 255, 255, 1);
+  --theme-text-muted: rgba(0, 255, 255, 0.6);
+  --theme-button: rgba(200, 230, 255, 1);
+  --theme-button-text: rgba(0, 5, 15, 1);
+  --theme-button-foreground: rgba(0, 150, 255, 1);
+  --theme-button-background: rgba(0, 40, 80, 1);
+  --theme-focused-foreground: rgba(150, 255, 255, 1);
+  --theme-focused-foreground-subdued: rgba(0, 255, 255, 0.5);
+  --theme-overlay: rgba(0, 150, 255, 0.4);
+  --theme-muted: rgba(0, 255, 255, 0.7);
+}
+
 .theme-westworld {
-  --theme-background: #f4f4f5;
-  --theme-background-modal: #e4e4e7;
-  --theme-background-modal-footer: #d4d4d8;
-  --theme-background-input: #ffffff;
-  --theme-border: #52525b;
-  --theme-border-subdued: #71717a;
-  --theme-text: #18181b;
-  --theme-text-muted: #3f3f46;
-  --theme-button: #18181b;
-  --theme-button-text: #fafafa;
-  --theme-button-foreground: #18181b;
-  --theme-button-background: #d4d4d8;
-  --theme-focused-foreground: #0f766e;
-  --theme-focused-foreground-subdued: #99f6e4;
-  --theme-overlay: rgba(24, 24, 27, 0.55);
-  --theme-muted: #52525b;
+  --theme-background: rgba(242, 248, 250, 1);
+  --theme-background-modal: rgba(229, 240, 242, 1);
+  --theme-background-modal-footer: rgba(204, 224, 230, 1);
+  --theme-background-input: rgba(229, 240, 242, 1);
+  --theme-border: rgba(102, 143, 184, 1);
+  --theme-border-subdued: rgba(178, 204, 217, 0.3);
+  --theme-text: rgba(0, 30, 60, 1);
+  --theme-text-muted: rgba(0, 30, 60, 0.6);
+  --theme-button: rgba(0, 30, 60, 1);
+  --theme-button-text: rgba(242, 248, 250, 1);
+  --theme-button-foreground: rgba(178, 204, 217, 1);
+  --theme-button-background: rgba(204, 224, 230, 1);
+  --theme-focused-foreground: rgba(0, 51, 102, 1);
+  --theme-focused-foreground-subdued: rgba(0, 71, 143, 1);
+  --theme-overlay: rgba(242, 248, 250, 0.4);
+  --theme-muted: rgba(102, 143, 184, 1);
 }
 
-.theme-black-green,
-.theme-dark,
-.theme-black-red,
-.theme-black-amber,
-.theme-hologram,
-.theme-nerv,
-.theme-lcars,
+.theme-win95 {
+  --theme-background: rgba(223, 223, 223, 1);
+  --theme-background-modal: rgba(192, 192, 192, 1);
+  --theme-background-modal-footer: rgba(128, 128, 128, 1);
+  --theme-background-input: rgba(255, 255, 255, 1);
+  --theme-border: rgba(0, 0, 0, 1);
+  --theme-border-subdued: rgba(255, 255, 255, 1);
+  --theme-text: rgba(0, 0, 128, 1);
+  --theme-text-muted: rgba(0, 0, 128, 0.6);
+  --theme-button: rgba(0, 0, 128, 1);
+  --theme-button-text: rgba(255, 255, 255, 1);
+  --theme-button-foreground: rgba(192, 192, 192, 1);
+  --theme-button-background: rgba(223, 223, 223, 1);
+  --theme-focused-foreground: rgba(0, 0, 255, 1);
+  --theme-focused-foreground-subdued: rgba(255, 255, 0, 1);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(128, 128, 128, 1);
+}
+
+.theme-macos9 {
+  --theme-background: rgba(221, 221, 221, 1);
+  --theme-background-modal: rgba(238, 238, 238, 1);
+  --theme-background-modal-footer: rgba(156, 156, 206, 1);
+  --theme-background-input: rgba(255, 255, 255, 1);
+  --theme-border: rgba(102, 102, 102, 1);
+  --theme-border-subdued: rgba(102, 102, 102, 0.3);
+  --theme-text: rgba(0, 0, 0, 1);
+  --theme-text-muted: rgba(0, 0, 0, 0.6);
+  --theme-button: rgba(102, 204, 255, 1);
+  --theme-button-text: rgba(0, 0, 0, 1);
+  --theme-button-foreground: rgba(153, 102, 204, 1);
+  --theme-button-background: rgba(246, 246, 246, 1);
+  --theme-focused-foreground: rgba(255, 102, 102, 1);
+  --theme-focused-foreground-subdued: rgba(255, 204, 0, 1);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(102, 102, 102, 1);
+}
+
+.theme-nerv {
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(40, 10, 10, 1);
+  --theme-background-modal-footer: rgba(25, 5, 5, 1);
+  --theme-background-input: rgba(40, 40, 40, 1);
+  --theme-border: rgba(200, 50, 50, 1);
+  --theme-border-subdued: rgba(200, 50, 50, 0.3);
+  --theme-text: rgba(255, 150, 50, 1);
+  --theme-text-muted: rgba(255, 150, 50, 0.6);
+  --theme-button: rgba(255, 255, 100, 1);
+  --theme-button-text: rgba(0, 0, 0, 1);
+  --theme-button-foreground: rgba(255, 150, 50, 1);
+  --theme-button-background: rgba(40, 10, 10, 1);
+  --theme-focused-foreground: rgba(150, 255, 150, 1);
+  --theme-focused-foreground-subdued: rgba(200, 150, 255, 1);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(255, 150, 50, 0.7);
+}
+
 .theme-outrun {
-  --theme-background: #090d0b;
-  --theme-background-modal: #101513;
-  --theme-background-modal-footer: #161f1a;
-  --theme-background-input: #0e1410;
-  --theme-border: #3f5c4b;
-  --theme-border-subdued: #6a8f7a;
-  --theme-text: #d9ffe7;
-  --theme-text-muted: #9fceb1;
-  --theme-button: #22c55e;
-  --theme-button-text: #04110a;
-  --theme-button-foreground: #86efac;
-  --theme-button-background: #163325;
-  --theme-focused-foreground: #4ade80;
-  --theme-focused-foreground-subdued: rgba(74, 222, 128, 0.28);
-  --theme-overlay: rgba(2, 8, 4, 0.72);
-  --theme-muted: #86a892;
+  --theme-background: rgba(15, 0, 30, 1);
+  --theme-background-modal: rgba(50, 0, 100, 1);
+  --theme-background-modal-footer: rgba(30, 0, 60, 1);
+  --theme-background-input: rgba(40, 0, 80, 1);
+  --theme-border: rgba(255, 71, 184, 1);
+  --theme-border-subdued: rgba(255, 71, 184, 0.3);
+  --theme-text: rgba(71, 255, 255, 1);
+  --theme-text-muted: rgba(71, 255, 255, 0.6);
+  --theme-button: rgba(255, 215, 0, 1);
+  --theme-button-text: rgba(15, 0, 30, 1);
+  --theme-button-foreground: rgba(255, 0, 255, 1);
+  --theme-button-background: rgba(50, 0, 100, 1);
+  --theme-focused-foreground: rgba(255, 255, 255, 1);
+  --theme-focused-foreground-subdued: rgba(255, 150, 0, 1);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(255, 71, 184, 1);
 }
 
-.font-use-anonymous-pro, .font-use-atkinson-hyperlegible-mono,
-.font-use-berkeley-mono, .font-use-fira-code, .font-use-iosevka-term,
-.font-use-monaspace-argon, .font-use-monaspace-krypton,
-.font-use-monaspace-neon, .font-use-monaspace-radon,
-.font-use-monaspace-xenon, .font-use-serious-shanns,
-.font-use-sfmono-square, .font-use-share-tech-mono,
-.font-use-space-mono, .font-use-tt2020, .font-use-xanh-mono {
-  --font-family-mono:
-    ui-monospace,
-    "SFMono-Regular",
-    "Menlo",
-    "Monaco",
-    "Consolas",
-    "Liberation Mono",
-    "Courier New",
-    monospace;
+.theme-aperture {
+  --theme-background: rgba(255, 255, 255, 1);
+  --theme-background-modal: rgba(230, 230, 230, 1);
+  --theme-background-modal-footer: rgba(150, 150, 150, 1);
+  --theme-background-input: rgba(250, 250, 250, 1);
+  --theme-border: rgba(255, 125, 0, 1);
+  --theme-border-subdued: rgba(0, 150, 255, 0.3);
+  --theme-text: rgba(0, 0, 0, 1);
+  --theme-text-muted: rgba(0, 0, 0, 0.6);
+  --theme-button: rgba(255, 125, 0, 1);
+  --theme-button-text: rgba(255, 255, 255, 1);
+  --theme-button-foreground: rgba(0, 150, 255, 1);
+  --theme-button-background: rgba(230, 230, 230, 1);
+  --theme-focused-foreground: rgba(0, 100, 200, 1);
+  --theme-focused-foreground-subdued: rgba(255, 125, 0, 0.5);
+  --theme-overlay: rgba(150, 150, 150, 0.4);
+  --theme-muted: rgba(150, 150, 150, 1);
+}
+
+.font-use-anonymous-pro {
+  --font-family-mono: "AnonymousPro-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-atkinson-hyperlegible-mono {
+  --font-family-mono: "AtkinsonHyperlegibleMono-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-berkeley-mono {
+  --font-family-mono: "TX02Mono-Regular", "Berkeley Mono", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-fira-code {
+  --font-family-mono: "FiraCode-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-iosevka-term {
+  --font-family-mono: "IosevkaTerm-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-monaspace-argon {
+  --font-family-mono: "MonaspaceArgon-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-monaspace-krypton {
+  --font-family-mono: "MonaspaceKrypton-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-monaspace-neon {
+  --font-family-mono: "MonaspaceNeon-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-monaspace-radon {
+  --font-family-mono: "MonaspaceRadon-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-monaspace-xenon {
+  --font-family-mono: "MonaspaceXenon-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-serious-shanns {
+  --font-family-mono: "SeriousShanns", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-sfmono-square {
+  --font-family-mono: "SFMonoSquare-Regular", "SFMono-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-share-tech-mono {
+  --font-family-mono: "ShareTechMono-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-space-mono {
+  --font-family-mono: "SpaceMono-Regular", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-tt2020 {
+  --font-family-mono: "TT2020", ui-monospace, "Menlo", monospace;
+}
+
+.font-use-xanh-mono {
+  --font-family-mono: "XanhMono-Regular", ui-monospace, "Menlo", monospace;
 }
 
 /* ===== BASE STYLES ===== */
@@ -478,29 +861,62 @@ html, body {
 .menu-item {
   display: flex;
   flex-direction: column;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  border: 2px solid transparent;
+  padding: 0 0.75rem;
+  margin: 0;
+  background: var(--theme-background-input);
+  border: 0;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  line-height: 1.3;
+}
+
+.menu-item--inline {
+  padding: 0 0.75rem;
+}
+
+.menu-item--knob {
+  padding: 0.25rem 0.75rem;
 }
 
 .menu-item.selected {
-  border-color: var(--theme-focused-foreground);
-  box-shadow: 0 0 4px var(--theme-focused-foreground);
+  background: var(--theme-focused-foreground-subdued);
+  color: var(--theme-background);
+}
+
+.menu-item.selected .menu-item-preview,
+.menu-item.selected .menu-knob__value {
+  color: inherit;
+  opacity: 0.9;
+}
+
+.menu-item--inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5ch;
+}
+
+.menu-item.menu-item--knob {
+  display: grid;
+  grid-template-columns: 1fr minmax(80px, 160px);
+  align-items: center;
+  column-gap: 1rem;
+  row-gap: 0;
 }
 
 .menu-item-body {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .menu-item-label {
   font-weight: bold;
-  margin-bottom: 0.25rem;
 }
 
 .menu-item-preview {
-  opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -509,16 +925,76 @@ html, body {
 .menu-knob__meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
+}
+
+.menu-knob__label {
+  font-weight: bold;
 }
 
 .menu-knob__value {
   color: var(--theme-muted);
-  font-size: 0.85em;
+  font-size: 0.9em;
+}
+
+.menu-knob__bar {
+  position: relative;
+  height: 8px;
+  background: var(--theme-border-subdued);
+  opacity: 0.4;
+}
+
+.menu-knob__bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--theme-text);
+  opacity: 0.8;
+}
+
+.menu-item.selected .menu-knob__bar {
+  background: var(--theme-background);
+  opacity: 0.25;
+}
+
+.menu-item.selected .menu-knob__bar-fill {
+  background: var(--theme-background);
+  opacity: 0.9;
+}
+
+.menu-knob__slider {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .menu-knob__slider label {
   display: none;
+}
+
+.menu-toggle__box {
+  display: inline-block;
+  width: 1ch;
+  font-weight: bold;
+}
+
+.menu-toggle__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Story menu */
@@ -535,9 +1011,21 @@ html, body {
   grid-template-columns: 1fr auto;
   align-items: start;
   gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid transparent;
 }
 
 .story-menu-item .menu-item-body { min-width: 0; }
+
+.story-menu-item.selected {
+  background: transparent;
+  color: inherit;
+  border-color: var(--theme-focused-foreground);
+}
+
+.story-menu-item.selected .menu-item-preview {
+  color: inherit;
+}
 
 .story-menu-actions {
   display: flex;
@@ -590,6 +1078,22 @@ html, body {
 }
 
 /* Models menu */
+.models-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.models-menu .menu-item {
+  background: transparent;
+}
+
+.models-menu .menu-item.selected {
+  background: var(--theme-focused-foreground-subdued);
+}
+
 .models-menu__item .menu-item-preview { white-space: normal; }
 
 /* Edit textarea */

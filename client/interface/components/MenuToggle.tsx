@@ -7,24 +7,18 @@ export const MenuToggle = ({
   selected,
 }: MenuToggleProps) => (
   <label
-    className={`menu-item ${selected ? "selected" : ""}`}
-    style={{
-      background: selected
-        ? "var(--theme-focused-foreground-subdued)"
-        : undefined,
-    }}
+    className={`menu-item menu-item--inline ${selected ? "selected" : ""}`}
   >
-    <div className="menu-item-body">
-      <div className="menu-item-label">
-        <input
-          type="checkbox"
-          name={label}
-          checked={value}
-          onChange={(e) => onChange(e.target.checked)}
-          className="mr-2"
-        />
-        {label}
-      </div>
-    </div>
+    <span className="menu-toggle__box" aria-hidden="true">
+      {value ? "×" : " "}
+    </span>
+    <span className="menu-item-label">{label}</span>
+    <input
+      type="checkbox"
+      name={label}
+      checked={value}
+      onChange={(e) => onChange(e.target.checked)}
+      className="menu-toggle__input"
+    />
   </label>
 );
