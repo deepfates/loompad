@@ -85,13 +85,6 @@
   font-display: swap;
 }
 @font-face {
-  font-family: "SFMonoSquare-Regular";
-  src: url("../assets/fonts/SFMonoSquare-Regular.woff") format("woff");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
   font-family: "ShareTechMono-Regular";
   src: url("../assets/fonts/ShareTechMono-Regular.ttf") format("truetype");
   font-weight: normal;
@@ -134,7 +127,6 @@
   --color-theme-border: var(--theme-border);
   --color-theme-border-subdued: var(--theme-border-subdued);
   --color-theme-text: var(--theme-text);
-  --color-theme-text-muted: var(--theme-text-muted);
   --color-theme-button: var(--theme-button);
   --color-theme-button-text: var(--theme-button-text);
   --color-theme-button-fg: var(--theme-button-foreground);
@@ -182,7 +174,6 @@
   --theme-border: rgba(224, 224, 224, 1);
   --theme-border-subdued: rgba(168, 168, 168, 0.2);
   --theme-text: rgba(0, 0, 0, 1);
-  --theme-text-muted: rgba(0, 0, 0, 0.6);
   --theme-button: rgba(0, 0, 0, 1);
   --theme-button-text: rgba(255, 255, 255, 1);
   --theme-button-foreground: rgba(198, 198, 198, 1);
@@ -201,7 +192,6 @@
   --theme-border: rgba(57, 57, 57, 1);
   --theme-border-subdued: rgba(82, 82, 82, 0.3);
   --theme-text: rgba(255, 255, 255, 1);
-  --theme-text-muted: rgba(255, 255, 255, 0.6);
   --theme-button: rgba(255, 255, 255, 1);
   --theme-button-text: rgba(0, 0, 0, 1);
   --theme-button-foreground: rgba(38, 38, 38, 1);
@@ -220,7 +210,6 @@
   --theme-border: rgba(0, 67, 206, 1);
   --theme-border-subdued: rgba(15, 98, 254, 0.2);
   --theme-text: rgba(237, 245, 255, 1);
-  --theme-text-muted: rgba(237, 245, 255, 0.7);
   --theme-button: rgba(237, 245, 255, 1);
   --theme-button-text: rgba(0, 45, 156, 1);
   --theme-button-foreground: rgba(15, 98, 254, 1);
@@ -239,7 +228,6 @@
   --theme-border: rgba(218, 30, 40, 0.7);
   --theme-border-subdued: rgba(218, 30, 40, 0.3);
   --theme-text: rgba(255, 179, 184, 1);
-  --theme-text-muted: rgba(255, 179, 184, 0.7);
   --theme-button: rgba(45, 7, 9, 1);
   --theme-button-text: rgba(255, 215, 217, 1);
   --theme-button-foreground: rgba(117, 14, 19, 1);
@@ -258,7 +246,6 @@
   --theme-border: rgba(57, 57, 57, 1);
   --theme-border-subdued: rgba(82, 82, 82, 0.3);
   --theme-text: rgba(36, 161, 72, 1);
-  --theme-text-muted: rgba(36, 161, 72, 0.7);
   --theme-button: rgba(36, 161, 72, 1);
   --theme-button-text: rgba(4, 67, 23, 1);
   --theme-button-foreground: rgba(4, 67, 23, 1);
@@ -277,7 +264,6 @@
   --theme-border: rgba(82, 49, 0, 1);
   --theme-border-subdued: rgba(112, 68, 0, 0.3);
   --theme-text: rgba(255, 191, 0, 1);
-  --theme-text-muted: rgba(255, 191, 0, 0.7);
   --theme-button: rgba(255, 191, 0, 1);
   --theme-button-text: rgba(82, 49, 0, 1);
   --theme-button-foreground: rgba(82, 49, 0, 1);
@@ -296,7 +282,6 @@
   --theme-border: rgba(255, 153, 0, 1);
   --theme-border-subdued: rgba(153, 153, 204, 0.3);
   --theme-text: rgba(255, 204, 0, 1);
-  --theme-text-muted: rgba(255, 204, 153, 1);
   --theme-button: rgba(255, 153, 0, 1);
   --theme-button-text: rgba(0, 0, 0, 1);
   --theme-button-foreground: rgba(204, 153, 255, 1);
@@ -315,7 +300,6 @@
   --theme-border: rgba(0, 150, 255, 1);
   --theme-border-subdued: rgba(0, 150, 255, 0.3);
   --theme-text: rgba(0, 255, 255, 1);
-  --theme-text-muted: rgba(0, 255, 255, 0.6);
   --theme-button: rgba(200, 230, 255, 1);
   --theme-button-text: rgba(0, 5, 15, 1);
   --theme-button-foreground: rgba(0, 150, 255, 1);
@@ -334,7 +318,6 @@
   --theme-border: rgba(102, 143, 184, 1);
   --theme-border-subdued: rgba(178, 204, 217, 0.3);
   --theme-text: rgba(0, 30, 60, 1);
-  --theme-text-muted: rgba(0, 30, 60, 0.6);
   --theme-button: rgba(0, 30, 60, 1);
   --theme-button-text: rgba(242, 248, 250, 1);
   --theme-button-foreground: rgba(178, 204, 217, 1);
@@ -353,7 +336,6 @@
   --theme-border: rgba(0, 0, 0, 1);
   --theme-border-subdued: rgba(255, 255, 255, 1);
   --theme-text: rgba(0, 0, 128, 1);
-  --theme-text-muted: rgba(0, 0, 128, 0.6);
   --theme-button: rgba(0, 0, 128, 1);
   --theme-button-text: rgba(255, 255, 255, 1);
   --theme-button-foreground: rgba(192, 192, 192, 1);
@@ -372,7 +354,6 @@
   --theme-border: rgba(102, 102, 102, 1);
   --theme-border-subdued: rgba(102, 102, 102, 0.3);
   --theme-text: rgba(0, 0, 0, 1);
-  --theme-text-muted: rgba(0, 0, 0, 0.6);
   --theme-button: rgba(102, 204, 255, 1);
   --theme-button-text: rgba(0, 0, 0, 1);
   --theme-button-foreground: rgba(153, 102, 204, 1);
@@ -391,7 +372,6 @@
   --theme-border: rgba(200, 50, 50, 1);
   --theme-border-subdued: rgba(200, 50, 50, 0.3);
   --theme-text: rgba(255, 150, 50, 1);
-  --theme-text-muted: rgba(255, 150, 50, 0.6);
   --theme-button: rgba(255, 255, 100, 1);
   --theme-button-text: rgba(0, 0, 0, 1);
   --theme-button-foreground: rgba(255, 150, 50, 1);
@@ -410,7 +390,6 @@
   --theme-border: rgba(255, 71, 184, 1);
   --theme-border-subdued: rgba(255, 71, 184, 0.3);
   --theme-text: rgba(71, 255, 255, 1);
-  --theme-text-muted: rgba(71, 255, 255, 0.6);
   --theme-button: rgba(255, 215, 0, 1);
   --theme-button-text: rgba(15, 0, 30, 1);
   --theme-button-foreground: rgba(255, 0, 255, 1);
@@ -429,7 +408,6 @@
   --theme-border: rgba(255, 125, 0, 1);
   --theme-border-subdued: rgba(0, 150, 255, 0.3);
   --theme-text: rgba(0, 0, 0, 1);
-  --theme-text-muted: rgba(0, 0, 0, 0.6);
   --theme-button: rgba(255, 125, 0, 1);
   --theme-button-text: rgba(255, 255, 255, 1);
   --theme-button-foreground: rgba(0, 150, 255, 1);
@@ -482,10 +460,6 @@
 
 .font-use-serious-shanns {
   --font-family-mono: "SeriousShanns", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-sfmono-square {
-  --font-family-mono: "SFMonoSquare-Regular", "SFMono-Regular", ui-monospace, "Menlo", monospace;
 }
 
 .font-use-share-tech-mono {
@@ -858,6 +832,11 @@ html, body {
 }
 
 
+/* Selection conventions:
+ *   .menu-item.selected           -> solid fill with focused-subdued (settings, models)
+ *   .story-menu-item.selected     -> border-only with focused-foreground (story list)
+ * Keep these two rules in sync when the tokens change. */
+
 .menu-item {
   display: flex;
   flex-direction: column;
@@ -874,10 +853,16 @@ html, body {
 }
 
 .menu-item--inline {
-  padding: 0 0.75rem;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5ch;
 }
 
 .menu-item--knob {
+  display: grid;
+  grid-template-columns: 1fr minmax(80px, 160px);
+  align-items: center;
+  column-gap: 1rem;
   padding: 0.25rem 0.75rem;
 }
 
@@ -890,20 +875,6 @@ html, body {
 .menu-item.selected .menu-knob__value {
   color: inherit;
   opacity: 0.9;
-}
-
-.menu-item--inline {
-  flex-direction: row;
-  align-items: baseline;
-  gap: 0.5ch;
-}
-
-.menu-item.menu-item--knob {
-  display: grid;
-  grid-template-columns: 1fr minmax(80px, 160px);
-  align-items: center;
-  column-gap: 1rem;
-  row-gap: 0;
 }
 
 .menu-item-body {
@@ -937,30 +908,18 @@ html, body {
   font-size: 0.9em;
 }
 
+/* Knob meter: 2px rule, track is currentColor at 25%, fill is solid currentColor.
+ * Uses currentColor so it inverts automatically when the row is selected. */
 .menu-knob__bar {
   position: relative;
-  height: 8px;
-  background: var(--theme-border-subdued);
-  opacity: 0.4;
+  height: 2px;
+  background: color-mix(in srgb, currentColor 25%, transparent);
 }
 
 .menu-knob__bar-fill {
   position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  background: var(--theme-text);
-  opacity: 0.8;
-}
-
-.menu-item.selected .menu-knob__bar {
-  background: var(--theme-background);
-  opacity: 0.25;
-}
-
-.menu-item.selected .menu-knob__bar-fill {
-  background: var(--theme-background);
-  opacity: 0.9;
+  inset: 0 auto 0 0;
+  background: currentColor;
 }
 
 .menu-knob__slider {

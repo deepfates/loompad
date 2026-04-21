@@ -48,34 +48,55 @@
         <!--ssr-head-->
         <script>
             window.__INITIAL_STATE__ = <!--ssr-state-->;
-                // Apply theme class before React hydrates to prevent flash
-                (function () {
-                    var theme = localStorage.getItem("theme") || "system";
-                    var themeClass;
-                    if (theme === "system" || !theme) {
-                        // Follow user's OS/browser preference
-                        themeClass = window.matchMedia(
-                            "(prefers-color-scheme: dark)",
-                        ).matches
-                            ? "theme-black-green"
-                            : "theme-light";
-                    } else if (theme === "light") {
-                        themeClass = "theme-light";
+            // Paint theme + font on <html> before React hydrates.
+            // ThemeToggle owns subsequent changes — both write to <html> only.
+            (function () {
+                var themeClass = "theme-light";
+                var prefersDark = window.matchMedia(
+                    "(prefers-color-scheme: dark)",
+                ).matches;
+                try {
+                    var raw = localStorage.getItem("loompad-theme-preferences");
+                    if (raw) {
+                        var prefs = JSON.parse(raw);
+                        var mode = prefs && prefs.mode;
+                        if (mode === "light") {
+                            themeClass = prefs.paletteLight || "theme-light";
+                        } else if (mode === "dark") {
+                            themeClass = prefs.paletteDark || "theme-black-green";
+                        } else {
+                            themeClass = prefersDark
+                                ? prefs.paletteDark || "theme-black-green"
+                                : prefs.paletteLight || "theme-light";
+                        }
                     } else {
-                        themeClass = "theme-black-green";
+                        var legacy = localStorage.getItem("theme");
+                        if (legacy === "phosphor") themeClass = "theme-black-green";
+                        else if (legacy === "light") themeClass = "theme-light";
+                        else themeClass = prefersDark ? "theme-black-green" : "theme-light";
                     }
-                    // Add to both html and body for CSS variable inheritance
+                    var font = localStorage.getItem("loompad-font") || "iosevka";
+                    var fontClass = "font-use-" + (
+                        font === "iosevka" ? "iosevka-term" :
+                        font === "atkinson" ? "atkinson-hyperlegible-mono" :
+                        font === "berkeley" ? "berkeley-mono" :
+                        font === "fira" ? "fira-code" :
+                        font === "sfmono" ? "sfmono-square" :
+                        font === "share-tech" ? "share-tech-mono" :
+                        font === "space-mono" ? "space-mono" :
+                        font === "tt2020" ? "tt2020" :
+                        font === "xanh" ? "xanh-mono" :
+                        font === "serious-shanns" ? "serious-shanns" :
+                        font.indexOf("monaspace") === 0 ? font : "iosevka-term"
+                    );
+                    document.documentElement.classList.add(themeClass, fontClass);
+                } catch (_) {
                     document.documentElement.classList.add(
-                        themeClass,
+                        prefersDark ? "theme-black-green" : "theme-light",
                         "font-use-iosevka-term",
                     );
-                    document.addEventListener("DOMContentLoaded", function () {
-                        document.body.classList.add(
-                            themeClass,
-                            "font-use-iosevka-term",
-                        );
-                    });
-                })();
+                }
+            })();
         </script>
     </head>
     <body>
