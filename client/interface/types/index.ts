@@ -17,32 +17,6 @@ export interface MenuScreenProps {
   children: React.ReactNode;
 }
 
-export interface MenuKnobProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  selected: boolean;
-  formatValue?: (value: number) => string;
-}
-
-export interface MenuSelectProps {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-  selected: boolean;
-}
-
-export interface MenuToggleProps {
-  label: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-  selected: boolean;
-}
-
 export interface SettingsMenuProps {
   params: {
     temperature: number;
