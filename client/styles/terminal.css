@@ -683,6 +683,44 @@ html, body {
   grid-template-columns: auto 1fr auto auto;
 }
 
+.menu-item.menu-item--action.menu-item--stacked {
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  padding: 0.25rem 0.75rem;
+  row-gap: 0;
+}
+
+.menu-item.menu-item--stacked .menu-item-glyph {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.menu-item.menu-item--stacked .menu-item-label {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.menu-item.menu-item--stacked .menu-item-preview {
+  grid-row: 2;
+  grid-column: 2;
+  color: var(--theme-muted);
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-item.selected.menu-item--stacked .menu-item-preview {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.menu-item.menu-item--stacked .menu-item-trailing {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  align-self: center;
+}
+
 .menu-item-value {
   color: var(--theme-muted);
   overflow: hidden;

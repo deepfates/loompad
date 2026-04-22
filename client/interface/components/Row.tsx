@@ -54,6 +54,8 @@ interface ActionProps extends BaseProps {
   /** Right-side content (icons, sub-actions). */
   trailing?: ReactNode;
   disabled?: boolean;
+  /** When true, render preview on its own line below the label. */
+  stacked?: boolean;
 }
 
 export type RowProps = PickProps | KnobProps | ToggleProps | ActionProps;
@@ -71,6 +73,7 @@ export const Row = (props: RowProps) => {
     selected ? "selected" : "",
     danger ? "menu-item--danger" : "",
     props.kind === "action" && props.disabled ? "menu-item--disabled" : "",
+    props.kind === "action" && props.stacked ? "menu-item--stacked" : "",
   ]
     .filter(Boolean)
     .join(" ");
