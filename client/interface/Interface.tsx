@@ -335,6 +335,7 @@ export const GamepadInterface = () => {
 
   const handleStoryHighlight = useCallback(
     (index: number, column: number) => {
+      setCursorOnTabs(false);
       setSelectedTreeIndex(index);
       setSelectedTreeColumn(column);
     },
@@ -1544,7 +1545,10 @@ export const GamepadInterface = () => {
                       selectedIndex={cursorOnTabs ? -1 : selectedModelIndex}
                       sortOrder={modelSort}
                       onToggleSort={cycleModelSort}
-                      onSelectIndex={setSelectedModelIndex}
+                      onSelectIndex={(i) => {
+                        setCursorOnTabs(false);
+                        setSelectedModelIndex(i);
+                      }}
                       onNew={handleStartNewModel}
                       onEditModel={handleEditModel}
                       isLoading={modelsLoading || modelsSaving}

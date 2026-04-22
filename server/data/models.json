@@ -39,13 +39,13 @@
     "maxTokens": 1024,
     "defaultTemp": 1.0
   },
-  "qwen/qwen2.5-32b-instruct": {
-    "name": "Qwen 2.5 32B",
+  "qwen/qwen3.5-27b": {
+    "name": "Qwen 3.5 27B",
     "maxTokens": 1024,
     "defaultTemp": 1.0
   },
-  "google/gemma-3-27b-it": {
-    "name": "Gemma 3 27B",
+  "google/gemma-4-31b-it": {
+    "name": "Gemma 4 31B",
     "maxTokens": 1024,
     "defaultTemp": 1.0
   },
