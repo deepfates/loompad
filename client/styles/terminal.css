@@ -1,123 +1,27 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: "AnonymousPro-Regular";
-  src: url("../assets/fonts/AnonymousPro-Regular.ttf") format("truetype");
+  font-family: "Iosevka";
+  src: url("../assets/fonts/Iosevka-Regular.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "AtkinsonHyperlegibleMono-Regular";
-  src: url("../assets/fonts/AtkinsonHyperlegibleMono-Regular.ttf") format("truetype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "TX02Mono-Regular";
-  src: url("../assets/fonts/TX02Mono-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "FiraCode-Regular";
-  src: url("../assets/fonts/FiraCode-Regular.woff") format("woff");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "GeistMono-Regular";
-  src: url("../assets/fonts/GeistMono-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "IosevkaTerm-Regular";
-  src: url("../assets/fonts/IosevkaTerm-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "MonaspaceArgon-Regular";
-  src: url("../assets/fonts/MonaspaceArgon-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "MonaspaceKrypton-Regular";
-  src: url("../assets/fonts/MonaspaceKrypton-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "MonaspaceNeon-Regular";
-  src: url("../assets/fonts/MonaspaceNeon-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "MonaspaceRadon-Regular";
-  src: url("../assets/fonts/MonaspaceRadon-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "MonaspaceXenon-Regular";
-  src: url("../assets/fonts/MonaspaceXenon-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "SeriousShanns";
-  src: url("../assets/fonts/SeriousShanns-Regular.otf") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "ShareTechMono-Regular";
-  src: url("../assets/fonts/ShareTechMono-Regular.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "SpaceMono-Regular";
-  src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "TT2020";
-  src: url("../assets/fonts/TT2020-Regular.woff2") format("woff2");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "XanhMono-Regular";
-  src: url("../assets/fonts/XanhMono-Regular.ttf") format("truetype");
+  font-family: "Iosevka Slab";
+  src: url("../assets/fonts/IosevkaSlab-Regular.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
 
-/* Tone down heavy mono weights from SRCL so every font feels lighter */
 [class*="font-use-"] {
   font-weight: 400;
   letter-spacing: -0.01em;
 }
+
+.font-use-iosevka { --font-family-mono: "Iosevka", ui-monospace, "Menlo", monospace; }
+.font-use-iosevka-slab { --font-family-mono: "Iosevka Slab", ui-monospace, "Menlo", monospace; }
 
 @theme {
   --color-theme-bg: var(--theme-background);
@@ -152,16 +56,7 @@
   --min-width: 20rem;
   --max-width: 60rem;
   --install-banner-offset: 0px;
-  --font-family-mono:
-    "IosevkaTerm-Regular",
-    "SFMono-Regular",
-    ui-monospace,
-    "Menlo",
-    "Monaco",
-    "Consolas",
-    "Liberation Mono",
-    "Courier New",
-    monospace;
+  --font-family-mono: "Iosevka", ui-monospace, "Menlo", "SFMono-Regular", monospace;
 }
 
 /* Theme palettes extracted from SRCL — 14 themes across light/dark tones */
@@ -184,24 +79,6 @@
   --theme-muted: rgba(82, 82, 91, 1);
 }
 
-.theme-dark {
-  --theme-background: rgba(0, 0, 0, 1);
-  --theme-background-modal: rgba(57, 57, 57, 1);
-  --theme-background-modal-footer: rgba(82, 82, 82, 1);
-  --theme-background-input: rgba(111, 111, 111, 1);
-  --theme-border: rgba(57, 57, 57, 1);
-  --theme-border-subdued: rgba(82, 82, 82, 0.3);
-  --theme-text: rgba(255, 255, 255, 1);
-  --theme-button: rgba(255, 255, 255, 1);
-  --theme-button-text: rgba(0, 0, 0, 1);
-  --theme-button-foreground: rgba(38, 38, 38, 1);
-  --theme-button-background: rgba(57, 57, 57, 1);
-  --theme-focused-foreground: rgba(239, 99, 0, 1);
-  --theme-focused-foreground-subdued: rgba(239, 99, 0, 0.5);
-  --theme-overlay: rgba(0, 0, 0, 0.4);
-  --theme-muted: rgba(198, 198, 198, 1);
-}
-
 .theme-blue {
   --theme-background: rgba(0, 45, 156, 1);
   --theme-background-modal: rgba(0, 67, 206, 1);
@@ -220,24 +97,6 @@
   --theme-muted: rgba(166, 200, 255, 1);
 }
 
-.theme-black-red {
-  --theme-background: rgba(0, 0, 0, 1);
-  --theme-background-modal: rgba(162, 25, 31, 1);
-  --theme-background-modal-footer: rgba(117, 14, 19, 1);
-  --theme-background-input: rgba(218, 30, 40, 1);
-  --theme-border: rgba(218, 30, 40, 0.7);
-  --theme-border-subdued: rgba(218, 30, 40, 0.3);
-  --theme-text: rgba(255, 179, 184, 1);
-  --theme-button: rgba(45, 7, 9, 1);
-  --theme-button-text: rgba(255, 215, 217, 1);
-  --theme-button-foreground: rgba(117, 14, 19, 1);
-  --theme-button-background: rgba(82, 4, 8, 1);
-  --theme-focused-foreground: rgba(82, 82, 82, 1);
-  --theme-focused-foreground-subdued: rgba(162, 25, 31, 0.4);
-  --theme-overlay: rgba(45, 7, 9, 0.4);
-  --theme-muted: rgba(255, 131, 137, 1);
-}
-
 .theme-black-green {
   --theme-background: rgba(0, 0, 0, 1);
   --theme-background-modal: rgba(38, 38, 38, 1);
@@ -254,114 +113,6 @@
   --theme-focused-foreground-subdued: rgba(168, 168, 168, 1);
   --theme-overlay: rgba(0, 0, 0, 0.4);
   --theme-muted: rgba(111, 220, 140, 1);
-}
-
-.theme-black-amber {
-  --theme-background: rgba(0, 0, 0, 1);
-  --theme-background-modal: rgba(51, 31, 0, 1);
-  --theme-background-modal-footer: rgba(82, 49, 0, 1);
-  --theme-background-input: rgba(112, 68, 0, 1);
-  --theme-border: rgba(82, 49, 0, 1);
-  --theme-border-subdued: rgba(112, 68, 0, 0.3);
-  --theme-text: rgba(255, 191, 0, 1);
-  --theme-button: rgba(255, 191, 0, 1);
-  --theme-button-text: rgba(82, 49, 0, 1);
-  --theme-button-foreground: rgba(82, 49, 0, 1);
-  --theme-button-background: rgba(51, 31, 0, 1);
-  --theme-focused-foreground: rgba(255, 217, 102, 1);
-  --theme-focused-foreground-subdued: rgba(255, 230, 153, 1);
-  --theme-overlay: rgba(20, 12, 0, 0.4);
-  --theme-muted: rgba(255, 204, 51, 1);
-}
-
-.theme-lcars {
-  --theme-background: rgba(0, 0, 0, 1);
-  --theme-background-modal: rgba(57, 57, 57, 1);
-  --theme-background-modal-footer: rgba(82, 82, 82, 1);
-  --theme-background-input: rgba(0, 0, 0, 1);
-  --theme-border: rgba(255, 153, 0, 1);
-  --theme-border-subdued: rgba(153, 153, 204, 0.3);
-  --theme-text: rgba(255, 204, 0, 1);
-  --theme-button: rgba(255, 153, 0, 1);
-  --theme-button-text: rgba(0, 0, 0, 1);
-  --theme-button-foreground: rgba(204, 153, 255, 1);
-  --theme-button-background: rgba(102, 102, 153, 1);
-  --theme-focused-foreground: rgba(153, 204, 255, 1);
-  --theme-focused-foreground-subdued: rgba(255, 153, 204, 1);
-  --theme-overlay: rgba(0, 0, 0, 0.4);
-  --theme-muted: rgba(153, 153, 204, 1);
-}
-
-.theme-hologram {
-  --theme-background: rgba(0, 5, 15, 1);
-  --theme-background-modal: rgba(0, 20, 40, 1);
-  --theme-background-modal-footer: rgba(0, 15, 30, 1);
-  --theme-background-input: rgba(0, 40, 80, 1);
-  --theme-border: rgba(0, 150, 255, 1);
-  --theme-border-subdued: rgba(0, 150, 255, 0.3);
-  --theme-text: rgba(0, 255, 255, 1);
-  --theme-button: rgba(200, 230, 255, 1);
-  --theme-button-text: rgba(0, 5, 15, 1);
-  --theme-button-foreground: rgba(0, 150, 255, 1);
-  --theme-button-background: rgba(0, 40, 80, 1);
-  --theme-focused-foreground: rgba(150, 255, 255, 1);
-  --theme-focused-foreground-subdued: rgba(0, 255, 255, 0.5);
-  --theme-overlay: rgba(0, 150, 255, 0.4);
-  --theme-muted: rgba(0, 255, 255, 0.7);
-}
-
-.theme-westworld {
-  --theme-background: rgba(242, 248, 250, 1);
-  --theme-background-modal: rgba(229, 240, 242, 1);
-  --theme-background-modal-footer: rgba(204, 224, 230, 1);
-  --theme-background-input: rgba(229, 240, 242, 1);
-  --theme-border: rgba(102, 143, 184, 1);
-  --theme-border-subdued: rgba(178, 204, 217, 0.3);
-  --theme-text: rgba(0, 30, 60, 1);
-  --theme-button: rgba(0, 30, 60, 1);
-  --theme-button-text: rgba(242, 248, 250, 1);
-  --theme-button-foreground: rgba(178, 204, 217, 1);
-  --theme-button-background: rgba(204, 224, 230, 1);
-  --theme-focused-foreground: rgba(0, 51, 102, 1);
-  --theme-focused-foreground-subdued: rgba(0, 71, 143, 1);
-  --theme-overlay: rgba(242, 248, 250, 0.4);
-  --theme-muted: rgba(102, 143, 184, 1);
-}
-
-.theme-win95 {
-  --theme-background: rgba(223, 223, 223, 1);
-  --theme-background-modal: rgba(192, 192, 192, 1);
-  --theme-background-modal-footer: rgba(128, 128, 128, 1);
-  --theme-background-input: rgba(255, 255, 255, 1);
-  --theme-border: rgba(0, 0, 0, 1);
-  --theme-border-subdued: rgba(255, 255, 255, 1);
-  --theme-text: rgba(0, 0, 128, 1);
-  --theme-button: rgba(0, 0, 128, 1);
-  --theme-button-text: rgba(255, 255, 255, 1);
-  --theme-button-foreground: rgba(192, 192, 192, 1);
-  --theme-button-background: rgba(223, 223, 223, 1);
-  --theme-focused-foreground: rgba(0, 0, 255, 1);
-  --theme-focused-foreground-subdued: rgba(255, 255, 0, 1);
-  --theme-overlay: rgba(0, 0, 0, 0.4);
-  --theme-muted: rgba(128, 128, 128, 1);
-}
-
-.theme-macos9 {
-  --theme-background: rgba(221, 221, 221, 1);
-  --theme-background-modal: rgba(238, 238, 238, 1);
-  --theme-background-modal-footer: rgba(156, 156, 206, 1);
-  --theme-background-input: rgba(255, 255, 255, 1);
-  --theme-border: rgba(102, 102, 102, 1);
-  --theme-border-subdued: rgba(102, 102, 102, 0.3);
-  --theme-text: rgba(0, 0, 0, 1);
-  --theme-button: rgba(102, 204, 255, 1);
-  --theme-button-text: rgba(0, 0, 0, 1);
-  --theme-button-foreground: rgba(153, 102, 204, 1);
-  --theme-button-background: rgba(246, 246, 246, 1);
-  --theme-focused-foreground: rgba(255, 102, 102, 1);
-  --theme-focused-foreground-subdued: rgba(255, 204, 0, 1);
-  --theme-overlay: rgba(0, 0, 0, 0.4);
-  --theme-muted: rgba(102, 102, 102, 1);
 }
 
 .theme-nerv {
@@ -416,66 +167,6 @@
   --theme-focused-foreground-subdued: rgba(255, 125, 0, 0.5);
   --theme-overlay: rgba(150, 150, 150, 0.4);
   --theme-muted: rgba(150, 150, 150, 1);
-}
-
-.font-use-anonymous-pro {
-  --font-family-mono: "AnonymousPro-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-atkinson-hyperlegible-mono {
-  --font-family-mono: "AtkinsonHyperlegibleMono-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-berkeley-mono {
-  --font-family-mono: "TX02Mono-Regular", "Berkeley Mono", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-fira-code {
-  --font-family-mono: "FiraCode-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-iosevka-term {
-  --font-family-mono: "IosevkaTerm-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-monaspace-argon {
-  --font-family-mono: "MonaspaceArgon-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-monaspace-krypton {
-  --font-family-mono: "MonaspaceKrypton-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-monaspace-neon {
-  --font-family-mono: "MonaspaceNeon-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-monaspace-radon {
-  --font-family-mono: "MonaspaceRadon-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-monaspace-xenon {
-  --font-family-mono: "MonaspaceXenon-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-serious-shanns {
-  --font-family-mono: "SeriousShanns", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-share-tech-mono {
-  --font-family-mono: "ShareTechMono-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-space-mono {
-  --font-family-mono: "SpaceMono-Regular", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-tt2020 {
-  --font-family-mono: "TT2020", ui-monospace, "Menlo", monospace;
-}
-
-.font-use-xanh-mono {
-  --font-family-mono: "XanhMono-Regular", ui-monospace, "Menlo", monospace;
 }
 
 /* ===== BASE STYLES ===== */

@@ -4,20 +4,12 @@ import { onHandleThemeChange } from "../../utils/theme";
 export type ThemeMode = "light" | "dark" | "system";
 export const THEME_PRESETS = [
   // Light
-  { id: "theme-aperture", label: "Aperture", tone: "light" },
-  { id: "theme-blue", label: "BSOD", tone: "light" },
   { id: "theme-light", label: "Highlight", tone: "light" },
-  { id: "theme-macos9", label: "OS 9", tone: "light" },
-  { id: "theme-win95", label: "W95", tone: "light" },
-  { id: "theme-westworld", label: "Westworld", tone: "light" },
+  { id: "theme-blue", label: "BSOD", tone: "light" },
+  { id: "theme-aperture", label: "Aperture", tone: "light" },
   // Dark
-  { id: "theme-hologram", label: "Holo", tone: "dark" },
-  { id: "theme-nerv", label: "NERV", tone: "dark" },
-  { id: "theme-dark", label: "Midnight", tone: "dark" },
-  { id: "theme-black-red", label: "Neon", tone: "dark" },
   { id: "theme-black-green", label: "Phosphor", tone: "dark" },
-  { id: "theme-black-amber", label: "Sulfur", tone: "dark" },
-  { id: "theme-lcars", label: "LCARS", tone: "dark" },
+  { id: "theme-nerv", label: "NERV", tone: "dark" },
   { id: "theme-outrun", label: "Outrun", tone: "dark" },
 ] as const;
 
@@ -110,61 +102,8 @@ const removeFontClasses = (element: HTMLElement) => {
 };
 
 export const FONT_OPTIONS = [
-  {
-    id: "anonymous-pro",
-    label: "Anonymous Pro",
-    className: "font-use-anonymous-pro",
-  },
-  {
-    id: "atkinson",
-    label: "Atkinson Hyperlegible",
-    className: "font-use-atkinson-hyperlegible-mono",
-  },
-  {
-    id: "berkeley",
-    label: "Berkeley Mono",
-    className: "font-use-berkeley-mono",
-  },
-  { id: "fira", label: "Fira Code", className: "font-use-fira-code" },
-  { id: "iosevka", label: "Iosevka", className: "font-use-iosevka-term" },
-  {
-    id: "monaspace-argon",
-    label: "Monaspace Argon",
-    className: "font-use-monaspace-argon",
-  },
-  {
-    id: "monaspace-krypton",
-    label: "Monaspace Krypton",
-    className: "font-use-monaspace-krypton",
-  },
-  {
-    id: "monaspace-neon",
-    label: "Monaspace Neon",
-    className: "font-use-monaspace-neon",
-  },
-  {
-    id: "monaspace-radon",
-    label: "Monaspace Radon",
-    className: "font-use-monaspace-radon",
-  },
-  {
-    id: "monaspace-xenon",
-    label: "Monaspace Xenon",
-    className: "font-use-monaspace-xenon",
-  },
-  {
-    id: "serious-shanns",
-    label: "Serious Sans",
-    className: "font-use-serious-shanns",
-  },
-  {
-    id: "share-tech",
-    label: "Share Tech Mono",
-    className: "font-use-share-tech-mono",
-  },
-  { id: "space-mono", label: "Space Mono", className: "font-use-space-mono" },
-  { id: "tt2020", label: "TT2020", className: "font-use-tt2020" },
-  { id: "xanh", label: "Xanh Mono", className: "font-use-xanh-mono" },
+  { id: "iosevka", label: "Iosevka", className: "font-use-iosevka" },
+  { id: "iosevka-slab", label: "Iosevka Slab", className: "font-use-iosevka-slab" },
 ] as const;
 export type FontOption = (typeof FONT_OPTIONS)[number]["id"];
 

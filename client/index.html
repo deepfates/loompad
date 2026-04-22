@@ -76,24 +76,14 @@
                         else themeClass = prefersDark ? "theme-black-green" : "theme-light";
                     }
                     var font = localStorage.getItem("loompad-font") || "iosevka";
-                    var fontClass = "font-use-" + (
-                        font === "iosevka" ? "iosevka-term" :
-                        font === "atkinson" ? "atkinson-hyperlegible-mono" :
-                        font === "berkeley" ? "berkeley-mono" :
-                        font === "fira" ? "fira-code" :
-                        font === "sfmono" ? "sfmono-square" :
-                        font === "share-tech" ? "share-tech-mono" :
-                        font === "space-mono" ? "space-mono" :
-                        font === "tt2020" ? "tt2020" :
-                        font === "xanh" ? "xanh-mono" :
-                        font === "serious-shanns" ? "serious-shanns" :
-                        font.indexOf("monaspace") === 0 ? font : "iosevka-term"
-                    );
+                    var fontClass = font === "iosevka-slab"
+                        ? "font-use-iosevka-slab"
+                        : "font-use-iosevka";
                     document.documentElement.classList.add(themeClass, fontClass);
                 } catch (_) {
                     document.documentElement.classList.add(
                         prefersDark ? "theme-black-green" : "theme-light",
-                        "font-use-iosevka-term",
+                        "font-use-iosevka",
                     );
                 }
             })();
