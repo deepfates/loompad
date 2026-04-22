@@ -38,7 +38,6 @@ interface MenuCallbacks {
   currentFont?: FontOption;
   onFontChange?: (font: FontOption) => void;
   fontOptions?: FontOption[];
-  onManageModels?: () => void;
   modelOrder?: ModelId[];
   onNewModel?: () => void;
   onEditModel?: (modelId: ModelId) => void;
@@ -109,28 +108,28 @@ export function useMenuSystem(defaultParams: MenuParams) {
       callbacks: MenuCallbacks = {}
     ) => {
       if (activeMenu === "select") {
+        // Row order — must match SettingsMenu.tsx and SETTINGS_ROW_LABELS
+        // in Interface.tsx.  Ordered by frequency of use.
         const params: (
           | "temperature"
           | "lengthMode"
           | "model"
+          | "autoModeIterations"
+          | "textSplitting"
           | "themeMode"
           | "lightTheme"
           | "darkTheme"
           | "font"
-          | "textSplitting"
-          | "autoModeIterations"
-          | "manageModels"
         )[] = [
           "temperature",
           "lengthMode",
           "model",
+          "autoModeIterations",
+          "textSplitting",
           "themeMode",
           "lightTheme",
           "darkTheme",
           "font",
-          "textSplitting",
-          "autoModeIterations",
-          "manageModels",
         ];
 
         switch (key) {
@@ -238,8 +237,6 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 autoModeIterations: Math.max(0, prev.autoModeIterations - 1),
               }));
-            } else if (param === "manageModels") {
-              callbacks.onManageModels?.();
             }
             break;
           }
@@ -314,8 +311,6 @@ export function useMenuSystem(defaultParams: MenuParams) {
                 ...prev,
                 autoModeIterations: Math.min(4, prev.autoModeIterations + 1),
               }));
-            } else if (param === "manageModels") {
-              callbacks.onManageModels?.();
             }
             break;
           }
@@ -336,8 +331,6 @@ export function useMenuSystem(defaultParams: MenuParams) {
                   }));
                 }
               }
-            } else if (param === "manageModels") {
-              callbacks.onManageModels?.();
             } else if (param === "lengthMode") {
               setMenuParams((prev) => ({
                 ...prev,

@@ -11,6 +11,21 @@ const THEME_MODE_LABELS = {
   system: "System",
 } as const;
 
+/**
+ * Rows, top-down, ordered by how often users actually touch them.
+ *   0  Temperature     — tweaked per-generation
+ *   1  Length          — tweaked per-generation
+ *   2  Model           — switched fairly often
+ *   3  Auto Mode       — toggled when exploring
+ *   4  Text Splitting  — set once
+ *   5  Theme Mode      — set occasionally
+ *   6  Light Theme     — set occasionally
+ *   7  Dark Theme      — set occasionally
+ *   8  Font            — set once or twice ever
+ *
+ * Keep SETTINGS_ROW_LABELS (Interface.tsx) in lock-step with this order.
+ * The "Manage Models" action row was removed when Models became a tab.
+ */
 export const SettingsMenu = ({
   params,
   onParamChange,
@@ -20,7 +35,6 @@ export const SettingsMenu = ({
   modelsLoading = false,
   modelsError,
   getModelName,
-  onManageModels,
   fonts,
 }: SettingsMenuProps) => {
   const modelOptions = models ? (Object.keys(models) as ModelId[]) : [];
@@ -46,7 +60,7 @@ export const SettingsMenu = ({
         kind="knob"
         label="Temperature"
         value={params.temperature}
-        min={0.1}
+        min={0.0}
         max={2.0}
         step={0.1}
         formatValue={(v) => v.toFixed(1)}
@@ -58,10 +72,7 @@ export const SettingsMenu = ({
           )
         }
         onSetValue={(v) =>
-          onParamChange(
-            "temperature",
-            Math.round(v * 10) / 10,
-          )
+          onParamChange("temperature", Math.round(v * 10) / 10)
         }
       />
       <Row
@@ -84,53 +95,6 @@ export const SettingsMenu = ({
         }}
       />
       <Row
-        kind="pick"
-        label="Theme Mode"
-        value={THEME_MODE_LABELS[params.themeMode]}
-        selected={selectedParam === 3}
-        onActivate={() => {
-          const modes = ["light", "dark", "system"] as const;
-          onParamChange("themeMode", cycle(modes as unknown as string[], params.themeMode, 1));
-        }}
-      />
-      <Row
-        kind="pick"
-        label="Light Theme"
-        value={themeLabel(params.lightTheme)}
-        selected={selectedParam === 4}
-        onActivate={() => {
-          const ids = lightThemes.map((p) => p.id);
-          onParamChange("lightTheme", cycle(ids, params.lightTheme, 1));
-        }}
-      />
-      <Row
-        kind="pick"
-        label="Dark Theme"
-        value={themeLabel(params.darkTheme)}
-        selected={selectedParam === 5}
-        onActivate={() => {
-          const ids = darkThemes.map((p) => p.id);
-          onParamChange("darkTheme", cycle(ids, params.darkTheme, 1));
-        }}
-      />
-      <Row
-        kind="pick"
-        label="Font"
-        value={fontLabel(params.font)}
-        selected={selectedParam === 6}
-        onActivate={() => {
-          const ids = fonts.map((f) => f.id);
-          onParamChange("font", cycle(ids, params.font, 1));
-        }}
-      />
-      <Row
-        kind="toggle"
-        label="Text Splitting"
-        value={params.textSplitting}
-        selected={selectedParam === 7}
-        onActivate={() => onParamChange("textSplitting", !params.textSplitting)}
-      />
-      <Row
         kind="knob"
         label="Auto Mode"
         value={params.autoModeIterations}
@@ -138,7 +102,7 @@ export const SettingsMenu = ({
         max={4}
         step={1}
         formatValue={(v) => (v >= 4 ? "∞" : String(v))}
-        selected={selectedParam === 8}
+        selected={selectedParam === 3}
         onActivate={() =>
           onParamChange(
             "autoModeIterations",
@@ -150,11 +114,54 @@ export const SettingsMenu = ({
         }
       />
       <Row
-        kind="action"
-        label="Manage Models"
-        glyph="→"
-        selected={selectedParam === 9}
-        onActivate={() => onManageModels?.()}
+        kind="toggle"
+        label="Text Splitting"
+        value={params.textSplitting}
+        selected={selectedParam === 4}
+        onActivate={() => onParamChange("textSplitting", !params.textSplitting)}
+      />
+      <Row
+        kind="pick"
+        label="Theme Mode"
+        value={THEME_MODE_LABELS[params.themeMode]}
+        selected={selectedParam === 5}
+        onActivate={() => {
+          const modes = ["light", "dark", "system"] as const;
+          onParamChange(
+            "themeMode",
+            cycle(modes as unknown as string[], params.themeMode, 1),
+          );
+        }}
+      />
+      <Row
+        kind="pick"
+        label="Light Theme"
+        value={themeLabel(params.lightTheme)}
+        selected={selectedParam === 6}
+        onActivate={() => {
+          const ids = lightThemes.map((p) => p.id);
+          onParamChange("lightTheme", cycle(ids, params.lightTheme, 1));
+        }}
+      />
+      <Row
+        kind="pick"
+        label="Dark Theme"
+        value={themeLabel(params.darkTheme)}
+        selected={selectedParam === 7}
+        onActivate={() => {
+          const ids = darkThemes.map((p) => p.id);
+          onParamChange("darkTheme", cycle(ids, params.darkTheme, 1));
+        }}
+      />
+      <Row
+        kind="pick"
+        label="Font"
+        value={fontLabel(params.font)}
+        selected={selectedParam === 8}
+        onActivate={() => {
+          const ids = fonts.map((f) => f.id);
+          onParamChange("font", cycle(ids, params.font, 1));
+        }}
       />
       {modelsError && (
         <output className="error-message">

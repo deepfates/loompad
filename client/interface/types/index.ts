@@ -36,7 +36,6 @@ export interface SettingsMenuProps {
   modelsLoading?: boolean;
   modelsError?: string | null;
   getModelName: (modelId: ModelId) => string;
-  onManageModels?: () => void;
   fonts: Array<{ id: FontOption; label: string }>;
 }
 

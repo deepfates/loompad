@@ -57,26 +57,26 @@ import {
 } from "./utils/storyExport";
 
 const DEFAULT_PARAMS = {
-  temperature: 0.7,
-  lengthMode: DEFAULT_LENGTH_MODE,
-  model: "meta-llama/llama-3.1-405b" as ModelId,
+  temperature: 1.0,
+  lengthMode: "paragraph" as const,
+  model: "deepseek/deepseek-chat-v3.1" as ModelId,
   textSplitting: true,
   autoModeIterations: 0,
 };
 
-// Row labels for Settings, indexed by the cursor position (0..9).  Used
-// by the navigation-bar minibuffer to tell the user what row they're on.
+// Row labels for Settings, in cursor-index order.  Used by the navigation-bar
+// minibuffer to tell the user what row they're on.  Keep in sync with the
+// row order in SettingsMenu and the parameter array in useMenuSystem.
 const SETTINGS_ROW_LABELS = [
   "Temperature",
   "Length",
   "Model",
+  "Auto Mode",
+  "Text Splitting",
   "Theme Mode",
   "Light Theme",
   "Dark Theme",
   "Font",
-  "Text Splitting",
-  "Auto Mode",
-  "Manage Models",
 ];
 
 const createEmptyModelForm = (): ModelFormState => ({
@@ -903,7 +903,6 @@ export const GamepadInterface = () => {
           onFontChange: setFont,
           fontOptions: availableFonts.map((option) => option.id),
           modelOrder,
-          onManageModels: () => showModelsMenu(),
         });
       } else if (activeMenu === "models") {
         handleMenuNavigation(key, trees, {
@@ -1289,7 +1288,6 @@ export const GamepadInterface = () => {
                     modelsLoading={modelsLoading}
                     modelsError={modelsError}
                     getModelName={getModelName}
-                    onManageModels={() => showModelsMenu()}
                     fonts={availableFonts.map(({ id, label }) => ({ id, label }))}
                   />
                 </MenuScreen>
