@@ -1114,21 +1114,33 @@ export const GamepadInterface = () => {
             const map: Record<MenuType, { title: string; hint: string }> & {
               null: { title: string; hint: string };
             } = {
-              null: { title: "LOOM", hint: "START: MAP • SELECT: SETTINGS" },
-              map: { title: "MAP", hint: "SELECT: STORIES • START: LOOM" },
-              select: { title: "SETTINGS", hint: "START: CLOSE" },
+              null: {
+                title: "LOOM",
+                hint: "↵: GENERATE • ⌫: EDIT • START: MAP • SELECT: CONFIG",
+              },
+              map: {
+                title: "MAP",
+                hint: "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG",
+              },
+              select: {
+                title: "SETTINGS",
+                hint: "↵: SELECT • ⌫: BACK • START: CLOSE",
+              },
               start: {
                 title: "STORIES",
-                hint: "↵: OPEN • ⌫: DELETE • START: MAP",
+                hint: "↵: OPEN • ⌫: DELETE • START: CLOSE",
               },
               models: {
                 title: "MODELS",
-                hint: "↵: EDIT • ⌫: DELETE • SELECT: SETTINGS",
+                hint: "↵: EDIT • ⌫: DELETE • START: CLOSE",
               },
-              edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
+              edit: {
+                title: "EDIT",
+                hint: "START: SAVE • SELECT: CANCEL",
+              },
               "model-editor": {
                 title: "MODEL EDITOR",
-                hint: "SELECT: BACK • START: SAVE",
+                hint: "↵: EDIT FIELD • ⌫: BACK • START: SAVE",
               },
             } as const;
             const key = (activeMenu ?? "null") as keyof typeof map;
