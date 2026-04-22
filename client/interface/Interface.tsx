@@ -64,7 +64,7 @@ const DEFAULT_PARAMS = {
 
 // Row labels for Settings, in cursor-index order.  Used by the navigation-bar
 // minibuffer to tell the user what row they're on.  Keep in sync with the
-// row order in SettingsMenu and the parameter array in useMenuSystem.
+// row order in SettingsMenu and the SETTINGS_PARAMS array below.
 const SETTINGS_ROW_LABELS = [
   "Temperature",
   "Length",
