@@ -31,6 +31,7 @@ export interface SettingsMenuProps {
   };
   onParamChange: (param: string, value: number | string | boolean) => void;
   selectedParam: number;
+  onSelectParam?: (index: number) => void;
   isLoading?: boolean;
   models: AvailableModels | null;
   modelsLoading?: boolean;

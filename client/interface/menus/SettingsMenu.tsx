@@ -30,6 +30,7 @@ export const SettingsMenu = ({
   params,
   onParamChange,
   selectedParam = 0,
+  onSelectParam,
   isLoading = false,
   models,
   modelsLoading = false,
@@ -37,6 +38,7 @@ export const SettingsMenu = ({
   getModelName,
   fonts,
 }: SettingsMenuProps) => {
+  const hover = (index: number) => onSelectParam?.(index);
   const modelOptions = models ? (Object.keys(models) as ModelId[]) : [];
   const isModelsLoading = modelsLoading && !models;
 
@@ -65,31 +67,38 @@ export const SettingsMenu = ({
         step={0.1}
         formatValue={(v) => v.toFixed(1)}
         selected={selectedParam === 0}
-        onActivate={() =>
+        onHover={() => hover(0)}
+        onActivate={() => {
+          hover(0);
           onParamChange(
             "temperature",
             Math.min(2.0, Math.round((params.temperature + 0.1) * 10) / 10),
-          )
-        }
-        onSetValue={(v) =>
-          onParamChange("temperature", Math.round(v * 10) / 10)
-        }
+          );
+        }}
+        onSetValue={(v) => {
+          hover(0);
+          onParamChange("temperature", Math.round(v * 10) / 10);
+        }}
       />
       <Row
         kind="pick"
         label="Length"
         value={LENGTH_PRESETS[params.lengthMode].label}
         selected={selectedParam === 1}
-        onActivate={() =>
-          onParamChange("lengthMode", cycle(LENGTH_MODES, params.lengthMode, 1))
-        }
+        onHover={() => hover(1)}
+        onActivate={() => {
+          hover(1);
+          onParamChange("lengthMode", cycle(LENGTH_MODES, params.lengthMode, 1));
+        }}
       />
       <Row
         kind="pick"
         label={`Model${isModelsLoading ? " (loading…)" : ""}`}
         value={getModelName(params.model)}
         selected={selectedParam === 2}
+        onHover={() => hover(2)}
         onActivate={() => {
+          hover(2);
           if (!modelOptions.length) return;
           onParamChange("model", cycle(modelOptions, params.model, 1));
         }}
@@ -103,29 +112,38 @@ export const SettingsMenu = ({
         step={1}
         formatValue={(v) => (v >= 4 ? "∞" : String(v))}
         selected={selectedParam === 3}
-        onActivate={() =>
+        onHover={() => hover(3)}
+        onActivate={() => {
+          hover(3);
           onParamChange(
             "autoModeIterations",
             Math.min(4, params.autoModeIterations + 1),
-          )
-        }
-        onSetValue={(v) =>
-          onParamChange("autoModeIterations", Math.round(v))
-        }
+          );
+        }}
+        onSetValue={(v) => {
+          hover(3);
+          onParamChange("autoModeIterations", Math.round(v));
+        }}
       />
       <Row
         kind="toggle"
         label="Text Splitting"
         value={params.textSplitting}
         selected={selectedParam === 4}
-        onActivate={() => onParamChange("textSplitting", !params.textSplitting)}
+        onHover={() => hover(4)}
+        onActivate={() => {
+          hover(4);
+          onParamChange("textSplitting", !params.textSplitting);
+        }}
       />
       <Row
         kind="pick"
         label="Theme Mode"
         value={THEME_MODE_LABELS[params.themeMode]}
         selected={selectedParam === 5}
+        onHover={() => hover(5)}
         onActivate={() => {
+          hover(5);
           const modes = ["light", "dark", "system"] as const;
           onParamChange(
             "themeMode",
@@ -138,7 +156,9 @@ export const SettingsMenu = ({
         label="Light Theme"
         value={themeLabel(params.lightTheme)}
         selected={selectedParam === 6}
+        onHover={() => hover(6)}
         onActivate={() => {
+          hover(6);
           const ids = lightThemes.map((p) => p.id);
           onParamChange("lightTheme", cycle(ids, params.lightTheme, 1));
         }}
@@ -148,7 +168,9 @@ export const SettingsMenu = ({
         label="Dark Theme"
         value={themeLabel(params.darkTheme)}
         selected={selectedParam === 7}
+        onHover={() => hover(7)}
         onActivate={() => {
+          hover(7);
           const ids = darkThemes.map((p) => p.id);
           onParamChange("darkTheme", cycle(ids, params.darkTheme, 1));
         }}
@@ -158,7 +180,9 @@ export const SettingsMenu = ({
         label="Font"
         value={fontLabel(params.font)}
         selected={selectedParam === 8}
+        onHover={() => hover(8)}
         onActivate={() => {
+          hover(8);
           const ids = fonts.map((f) => f.id);
           onParamChange("font", cycle(ids, params.font, 1));
         }}

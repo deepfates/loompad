@@ -1501,6 +1501,10 @@ export const GamepadInterface = () => {
                       setMenuParams((prev) => ({ ...prev, [param]: value }));
                     }}
                     selectedParam={cursorOnTabs ? -1 : selectedParam}
+                    onSelectParam={(index) => {
+                      setCursorOnTabs(false);
+                      setSelectedParam(index);
+                    }}
                     isLoading={isAnyGenerating}
                     models={models}
                     modelsLoading={modelsLoading}
