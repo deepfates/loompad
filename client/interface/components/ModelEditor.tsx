@@ -88,12 +88,14 @@ export const ModelEditor = ({
               value={formState.maxTokens}
               min={1}
               max={32768}
+              step={64}
               formatValue={(v) => String(Math.round(v))}
               selected={selected}
               onHover={() => onSelectField(field)}
               onActivate={() =>
                 onChange("maxTokens", Math.min(32768, formState.maxTokens + 64))
               }
+              onSetValue={(v) => onChange("maxTokens", Math.round(v))}
             />
           );
         }
@@ -106,6 +108,7 @@ export const ModelEditor = ({
               value={formState.defaultTemp}
               min={0}
               max={2}
+              step={0.1}
               formatValue={(v) => v.toFixed(1)}
               selected={selected}
               onHover={() => onSelectField(field)}
@@ -117,6 +120,9 @@ export const ModelEditor = ({
                     Math.round((formState.defaultTemp + 0.1) * 10) / 10,
                   ),
                 )
+              }
+              onSetValue={(v) =>
+                onChange("defaultTemp", Math.round(v * 10) / 10)
               }
             />
           );

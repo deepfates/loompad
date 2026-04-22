@@ -48,12 +48,19 @@ export const SettingsMenu = ({
         value={params.temperature}
         min={0.1}
         max={2.0}
+        step={0.1}
         formatValue={(v) => v.toFixed(1)}
         selected={selectedParam === 0}
         onActivate={() =>
           onParamChange(
             "temperature",
             Math.min(2.0, Math.round((params.temperature + 0.1) * 10) / 10),
+          )
+        }
+        onSetValue={(v) =>
+          onParamChange(
+            "temperature",
+            Math.round(v * 10) / 10,
           )
         }
       />
@@ -129,6 +136,7 @@ export const SettingsMenu = ({
         value={params.autoModeIterations}
         min={0}
         max={4}
+        step={1}
         formatValue={(v) => (v >= 4 ? "∞" : String(v))}
         selected={selectedParam === 8}
         onActivate={() =>
@@ -136,6 +144,9 @@ export const SettingsMenu = ({
             "autoModeIterations",
             Math.min(4, params.autoModeIterations + 1),
           )
+        }
+        onSetValue={(v) =>
+          onParamChange("autoModeIterations", Math.round(v))
         }
       />
       <Row

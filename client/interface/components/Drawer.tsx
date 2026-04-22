@@ -1,14 +1,11 @@
-import { useEffect } from "react";
 import type { DrawerTab } from "../types";
 
 /**
  * Tab strip + body shell for the configuration drawer.  Consumer owns
- * `tab` state and the tab body content; Drawer renders the chrome and
- * handles Left/Right-to-cycle-tabs when the cursor is on the tab bar.
- *
- * We use a "tab-or-rows" cursor zone convention: when `cursorOnTabs` is
- * true, Left/Right cycles tabs.  When false, Left/Right is consumed by
- * the current tab's rows (knob adjust, pick cycle, etc.).
+ * `tab` state and the tab body content.  Drawer is purely presentational:
+ * keyboard routing (including ←→ to cycle tabs while cursorOnTabs) lives
+ * in Interface.tsx so that on-screen D-pad and physical keys take the
+ * same code path.
  */
 
 export const DRAWER_TABS: { id: DrawerTab; label: string }[] = [
@@ -31,25 +28,6 @@ export const Drawer = ({
   cursorOnTabs,
   children,
 }: DrawerProps) => {
-  // When cursor is on the tab strip, Left/Right cycles tabs at the
-  // window level.  The parent's key router decides who gets ArrowUp/
-  // ArrowDown (moving into/out of the tab zone).
-  useEffect(() => {
-    if (!cursorOnTabs) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      e.preventDefault();
-      const idx = DRAWER_TABS.findIndex((t) => t.id === tab);
-      const delta = e.key === "ArrowRight" ? 1 : -1;
-      const next =
-        DRAWER_TABS[
-          (idx + delta + DRAWER_TABS.length) % DRAWER_TABS.length
-        ];
-      setTab(next.id);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [cursorOnTabs, tab, setTab]);
 
   return (
     <div className="drawer">

@@ -783,8 +783,9 @@ export const GamepadInterface = () => {
       }
 
       // Drawer tab-bar cursor: a distinct zone at the top of the drawer.
-      // Left/Right (cycle tabs) is handled inside Drawer's own listener;
-      // we only intercept Up/Down/Enter/Escape here.
+      // Touch/mouse input reaches us via the on-screen D-pad buttons, which
+      // don't fire the window keydown Drawer listens for — so we have to
+      // cycle tabs here too, not defer to Drawer's listener.
       if (drawerTab && cursorOnTabs) {
         if (key === "ArrowDown" || key === "Enter") {
           setCursorOnTabs(false);
@@ -794,15 +795,20 @@ export const GamepadInterface = () => {
           // already at top; eat it
           return;
         }
-        if (key === "Escape") {
+        if (key === "ArrowLeft" || key === "ArrowRight") {
+          const idx = DRAWER_TABS.findIndex((t) => t.id === drawerTab);
+          const delta = key === "ArrowRight" ? 1 : -1;
+          const next =
+            DRAWER_TABS[
+              (idx + delta + DRAWER_TABS.length) % DRAWER_TABS.length
+            ];
+          setDrawerTab(next.id);
+          return;
+        }
+        if (key === "Escape" || key === "`") {
           setActiveMenu(null);
           return;
         }
-        if (key === "`") {
-          setActiveMenu(null);
-          return;
-        }
-        // Let left/right fall through (Drawer's listener handles them)
         return;
       }
       // ArrowUp from the first row of the drawer body → tab bar.

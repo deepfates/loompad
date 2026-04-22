@@ -38,6 +38,10 @@ interface KnobProps extends BaseProps {
   max: number;
   /** Optional pretty formatter (e.g. "∞" for max). */
   formatValue?: (v: number) => string;
+  /** Optional setter for pointer (mouse/touch) drag on the bar. */
+  onSetValue?: (v: number) => void;
+  /** Optional step for snapping pointer values. */
+  step?: number;
 }
 
 interface ToggleProps extends BaseProps {
@@ -83,18 +87,24 @@ export const Row = (props: RowProps) => {
     onActivate?.();
   };
 
+  // Rendered as a div-with-button-role instead of a real <button> so rows
+  // that carry trailing interactive controls (e.g. the story list's
+  // export icons) don't produce invalid nested-button markup.  Keyboard
+  // activation is owned by Interface's key router, not by this element.
+  const isDisabled = props.kind === "action" && props.disabled;
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={isDisabled ? -1 : 0}
       className={className}
       aria-selected={selected}
+      aria-disabled={isDisabled || undefined}
       onClick={handleClick}
       onMouseEnter={onHover}
       onFocus={onHover}
-      disabled={props.kind === "action" && props.disabled}
     >
       <RowContent {...props} />
-    </button>
+    </div>
   );
 };
 
@@ -120,14 +130,48 @@ const RowContent = (props: RowProps) => {
         props.max > props.min
           ? (props.value - props.min) / (props.max - props.min)
           : 0;
+      const applyPointer = (e: React.PointerEvent<HTMLSpanElement>) => {
+        if (!props.onSetValue) return;
+        const el = e.currentTarget;
+        const rect = el.getBoundingClientRect();
+        const f =
+          rect.width <= 0 ? 0 : (e.clientX - rect.left) / rect.width;
+        const raw =
+          props.min + Math.max(0, Math.min(1, f)) * (props.max - props.min);
+        const snapped =
+          props.step && props.step > 0
+            ? Math.round(raw / props.step) * props.step
+            : raw;
+        props.onSetValue(
+          Math.max(props.min, Math.min(props.max, snapped)),
+        );
+      };
       return (
         <>
           <span className="menu-item-label">{props.label}:</span>
           <span className="menu-item-value">{display}</span>
           <span
             className="menu-item-knob-bar"
-            aria-hidden="true"
             role="presentation"
+            onPointerDown={(e) => {
+              if (!props.onSetValue) return;
+              // Begin drag: capture pointer and track movement.
+              (e.currentTarget as HTMLElement).setPointerCapture(
+                e.pointerId,
+              );
+              e.stopPropagation();
+              applyPointer(e);
+            }}
+            onPointerMove={(e) => {
+              if (
+                props.onSetValue &&
+                (e.currentTarget as HTMLElement).hasPointerCapture(
+                  e.pointerId,
+                )
+              ) {
+                applyPointer(e);
+              }
+            }}
           >
             <span
               className="menu-item-knob-fill"
