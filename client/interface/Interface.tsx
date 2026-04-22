@@ -64,6 +64,21 @@ const DEFAULT_PARAMS = {
   autoModeIterations: 0,
 };
 
+// Row labels for Settings, indexed by the cursor position (0..9).  Used
+// by the navigation-bar minibuffer to tell the user what row they're on.
+const SETTINGS_ROW_LABELS = [
+  "Temperature",
+  "Length",
+  "Model",
+  "Theme Mode",
+  "Light Theme",
+  "Dark Theme",
+  "Font",
+  "Text Splitting",
+  "Auto Mode",
+  "Manage Models",
+];
+
 const createEmptyModelForm = (): ModelFormState => ({
   id: "" as ModelId | "",
   name: "",
@@ -1452,36 +1467,71 @@ export const GamepadInterface = () => {
             {renderStoryText()}
           </div>
 
-          {/* Navigation bar - always visible at bottom of screen */}
+          {/* Navigation bar - always visible at bottom of screen.
+           *  In Loom:   sibling dots at current depth
+           *  In Map:    (empty — StoryMinimap has its own minibuffer)
+           *  In Drawer: current cursor context (tab / row label)
+           *  In Edit:   (empty — overlay owns the whole screen)
+           */}
           <div className="navigation-bar">
-            {activeMenu ? (
-              // Show status messages in menus
-              <>
-                {isOffline && (
-                  <span className="text-theme-focused text-sm">⚡ Offline</span>
-                )}
-                {error && (
+            {(() => {
+              if (error) {
+                return (
                   <span className="text-red-500 text-sm">
                     Error: {error.message}
                   </span>
-                )}
-              </>
-            ) : (
-              // Show navigation dots in LOOM mode
-              <>
-                <NavigationDots
-                  options={getOptionsAtDepth(currentDepth)}
-                  currentDepth={currentDepth}
-                  selectedOptions={selectedOptions}
-                  activeControls={activeControls}
-                  inFlight={inFlight}
-                  generatingInfo={generatingInfo}
-                />
-                {isOffline && (
-                  <span className="text-theme-focused text-xs ml-2">⚡</span>
-                )}
-              </>
-            )}
+                );
+              }
+              if (drawerTab) {
+                const label = cursorOnTabs
+                  ? "◄► tabs"
+                  : drawerTab === "settings"
+                    ? SETTINGS_ROW_LABELS[selectedParam] ?? ""
+                    : drawerTab === "models"
+                      ? activeMenu === "model-editor"
+                        ? `Editing: ${
+                            modelForm.name || modelForm.id || "new model"
+                          }`
+                        : selectedModelIndex === 0
+                          ? "Sort"
+                          : selectedModelIndex === 1
+                            ? "+ New Model"
+                            : sortedModelEntries[selectedModelIndex - 2]?.[1]
+                                .name ?? ""
+                      : drawerTab === "stories"
+                        ? selectedTreeIndex === 0
+                          ? "+ New Story"
+                          : orderedKeys[selectedTreeIndex - 1] ?? ""
+                        : "";
+                return (
+                  <span className="navbar-minibuffer" aria-live="polite">
+                    {label}
+                    {isOffline ? "  ⚡" : ""}
+                  </span>
+                );
+              }
+              if (activeMenu === "edit") {
+                return isOffline ? (
+                  <span className="text-theme-focused text-sm">⚡ Offline</span>
+                ) : null;
+              }
+              // LOOM / MAP
+              return (
+                <>
+                  <NavigationDots
+                    options={getOptionsAtDepth(currentDepth)}
+                    currentDepth={currentDepth}
+                    selectedOptions={selectedOptions}
+                    activeControls={activeControls}
+                    inFlight={inFlight}
+                    generatingInfo={generatingInfo}
+                  />
+                  {isOffline && (
+                    <span className="text-theme-focused text-xs ml-2">⚡</span>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </section>
 

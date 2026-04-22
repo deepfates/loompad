@@ -752,6 +752,15 @@ html, body {
   padding: 0.5rem 1rem;
 }
 
+.navbar-minibuffer {
+  font-size: 0.9em;
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 /* Story list action cluster (icons inside the trailing slot of a story row). */
 .story-action-cluster {
   display: inline-flex;
