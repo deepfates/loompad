@@ -51,29 +51,50 @@
             // Paint theme + font on <html> before React hydrates.
             // ThemeToggle owns subsequent changes — both write to <html> only.
             (function () {
-                var themeClass = "theme-light";
+                // Whitelist of theme classes that exist in terminal.css today.
+                // Anything else (including legacy IDs like theme-win95,
+                // theme-dark, theme-black-red) falls back to the tone default.
+                var LIGHT_THEMES = {
+                    "theme-light": 1,
+                    "theme-blue": 1,
+                    "theme-aperture": 1,
+                };
+                var DARK_THEMES = {
+                    "theme-black-green": 1,
+                    "theme-nerv": 1,
+                    "theme-outrun": 1,
+                };
+                var DEFAULT_LIGHT = "theme-light";
+                var DEFAULT_DARK = "theme-black-green";
+                var pickLight = function (id) {
+                    return id && LIGHT_THEMES[id] ? id : DEFAULT_LIGHT;
+                };
+                var pickDark = function (id) {
+                    return id && DARK_THEMES[id] ? id : DEFAULT_DARK;
+                };
+
                 var prefersDark = window.matchMedia(
                     "(prefers-color-scheme: dark)",
                 ).matches;
+                var themeClass = prefersDark ? DEFAULT_DARK : DEFAULT_LIGHT;
                 try {
                     var raw = localStorage.getItem("loompad-theme-preferences");
                     if (raw) {
                         var prefs = JSON.parse(raw);
                         var mode = prefs && prefs.mode;
                         if (mode === "light") {
-                            themeClass = prefs.paletteLight || "theme-light";
+                            themeClass = pickLight(prefs.paletteLight);
                         } else if (mode === "dark") {
-                            themeClass = prefs.paletteDark || "theme-black-green";
+                            themeClass = pickDark(prefs.paletteDark);
                         } else {
                             themeClass = prefersDark
-                                ? prefs.paletteDark || "theme-black-green"
-                                : prefs.paletteLight || "theme-light";
+                                ? pickDark(prefs.paletteDark)
+                                : pickLight(prefs.paletteLight);
                         }
                     } else {
                         var legacy = localStorage.getItem("theme");
-                        if (legacy === "phosphor") themeClass = "theme-black-green";
-                        else if (legacy === "light") themeClass = "theme-light";
-                        else themeClass = prefersDark ? "theme-black-green" : "theme-light";
+                        if (legacy === "phosphor") themeClass = DEFAULT_DARK;
+                        else if (legacy === "light") themeClass = DEFAULT_LIGHT;
                     }
                     var font = localStorage.getItem("loompad-font") || "iosevka";
                     var fontClass = font === "iosevka-slab"
@@ -82,7 +103,7 @@
                     document.documentElement.classList.add(themeClass, fontClass);
                 } catch (_) {
                     document.documentElement.classList.add(
-                        prefersDark ? "theme-black-green" : "theme-light",
+                        prefersDark ? DEFAULT_DARK : DEFAULT_LIGHT,
                         "font-use-iosevka",
                     );
                 }

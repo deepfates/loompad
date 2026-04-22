@@ -1521,7 +1521,14 @@ export const GamepadInterface = () => {
                   <span className="text-theme-focused text-sm">⚡ Offline</span>
                 ) : null;
               }
-              // LOOM / MAP
+              if (activeMenu === "map") {
+                // Map has its own minibuffer inside StoryMinimap; keep
+                // the bottom strip empty to avoid duplicated status UI.
+                return isOffline ? (
+                  <span className="text-theme-focused text-xs">⚡</span>
+                ) : null;
+              }
+              // LOOM (activeMenu === null)
               return (
                 <>
                   <NavigationDots
