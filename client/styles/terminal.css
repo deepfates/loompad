@@ -698,6 +698,60 @@ html, body {
   color: var(--theme-focused-foreground);
 }
 
+/* ===== Drawer with tabs ===== */
+.drawer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.drawer-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--theme-border);
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.drawer-tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  opacity: 0.6;
+}
+
+.drawer-tab--active {
+  opacity: 1;
+  border-bottom-color: var(--theme-focused-foreground);
+}
+
+.drawer-tab--selected {
+  background: var(--theme-focused-foreground-subdued);
+  color: var(--theme-background);
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-body > .menu-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.5rem 1rem;
+}
+
 /* Story list action cluster (icons inside the trailing slot of a story row). */
 .story-action-cluster {
   display: inline-flex;

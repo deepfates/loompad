@@ -31,10 +31,16 @@ import { ModelsMenu } from "./menus/ModelsMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ModeBar from "./components/ModeBar";
+import { Drawer, DRAWER_TABS } from "./components/Drawer";
 import { splitTextToNodes } from "./utils/textSplitter";
 import { scrollElementIntoViewIfNeeded, isAtBottom } from "./utils/scrolling";
 
-import type { StoryNode, MenuType, ModelSortOption } from "./types";
+import type {
+  StoryNode,
+  MenuType,
+  ModelSortOption,
+  DrawerTab,
+} from "./types";
 import type { ModelId, ModelConfig } from "../../shared/models";
 import { DEFAULT_LENGTH_MODE } from "../../shared/lengthPresets";
 import {
@@ -101,6 +107,32 @@ export const GamepadInterface = () => {
     setMenuParams,
     handleMenuNavigation,
   } = useMenuSystem(DEFAULT_PARAMS);
+
+  // When cursor is on the drawer's tab strip, Left/Right cycle tabs
+  // and ArrowDown drops into the rows beneath.  ArrowUp from the
+  // first row comes back up here.
+  const [cursorOnTabs, setCursorOnTabs] = useState(false);
+  // Which drawer tab (derived from the legacy activeMenu state).
+  const drawerTab: DrawerTab | null =
+    activeMenu === "select"
+      ? "settings"
+      : activeMenu === "models" || activeMenu === "model-editor"
+        ? "models"
+        : activeMenu === "start"
+          ? "stories"
+          : null;
+  const setDrawerTab = useCallback(
+    (tab: DrawerTab) => {
+      if (tab === "settings") setActiveMenu("select");
+      else if (tab === "models") setActiveMenu("models");
+      else if (tab === "stories") setActiveMenu("start");
+    },
+    [setActiveMenu],
+  );
+  // Close tab cursor whenever the drawer itself closes.
+  useEffect(() => {
+    if (drawerTab === null) setCursorOnTabs(false);
+  }, [drawerTab]);
 
   const {
     models,
@@ -735,6 +767,43 @@ export const GamepadInterface = () => {
         return;
       }
 
+      // Drawer tab-bar cursor: a distinct zone at the top of the drawer.
+      // Left/Right (cycle tabs) is handled inside Drawer's own listener;
+      // we only intercept Up/Down/Enter/Escape here.
+      if (drawerTab && cursorOnTabs) {
+        if (key === "ArrowDown" || key === "Enter") {
+          setCursorOnTabs(false);
+          return;
+        }
+        if (key === "ArrowUp") {
+          // already at top; eat it
+          return;
+        }
+        if (key === "Escape") {
+          setActiveMenu(null);
+          return;
+        }
+        if (key === "`") {
+          setActiveMenu(null);
+          return;
+        }
+        // Let left/right fall through (Drawer's listener handles them)
+        return;
+      }
+      // ArrowUp from the first row of the drawer body → tab bar.
+      if (drawerTab && key === "ArrowUp") {
+        const atTop =
+          (drawerTab === "settings" && selectedParam === 0) ||
+          (drawerTab === "models" &&
+            activeMenu === "models" &&
+            selectedModelIndex === 0) ||
+          (drawerTab === "stories" && selectedTreeIndex === 0);
+        if (atTop) {
+          setCursorOnTabs(true);
+          return;
+        }
+      }
+
       if (activeMenu === "map") {
         // In map mode, navigation and generation work normally
         if (key === "Backspace") {
@@ -1123,23 +1192,29 @@ export const GamepadInterface = () => {
                 hint: "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG",
               },
               select: {
-                title: "SETTINGS",
-                hint: "↵: SELECT • ⌫: BACK • START: CLOSE",
+                title: cursorOnTabs ? "CONFIG / ◄► TABS" : "CONFIG / SETTINGS",
+                hint: cursorOnTabs
+                  ? "◄►: TAB • ↓: ROWS • START: CLOSE"
+                  : "↵: SELECT • ⌫: BACK • START: CLOSE",
               },
               start: {
-                title: "STORIES",
-                hint: "↵: OPEN • ⌫: DELETE • START: CLOSE",
+                title: cursorOnTabs ? "CONFIG / ◄► TABS" : "CONFIG / STORIES",
+                hint: cursorOnTabs
+                  ? "◄►: TAB • ↓: ROWS • START: CLOSE"
+                  : "↵: OPEN • ⌫: DELETE • START: CLOSE",
               },
               models: {
-                title: "MODELS",
-                hint: "↵: EDIT • ⌫: DELETE • START: CLOSE",
+                title: cursorOnTabs ? "CONFIG / ◄► TABS" : "CONFIG / MODELS",
+                hint: cursorOnTabs
+                  ? "◄►: TAB • ↓: ROWS • START: CLOSE"
+                  : "↵: EDIT • ⌫: DELETE • START: CLOSE",
               },
               edit: {
                 title: "EDIT",
                 hint: "START: SAVE • SELECT: CANCEL",
               },
               "model-editor": {
-                title: "MODEL EDITOR",
+                title: "CONFIG / MODELS / EDIT",
                 hint: "↵: EDIT FIELD • ⌫: BACK • START: SAVE",
               },
             } as const;
@@ -1149,47 +1224,123 @@ export const GamepadInterface = () => {
               <ModeBar title={entry.title} hint={entry.hint} />
             ) : null;
           })()}
-          {activeMenu === "select" ? (
-            <>
-              <MenuScreen>
-                <SettingsMenu
-                  params={{
-                    ...menuParams,
-                    themeMode,
-                    lightTheme,
-                    darkTheme,
-                    font,
-                  }}
-                  onParamChange={(param, value) => {
-                    if (param === "themeMode") {
-                      setThemeMode(value as ThemeMode);
-                      return;
-                    }
-                    if (param === "lightTheme") {
-                      setLightTheme(value as ThemeClass);
-                      return;
-                    }
-                    if (param === "darkTheme") {
-                      setDarkTheme(value as ThemeClass);
-                      return;
-                    }
-                    if (param === "font") {
-                      setFont(value as FontOption);
-                      return;
-                    }
-                    setMenuParams((prev) => ({ ...prev, [param]: value }));
-                  }}
-                  selectedParam={selectedParam}
-                  isLoading={isAnyGenerating}
-                  models={models}
-                  modelsLoading={modelsLoading}
-                  modelsError={modelsError}
-                  getModelName={getModelName}
-                  onManageModels={() => showModelsMenu()}
-                  fonts={availableFonts.map(({ id, label }) => ({ id, label }))}
-                />
-              </MenuScreen>
-            </>
+          {drawerTab ? (
+            <Drawer
+              tab={drawerTab}
+              setTab={setDrawerTab}
+              cursorOnTabs={cursorOnTabs}
+              onTabActivate={() => setCursorOnTabs(false)}
+            >
+              {drawerTab === "settings" ? (
+                <MenuScreen>
+                  <SettingsMenu
+                    params={{
+                      ...menuParams,
+                      themeMode,
+                      lightTheme,
+                      darkTheme,
+                      font,
+                    }}
+                    onParamChange={(param, value) => {
+                      if (param === "themeMode") {
+                        setThemeMode(value as ThemeMode);
+                        return;
+                      }
+                      if (param === "lightTheme") {
+                        setLightTheme(value as ThemeClass);
+                        return;
+                      }
+                      if (param === "darkTheme") {
+                        setDarkTheme(value as ThemeClass);
+                        return;
+                      }
+                      if (param === "font") {
+                        setFont(value as FontOption);
+                        return;
+                      }
+                      setMenuParams((prev) => ({ ...prev, [param]: value }));
+                    }}
+                    selectedParam={cursorOnTabs ? -1 : selectedParam}
+                    isLoading={isAnyGenerating}
+                    models={models}
+                    modelsLoading={modelsLoading}
+                    modelsError={modelsError}
+                    getModelName={getModelName}
+                    onManageModels={() => showModelsMenu()}
+                    fonts={availableFonts.map(({ id, label }) => ({ id, label }))}
+                  />
+                </MenuScreen>
+              ) : drawerTab === "models" ? (
+                activeMenu === "model-editor" ? (
+                  <MenuScreen>
+                    <ModelEditor
+                      formState={modelForm}
+                      fields={modelEditorFields}
+                      selectedField={currentModelEditorField}
+                      onSelectField={handleModelEditorHighlight}
+                      onActivateField={handleModelEditorActivate}
+                      onChange={handleModelFormChange}
+                      onSubmit={handleSubmitModel}
+                      onCancel={handleCancelModelEdit}
+                      onDelete={
+                        modelEditorMode === "edit" && editingModelId
+                          ? () => {
+                              void handleDeleteModel(editingModelId);
+                            }
+                          : undefined
+                      }
+                      mode={modelEditorMode}
+                      isSaving={modelsSaving}
+                      error={modelFormError}
+                    />
+                  </MenuScreen>
+                ) : (
+                  <MenuScreen>
+                    <ModelsMenu
+                      modelEntries={sortedModelEntries}
+                      selectedIndex={cursorOnTabs ? -1 : selectedModelIndex}
+                      sortOrder={modelSort}
+                      onToggleSort={cycleModelSort}
+                      onSelectIndex={setSelectedModelIndex}
+                      onNew={handleStartNewModel}
+                      onEditModel={handleEditModel}
+                      isLoading={modelsLoading || modelsSaving}
+                      error={modelsError ?? undefined}
+                    />
+                  </MenuScreen>
+                )
+              ) : drawerTab === "stories" ? (
+                <MenuScreen>
+                  <TreeListMenu
+                    trees={trees}
+                    selectedIndex={cursorOnTabs ? -1 : selectedTreeIndex}
+                    selectedColumn={selectedTreeColumn}
+                    onSelect={(key) => {
+                      touchStoryActive(key);
+                      setCurrentTreeKey(key);
+                      setActiveMenu(null);
+                      setSelectedTreeColumn(0);
+                    }}
+                    onNew={() => {
+                      handleNewTree();
+                      setSelectedTreeColumn(0);
+                    }}
+                    onDelete={(key) => {
+                      handleDeleteTree(key);
+                      if (selectedTreeIndex > 0) {
+                        setSelectedTreeIndex((prev) =>
+                          Math.min(prev, Object.keys(trees).length - 1)
+                        );
+                        setSelectedTreeColumn(0);
+                      }
+                    }}
+                    onExportJson={handleExportTree}
+                    onExportThread={handleExportThread}
+                    onHighlight={handleStoryHighlight}
+                  />
+                </MenuScreen>
+              ) : null}
+            </Drawer>
           ) : activeMenu === "map" ? (
             <StoryMinimap
               tree={storyTree}
@@ -1216,76 +1367,6 @@ export const GamepadInterface = () => {
               lastMapNodeId={lastMapNodeId}
               currentNodeId={highlightedNode.id}
             />
-          ) : activeMenu === "start" ? (
-            <>
-              <MenuScreen>
-                <TreeListMenu
-                  trees={trees}
-                  selectedIndex={selectedTreeIndex}
-                  selectedColumn={selectedTreeColumn}
-                  onSelect={(key) => {
-                    touchStoryActive(key);
-                    setCurrentTreeKey(key);
-                    setActiveMenu(null);
-                    setSelectedTreeColumn(0);
-                  }}
-                  onNew={() => {
-                    handleNewTree();
-                    setSelectedTreeColumn(0);
-                  }}
-                  onDelete={(key) => {
-                    handleDeleteTree(key);
-                    // Adjust selected index if needed
-                    if (selectedTreeIndex > 0) {
-                      setSelectedTreeIndex((prev) =>
-                        Math.min(prev, Object.keys(trees).length - 1)
-                      );
-                      setSelectedTreeColumn(0);
-                    }
-                  }}
-                  onExportJson={handleExportTree}
-                  onExportThread={handleExportThread}
-                  onHighlight={handleStoryHighlight}
-                />
-              </MenuScreen>
-            </>
-          ) : activeMenu === "models" ? (
-            <MenuScreen>
-              <ModelsMenu
-                modelEntries={sortedModelEntries}
-                selectedIndex={selectedModelIndex}
-                sortOrder={modelSort}
-                onToggleSort={cycleModelSort}
-                onSelectIndex={setSelectedModelIndex}
-                onNew={handleStartNewModel}
-                onEditModel={handleEditModel}
-                isLoading={modelsLoading || modelsSaving}
-                error={modelsError ?? undefined}
-              />
-            </MenuScreen>
-          ) : activeMenu === "model-editor" ? (
-            <MenuScreen>
-              <ModelEditor
-                formState={modelForm}
-                fields={modelEditorFields}
-                selectedField={currentModelEditorField}
-                onSelectField={handleModelEditorHighlight}
-                onActivateField={handleModelEditorActivate}
-                onChange={handleModelFormChange}
-                onSubmit={handleSubmitModel}
-                onCancel={handleCancelModelEdit}
-                onDelete={
-                  modelEditorMode === "edit" && editingModelId
-                    ? () => {
-                        void handleDeleteModel(editingModelId);
-                      }
-                    : undefined
-                }
-                mode={modelEditorMode}
-                isSaving={modelsSaving}
-                error={modelFormError}
-              />
-            </MenuScreen>
           ) : activeMenu === "edit" ? (
             <MenuScreen>
               <EditMenu

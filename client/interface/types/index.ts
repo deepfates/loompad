@@ -93,6 +93,23 @@ export interface ActiveControls {
   start: boolean;
 }
 
+/**
+ * Top-level screen overlay.  The tree view (loom + map) is always the base
+ * layer; `screen` chooses what's on top of it.
+ *   - null   : no overlay; tree is fully visible
+ *   - "drawer" : configuration drawer with tabs (settings / models / stories)
+ *   - "edit"   : full-screen text edit overlay on the current node
+ */
+export type Screen = "drawer" | "edit" | null;
+
+/** Which projection of the tree is visible when no overlay is open. */
+export type Projection = "loom" | "map";
+
+/** Which tab is active in the configuration drawer. */
+export type DrawerTab = "settings" | "models" | "stories";
+
+// Legacy — retained for compatibility while older menu-system code is
+// gradually removed.  New code should use Screen/Projection/DrawerTab.
 export type MenuType =
   | "select"
   | "start"
