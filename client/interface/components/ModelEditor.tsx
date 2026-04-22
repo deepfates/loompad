@@ -1,5 +1,5 @@
-import { MenuKnob } from "./MenuKnob";
 import type { ModelId } from "../../../shared/models";
+import { Row } from "./Row";
 
 export interface ModelFormState {
   id: ModelId | "";
@@ -35,29 +35,26 @@ interface ModelEditorProps {
   error?: string | null;
 }
 
-const SORTABLE_FIELDS: Record<ModelEditorField, string> = {
+const FIELD_LABELS: Record<ModelEditorField, string> = {
   id: "Model ID",
   name: "Display Name",
   maxTokens: "Max Tokens",
-  defaultTemp: "Default Temperature",
+  defaultTemp: "Default Temp",
   save: "Save",
   cancel: "Cancel",
   delete: "Delete",
 };
 
-const formatFieldValue = (
-  field: ModelEditorField,
-  formState: ModelFormState,
-) => {
+const fieldValue = (field: ModelEditorField, form: ModelFormState): string => {
   switch (field) {
     case "id":
-      return formState.id || "provider/model";
+      return form.id || "provider/model";
     case "name":
-      return formState.name || "Friendly name";
+      return form.name || "Friendly name";
     case "maxTokens":
-      return `${formState.maxTokens}`;
+      return String(form.maxTokens);
     case "defaultTemp":
-      return formState.defaultTemp.toFixed(1);
+      return form.defaultTemp.toFixed(1);
     default:
       return "";
   }
@@ -78,129 +75,99 @@ export const ModelEditor = ({
   error,
 }: ModelEditorProps) => {
   return (
-    <div className="menu-content model-editor-menu">
-      <div className="model-editor-menu__header">
-        <h2 className="model-editor-menu__title">
-          {mode === "create" ? "New Model" : "Edit Model"}
-        </h2>
-        <p className="model-editor-menu__hint">
-          Use ▲▼ to choose a field. Press A to edit text, ◄► to adjust numbers, and START to
-          return to the list.
-        </p>
-      </div>
-
+    <div className="menu-content">
       {fields.map((field) => {
-        if (field === "maxTokens" || field === "defaultTemp") {
-          const min = field === "maxTokens" ? 1 : 0;
-          const max = field === "maxTokens" ? 32768 : 2;
-          const step = field === "maxTokens" ? 1 : 0.1;
+        const selected = selectedField === field;
+
+        if (field === "maxTokens") {
           return (
-            <div
+            <Row
               key={field}
-              className="model-editor-menu__knob"
-              onMouseEnter={() => onSelectField(field)}
-            >
-              <MenuKnob
-                label={SORTABLE_FIELDS[field]}
-                value={formState[field] as number}
-                min={min}
-                max={max}
-                step={step}
-                onChange={(value) =>
-                  onChange(field, value as ModelFormState[typeof field])
-                }
-                selected={selectedField === field}
-              />
-            </div>
+              kind="knob"
+              label={FIELD_LABELS[field]}
+              value={formState.maxTokens}
+              min={1}
+              max={32768}
+              formatValue={(v) => String(Math.round(v))}
+              selected={selected}
+              onHover={() => onSelectField(field)}
+              onActivate={() =>
+                onChange("maxTokens", Math.min(32768, formState.maxTokens + 64))
+              }
+            />
           );
         }
-
+        if (field === "defaultTemp") {
+          return (
+            <Row
+              key={field}
+              kind="knob"
+              label={FIELD_LABELS[field]}
+              value={formState.defaultTemp}
+              min={0}
+              max={2}
+              formatValue={(v) => v.toFixed(1)}
+              selected={selected}
+              onHover={() => onSelectField(field)}
+              onActivate={() =>
+                onChange(
+                  "defaultTemp",
+                  Math.min(
+                    2,
+                    Math.round((formState.defaultTemp + 0.1) * 10) / 10,
+                  ),
+                )
+              }
+            />
+          );
+        }
         if (field === "save" || field === "cancel" || field === "delete") {
-          const isDelete = field === "delete";
-          const isSelected = selectedField === field;
-          const label = SORTABLE_FIELDS[field];
-          const isDisabled = field === "delete" && mode !== "edit";
-          const handleActivate = () => {
-            if (field === "save") {
-              onSubmit();
-            } else if (field === "cancel") {
-              onCancel();
-            } else if (field === "delete" && onDelete) {
-              onDelete();
-            }
+          if (field === "delete" && mode !== "edit") return null;
+          const preview =
+            field === "save"
+              ? isSaving
+                ? "Saving…"
+                : "Apply changes"
+              : field === "cancel"
+                ? "Discard changes"
+                : "Remove this model";
+          const onActivate = () => {
+            if (field === "save") onSubmit();
+            else if (field === "cancel") onCancel();
+            else if (field === "delete" && onDelete) onDelete();
           };
-
-          if (isDisabled) {
-            return null;
-          }
-
           return (
-            <div
+            <Row
               key={field}
-              className={`menu-item model-editor-menu__action ${
-                isSelected ? "selected" : ""
-              } ${isDelete ? "danger" : ""}`}
-              role="button"
-              tabIndex={0}
-              onMouseEnter={() => onSelectField(field)}
-              onClick={() => handleActivate()}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  handleActivate();
-                }
-              }}
-            >
-              <div className="menu-item-label">{label}</div>
-              <div className="menu-item-preview">
-                {field === "save"
-                  ? isSaving
-                    ? "Saving…"
-                    : "Apply changes"
-                  : field === "cancel"
-                    ? "Discard changes"
-                    : "Remove this model"}
-              </div>
-            </div>
+              kind="action"
+              label={FIELD_LABELS[field]}
+              preview={preview}
+              stacked
+              danger={field === "delete"}
+              selected={selected}
+              onHover={() => onSelectField(field)}
+              onActivate={onActivate}
+            />
           );
         }
-
         const isLocked = field === "id" && mode === "edit";
-        const isSelected = selectedField === field;
-        const value = formatFieldValue(field, formState);
-
         return (
-          <div
+          <Row
             key={field}
-            className={`menu-item model-editor-menu__field ${
-              isSelected ? "selected" : ""
-            } ${isLocked ? "locked" : ""}`}
-            role={isLocked ? undefined : "button"}
-            tabIndex={isLocked ? -1 : 0}
-            aria-disabled={isLocked}
-            onMouseEnter={() => onSelectField(field)}
-            onClick={() => {
-              if (!isLocked) {
-                onActivateField(field);
-              }
+            kind="pick"
+            label={
+              FIELD_LABELS[field] + (isLocked ? " (locked)" : "")
+            }
+            value={fieldValue(field, formState)}
+            showAdjust={false}
+            selected={selected}
+            onHover={() => onSelectField(field)}
+            onActivate={() => {
+              if (!isLocked) onActivateField(field);
             }}
-            onKeyDown={(event) => {
-              if (isLocked) return;
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onActivateField(field);
-              }
-            }}
-          >
-            <div className="menu-item-label">
-              {SORTABLE_FIELDS[field]}
-              {isLocked ? " (locked)" : ""}
-            </div>
-            <div className="menu-item-preview">{value}</div>
-          </div>
+          />
         );
       })}
-
       {error && <output className="error-message">{error}</output>}
     </div>
   );

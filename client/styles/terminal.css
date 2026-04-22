@@ -782,7 +782,35 @@ html, body {
   color: var(--theme-focused-foreground);
 }
 
-/* Story menu */
+/* Story list action cluster (icons inside the trailing slot of a story row). */
+.story-action-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.story-action {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-action.selected {
+  color: var(--theme-focused-foreground);
+}
+
+.menu-item.selected .story-action.selected {
+  color: inherit;
+  opacity: 1;
+}
+
+/* Story menu (legacy — kept until step 6 collapses state) */
 .story-menu-row {
   display: flex;
   align-items: stretch;
