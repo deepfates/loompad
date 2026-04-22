@@ -106,14 +106,3 @@ export type Projection = "loom" | "map";
 
 /** Which tab is active in the configuration drawer. */
 export type DrawerTab = "settings" | "models" | "stories";
-
-// Legacy — retained for compatibility while older menu-system code is
-// gradually removed.  New code should use Screen/Projection/DrawerTab.
-export type MenuType =
-  | "select"
-  | "start"
-  | "edit"
-  | "map"
-  | "models"
-  | "model-editor"
-  | null;

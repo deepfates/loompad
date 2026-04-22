@@ -13,7 +13,7 @@ import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { StoryMinimap } from "./components/StoryMinimap";
-import { useTheme } from "./components/ThemeToggle";
+import { useTheme, THEME_PRESETS } from "./components/ThemeToggle";
 import type {
   ThemeClass,
   ThemeMode,
@@ -33,16 +33,14 @@ import { InstallPrompt } from "./components/InstallPrompt";
 import ModeBar from "./components/ModeBar";
 import { Drawer, DRAWER_TABS } from "./components/Drawer";
 import { splitTextToNodes } from "./utils/textSplitter";
-import { scrollElementIntoViewIfNeeded, isAtBottom } from "./utils/scrolling";
+import {
+  scrollElementIntoViewIfNeeded,
+  isAtBottom,
+  scrollMenuItemElIntoView,
+} from "./utils/scrolling";
 
-import type {
-  StoryNode,
-  MenuType,
-  ModelSortOption,
-  DrawerTab,
-} from "./types";
+import type { StoryNode, ModelSortOption, DrawerTab } from "./types";
 import type { ModelId, ModelConfig } from "../../shared/models";
-import { DEFAULT_LENGTH_MODE } from "../../shared/lengthPresets";
 import {
   orderKeysReverseChronological,
   getDefaultStoryKey,
@@ -106,8 +104,12 @@ export const GamepadInterface = () => {
   // (select menu navigation now handled in useMenuSystem)
 
   const {
-    activeMenu,
-    setActiveMenu,
+    screen,
+    setScreen,
+    drawerTab,
+    setDrawerTab,
+    expandedModel,
+    setExpandedModel,
     selectedParam,
     setSelectedParam,
     selectedTreeIndex,
@@ -120,38 +122,31 @@ export const GamepadInterface = () => {
     setSelectedModelField,
     menuParams,
     setMenuParams,
-    handleMenuNavigation,
   } = useMenuSystem(DEFAULT_PARAMS);
 
+  // Which tree projection (loom / map) is showing when no overlay is up.
+  // Persists while the drawer or edit overlay is open, so closing just
+  // restores the prior view — no stash/return ref needed.
+  const [projection, setProjection] = useState<"loom" | "map">("loom");
   // When cursor is on the drawer's tab strip, Left/Right cycle tabs
   // and ArrowDown drops into the rows beneath.  ArrowUp from the
   // first row comes back up here.
   const [cursorOnTabs, setCursorOnTabs] = useState(false);
-  // Remember which tree projection was showing when the drawer opened so
-  // that closing the drawer restores it (SELECT from Map → drawer → START
-  // should return to Map, not Loom).
-  const returnProjectionRef = useRef<MenuType>(null);
-  // Which drawer tab (derived from the legacy activeMenu state).
-  const drawerTab: DrawerTab | null =
-    activeMenu === "select"
-      ? "settings"
-      : activeMenu === "models" || activeMenu === "model-editor"
-        ? "models"
-        : activeMenu === "start"
-          ? "stories"
-          : null;
-  const setDrawerTab = useCallback(
-    (tab: DrawerTab) => {
-      if (tab === "settings") setActiveMenu("select");
-      else if (tab === "models") setActiveMenu("models");
-      else if (tab === "stories") setActiveMenu("start");
+
+  const openDrawer = useCallback(
+    (tab: DrawerTab = drawerTab) => {
+      setDrawerTab(tab);
+      setScreen("drawer");
+      setCursorOnTabs(false);
     },
-    [setActiveMenu],
+    [drawerTab, setDrawerTab, setScreen],
   );
-  // Close tab cursor whenever the drawer itself closes.
-  useEffect(() => {
-    if (drawerTab === null) setCursorOnTabs(false);
-  }, [drawerTab]);
+  const closeDrawer = useCallback(() => {
+    setExpandedModel(null);
+    setScreen(null);
+    setCursorOnTabs(false);
+  }, [setExpandedModel, setScreen]);
+
 
   const {
     models,
@@ -286,8 +281,8 @@ export const GamepadInterface = () => {
     }));
     touchStoryActive(newKey);
     setCurrentTreeKey(newKey);
-    setActiveMenu(null);
-  }, [trees, setTrees, setCurrentTreeKey, setActiveMenu]);
+    closeDrawer();
+  }, [trees, setTrees, setCurrentTreeKey, closeDrawer]);
 
   const handleDeleteTree = useCallback(
     (key: string) => {
@@ -374,8 +369,10 @@ export const GamepadInterface = () => {
     setModelForm(createEmptyModelForm());
     setModelFormError(null);
     setSelectedModelField(0);
-    setActiveMenu("model-editor");
-  }, [setActiveMenu, setSelectedModelField]);
+    setScreen("drawer");
+    setDrawerTab("models");
+    setExpandedModel("__new__");
+  }, [setDrawerTab, setExpandedModel, setScreen, setSelectedModelField]);
 
   const handleEditModel = useCallback(
     (modelId: ModelId) => {
@@ -391,9 +388,11 @@ export const GamepadInterface = () => {
       });
       setModelFormError(null);
       setSelectedModelField(0);
-      setActiveMenu("model-editor");
+      setScreen("drawer");
+      setDrawerTab("models");
+      setExpandedModel(modelId);
     },
-    [models, setActiveMenu, setSelectedModelField]
+    [models, setDrawerTab, setExpandedModel, setScreen, setSelectedModelField]
   );
 
   const showModelsMenu = useCallback(
@@ -410,9 +409,19 @@ export const GamepadInterface = () => {
         setSelectedModelIndex(1);
       }
       setModelFormError(null);
-      setActiveMenu("models");
+      setScreen("drawer");
+      setDrawerTab("models");
+      setExpandedModel(null);
     },
-    [menuParams.model, modelOrder, models, setActiveMenu, setSelectedModelIndex]
+    [
+      menuParams.model,
+      modelOrder,
+      models,
+      setDrawerTab,
+      setExpandedModel,
+      setScreen,
+      setSelectedModelIndex,
+    ]
   );
 
   const handleCancelModelEdit = useCallback(() => {
@@ -775,81 +784,425 @@ export const GamepadInterface = () => {
     }
   }, [models, menuParams.model, modelOrder, setMenuParams]);
 
+  // Per-tab navigators — each consumes a key and mutates the cursor / values
+  // for its own tab.  Factored out so handleControlAction stays a clean
+  // top-level switch on (screen, projection, drawerTab, expandedModel).
+
+  const lightThemeOptions = THEME_PRESETS.filter(
+    (p) => p.tone === "light"
+  ).map((p) => p.id);
+  const darkThemeOptions = THEME_PRESETS.filter(
+    (p) => p.tone === "dark"
+  ).map((p) => p.id);
+
+  const SETTINGS_PARAMS = useMemo(
+    () =>
+      [
+        "temperature",
+        "lengthMode",
+        "model",
+        "autoModeIterations",
+        "textSplitting",
+        "themeMode",
+        "lightTheme",
+        "darkTheme",
+        "font",
+      ] as const,
+    []
+  );
+
+  const scrollCurrentMenuItemIntoView = useCallback((index: number) => {
+    const menuContent = document.querySelector(".menu-content");
+    if (!menuContent) return;
+    const container = menuContent as HTMLElement;
+    const items = container.querySelectorAll(".menu-item");
+    const el = items[index] as HTMLElement | null;
+    if (el) scrollMenuItemElIntoView(container, el);
+  }, []);
+
+  const navigateSettings = useCallback(
+    (key: string) => {
+      const count = SETTINGS_PARAMS.length;
+      if (key === "ArrowUp" || key === "ArrowDown") {
+        const delta = key === "ArrowUp" ? -1 : 1;
+        setSelectedParam((prev) => {
+          const n = (prev + delta + count) % count;
+          scrollCurrentMenuItemIntoView(n);
+          return n;
+        });
+        return;
+      }
+      const param = SETTINGS_PARAMS[selectedParam];
+      const dir: -1 | 1 =
+        key === "ArrowLeft" ? -1 : 1; // Enter/ArrowRight both forward
+      const wrap = <T,>(list: T[], current: T, delta: -1 | 1): T => {
+        if (!list.length) return current;
+        const idx = list.indexOf(current);
+        const n = ((idx === -1 ? 0 : idx) + delta + list.length) % list.length;
+        return list[n];
+      };
+      if (key === "ArrowLeft" || key === "ArrowRight" || key === "Enter") {
+        if (param === "temperature") {
+          if (key === "Enter") return;
+          setMenuParams((prev) => ({
+            ...prev,
+            temperature: Math.max(
+              0,
+              Math.min(2, Math.round((prev.temperature + dir * 0.1) * 10) / 10)
+            ),
+          }));
+        } else if (param === "lengthMode") {
+          setMenuParams((prev) => ({
+            ...prev,
+            lengthMode: wrap(
+              ["word", "sentence", "paragraph", "page"],
+              prev.lengthMode,
+              dir
+            ),
+          }));
+        } else if (param === "model") {
+          if (!modelOrder.length) return;
+          setMenuParams((prev) => ({
+            ...prev,
+            model: wrap(modelOrder, prev.model, dir),
+          }));
+        } else if (param === "autoModeIterations") {
+          if (key === "Enter") {
+            setMenuParams((prev) => ({
+              ...prev,
+              autoModeIterations: (prev.autoModeIterations + 1) % 5,
+            }));
+            return;
+          }
+          setMenuParams((prev) => ({
+            ...prev,
+            autoModeIterations: Math.max(
+              0,
+              Math.min(4, prev.autoModeIterations + dir)
+            ),
+          }));
+        } else if (param === "textSplitting") {
+          setMenuParams((prev) => ({
+            ...prev,
+            textSplitting: !prev.textSplitting,
+          }));
+        } else if (param === "themeMode") {
+          const modes: ThemeMode[] = ["light", "dark", "system"];
+          setThemeMode(wrap(modes, themeMode, dir));
+        } else if (param === "lightTheme") {
+          setLightTheme(wrap(lightThemeOptions, lightTheme, dir));
+        } else if (param === "darkTheme") {
+          setDarkTheme(wrap(darkThemeOptions, darkTheme, dir));
+        } else if (param === "font") {
+          const ids = availableFonts.map((f) => f.id);
+          if (!ids.length) return;
+          setFont(wrap(ids, font, dir));
+        }
+      }
+    },
+    [
+      SETTINGS_PARAMS,
+      availableFonts,
+      darkTheme,
+      darkThemeOptions,
+      font,
+      lightTheme,
+      lightThemeOptions,
+      modelOrder,
+      scrollCurrentMenuItemIntoView,
+      selectedParam,
+      setDarkTheme,
+      setFont,
+      setLightTheme,
+      setMenuParams,
+      setSelectedParam,
+      setThemeMode,
+      themeMode,
+    ]
+  );
+
+  const navigateStories = useCallback(
+    (key: string) => {
+      const totalItems = orderedKeys.length + 1; // +1 for "+ New Story"
+      const columnTypes: Array<"story" | "json" | "thread"> = [
+        "story",
+        "json",
+        "thread",
+      ];
+      const maxColumnFor = (index: number) =>
+        index === 0 ? 0 : columnTypes.length - 1;
+      switch (key) {
+        case "ArrowUp":
+        case "ArrowDown": {
+          const delta = key === "ArrowUp" ? -1 : 1;
+          setSelectedTreeIndex((prev) => {
+            const n = (prev + delta + totalItems) % totalItems;
+            scrollCurrentMenuItemIntoView(n);
+            setSelectedTreeColumn((c) => Math.min(c, maxColumnFor(n)));
+            return n;
+          });
+          return;
+        }
+        case "ArrowLeft":
+          setSelectedTreeColumn((prev) => Math.max(0, prev - 1));
+          return;
+        case "ArrowRight":
+          setSelectedTreeColumn((prev) =>
+            Math.min(maxColumnFor(selectedTreeIndex), prev + 1)
+          );
+          return;
+        case "Enter": {
+          if (selectedTreeIndex === 0) {
+            handleNewTree();
+            setSelectedTreeColumn(0);
+            return;
+          }
+          const treeKey = orderedKeys[selectedTreeIndex - 1];
+          if (!treeKey) return;
+          if (selectedTreeColumn === 0) {
+            touchStoryActive(treeKey);
+            setCurrentTreeKey(treeKey);
+            closeDrawer();
+            setSelectedTreeColumn(0);
+          } else if (columnTypes[selectedTreeColumn] === "json") {
+            handleExportTree(treeKey);
+          } else if (columnTypes[selectedTreeColumn] === "thread") {
+            handleExportThread(treeKey);
+          }
+          return;
+        }
+        case "Backspace": {
+          if (selectedTreeIndex > 0 && orderedKeys.length > 1) {
+            const treeKey = orderedKeys[selectedTreeIndex - 1];
+            if (treeKey) {
+              handleDeleteTree(treeKey);
+              setSelectedTreeColumn(0);
+            }
+          }
+          return;
+        }
+      }
+    },
+    [
+      closeDrawer,
+      handleDeleteTree,
+      handleExportThread,
+      handleExportTree,
+      handleNewTree,
+      orderedKeys,
+      scrollCurrentMenuItemIntoView,
+      selectedTreeColumn,
+      selectedTreeIndex,
+      setCurrentTreeKey,
+      setSelectedTreeColumn,
+      setSelectedTreeIndex,
+    ]
+  );
+
+  const navigateModelsList = useCallback(
+    (key: string) => {
+      const baseOffset = 2; // sort row + new model row
+      const totalItems = modelOrder.length + baseOffset;
+      switch (key) {
+        case "ArrowUp":
+        case "ArrowDown": {
+          const delta = key === "ArrowUp" ? -1 : 1;
+          setSelectedModelIndex((prev) => {
+            const n = (prev + delta + totalItems) % totalItems;
+            scrollCurrentMenuItemIntoView(n);
+            return n;
+          });
+          return;
+        }
+        case "ArrowLeft":
+          if (selectedModelIndex === 0) cycleModelSort(-1);
+          return;
+        case "ArrowRight":
+          if (selectedModelIndex === 0) cycleModelSort(1);
+          return;
+        case "Enter": {
+          if (selectedModelIndex === 0) {
+            cycleModelSort(1);
+          } else if (selectedModelIndex === 1) {
+            handleStartNewModel();
+          } else {
+            const modelId = modelOrder[selectedModelIndex - baseOffset];
+            if (modelId) handleEditModel(modelId);
+          }
+          return;
+        }
+        case "Backspace": {
+          if (selectedModelIndex >= baseOffset) {
+            const modelId = modelOrder[selectedModelIndex - baseOffset];
+            if (modelId) void handleDeleteModel(modelId);
+          }
+          return;
+        }
+      }
+    },
+    [
+      cycleModelSort,
+      handleDeleteModel,
+      handleEditModel,
+      handleStartNewModel,
+      modelOrder,
+      scrollCurrentMenuItemIntoView,
+      selectedModelIndex,
+      setSelectedModelIndex,
+    ]
+  );
+
+  const navigateModelEditor = useCallback(
+    (key: string) => {
+      const fields = modelEditorFields;
+      const total = fields.length;
+      if (!total) return;
+      switch (key) {
+        case "ArrowUp":
+        case "ArrowDown": {
+          const delta = key === "ArrowUp" ? -1 : 1;
+          setSelectedModelField((prev) => {
+            const n = (prev + delta + total) % total;
+            handleModelEditorHighlight(fields[n]);
+            return n;
+          });
+          return;
+        }
+        case "ArrowLeft":
+          handleModelEditorAdjust(fields[selectedModelField], -1);
+          return;
+        case "ArrowRight":
+          handleModelEditorAdjust(fields[selectedModelField], 1);
+          return;
+        case "Enter":
+          handleModelEditorActivate(fields[selectedModelField]);
+          return;
+        case "Backspace":
+          handleCancelModelEdit();
+          return;
+      }
+    },
+    [
+      handleCancelModelEdit,
+      handleModelEditorActivate,
+      handleModelEditorAdjust,
+      handleModelEditorHighlight,
+      modelEditorFields,
+      selectedModelField,
+      setSelectedModelField,
+    ]
+  );
+
   const handleControlAction = useCallback(
     async (key: string) => {
-      if (activeMenu === "edit") {
-        // Let EditMenu handle keyboard events, but also handle button clicks
+      // EDIT overlay — EditMenu owns keyboard via its own window listener.
+      // Button taps reach us here so we re-dispatch as a synthetic keydown.
+      if (screen === "edit") {
         if (key === "Escape" || key === "`") {
-          // Simulate keyboard event for the EditMenu
           window.dispatchEvent(new KeyboardEvent("keydown", { key }));
         }
         return;
       }
 
-      // Drawer tab-bar cursor: a distinct zone at the top of the drawer.
-      // Touch/mouse input reaches us via the on-screen D-pad buttons, which
-      // don't fire the window keydown Drawer listens for — so we have to
-      // cycle tabs here too, not defer to Drawer's listener.
-      if (drawerTab && cursorOnTabs) {
-        if (key === "ArrowDown" || key === "Enter") {
-          setCursorOnTabs(false);
+      // DRAWER overlay.
+      if (screen === "drawer") {
+        // Tab-strip cursor zone.
+        if (cursorOnTabs) {
+          if (key === "ArrowDown" || key === "Enter") {
+            setCursorOnTabs(false);
+            return;
+          }
+          if (key === "ArrowUp") return;
+          if (key === "ArrowLeft" || key === "ArrowRight") {
+            const idx = DRAWER_TABS.findIndex((t) => t.id === drawerTab);
+            const delta = key === "ArrowRight" ? 1 : -1;
+            const next =
+              DRAWER_TABS[
+                (idx + delta + DRAWER_TABS.length) % DRAWER_TABS.length
+              ];
+            setDrawerTab(next.id);
+            return;
+          }
+          if (key === "Escape" || key === "`") {
+            closeDrawer();
+            return;
+          }
           return;
         }
+
+        // ArrowUp from the first row of the body → tab strip.
         if (key === "ArrowUp") {
-          // already at top; eat it
+          const atTop =
+            (drawerTab === "settings" && selectedParam === 0) ||
+            (drawerTab === "models" &&
+              expandedModel === null &&
+              selectedModelIndex === 0) ||
+            (drawerTab === "stories" && selectedTreeIndex === 0);
+          if (atTop) {
+            setCursorOnTabs(true);
+            return;
+          }
+        }
+
+        // Model editor: START saves; SELECT closes the drawer entirely.
+        if (drawerTab === "models" && expandedModel !== null) {
+          if (key === "Escape") {
+            void handleSubmitModel();
+            return;
+          }
+          if (key === "`") {
+            closeDrawer();
+            return;
+          }
+          navigateModelEditor(key);
           return;
         }
-        if (key === "ArrowLeft" || key === "ArrowRight") {
-          const idx = DRAWER_TABS.findIndex((t) => t.id === drawerTab);
-          const delta = key === "ArrowRight" ? 1 : -1;
-          const next =
-            DRAWER_TABS[
-              (idx + delta + DRAWER_TABS.length) % DRAWER_TABS.length
-            ];
-          setDrawerTab(next.id);
-          return;
-        }
+
+        // Everywhere else in the drawer: START/SELECT close the drawer.
         if (key === "Escape" || key === "`") {
-          setActiveMenu(null);
+          closeDrawer();
+          return;
+        }
+
+        if (drawerTab === "settings") {
+          navigateSettings(key);
+          return;
+        }
+        if (drawerTab === "stories") {
+          navigateStories(key);
+          return;
+        }
+        if (drawerTab === "models") {
+          navigateModelsList(key);
           return;
         }
         return;
       }
-      // ArrowUp from the first row of the drawer body → tab bar.
-      if (drawerTab && key === "ArrowUp") {
-        const atTop =
-          (drawerTab === "settings" && selectedParam === 0) ||
-          (drawerTab === "models" &&
-            activeMenu === "models" &&
-            selectedModelIndex === 0) ||
-          (drawerTab === "stories" && selectedTreeIndex === 0);
-        if (atTop) {
-          setCursorOnTabs(true);
+
+      // Tree view: projection "loom" or "map".
+      if (projection === "map") {
+        if (key === "Backspace") {
+          setLastMapNodeId(highlightedNode.id);
+          setScreen("edit");
           return;
         }
-      }
-
-      if (activeMenu === "map") {
-        // In map mode, navigation and generation work normally
-        if (key === "Backspace") {
-          // B button exits map and goes to edit mode
-          setLastMapNodeId(highlightedNode.id);
-          setActiveMenu("edit");
-          return;
-        } else if (key === "`") {
-          // SELECT from map opens story list
-          // Set selection to current story on open (reverse-chronological order)
-          const currentIndex = Math.max(0, orderedKeys.indexOf(currentTreeKey));
-          setSelectedTreeIndex(currentIndex + 1); // +1 for "+ New Story"
+        if (key === "`") {
+          // SELECT from map opens the drawer on stories with cursor on
+          // current story.  Return projection is "map" so closing restores
+          // the map view.
+          const currentIndex = Math.max(
+            0,
+            orderedKeys.indexOf(currentTreeKey)
+          );
+          setSelectedTreeIndex(currentIndex + 1);
           setSelectedTreeColumn(0);
           setLastMapNodeId(highlightedNode.id);
-          setActiveMenu("start");
+          openDrawer("stories");
           return;
-        } else if (key === "Escape") {
-          // START toggles map off back to reading
+        }
+        if (key === "Escape") {
           setLastMapNodeId(highlightedNode.id);
-          setActiveMenu(null);
-          // Align LOOM on reveal
+          setProjection("loom");
           requestAnimationFrame(() => {
             queueScroll({
               nodeId: highlightedNode.id,
@@ -859,181 +1212,50 @@ export const GamepadInterface = () => {
           });
           return;
         }
-        // Let arrow keys and Enter fall through to story navigation
-      }
-
-      if (activeMenu === "model-editor") {
-        // START = save and go back; B = cancel and go back.  These shortcuts
-        // match the hint bar promises and the row actions.
-        if (key === "Escape") {
-          void handleSubmitModel();
-          return;
-        }
-        handleMenuNavigation(key, trees, {
-          modelEditorFields,
-          onModelEditorEnter: handleModelEditorActivate,
-          onModelEditorAdjust: handleModelEditorAdjust,
-          onModelEditorBack: handleCancelModelEdit,
-          onModelEditorHighlight: handleModelEditorHighlight,
-        });
+        await handleStoryNavigation(key);
         return;
       }
 
-      if (activeMenu === "select") {
-        handleMenuNavigation(key, trees, {
-          onNewTree: () => {
-            handleNewTree();
-            setSelectedTreeColumn(0);
-          },
-          onSelectTree: (key) => {
-            touchStoryActive(key);
-            setCurrentTreeKey(key);
-            setActiveMenu(null);
-            setSelectedTreeColumn(0);
-          },
-          onDeleteTree: (key) => {
-            handleDeleteTree(key);
-            setSelectedTreeColumn(0);
-          },
-          onExportTreeJson: handleExportTree,
-          onExportTreeThread: handleExportThread,
-          currentThemeMode: themeMode,
-          currentLightTheme: lightTheme,
-          currentDarkTheme: darkTheme,
-          onThemeModeChange: setThemeMode,
-          onLightThemeChange: setLightTheme,
-          onDarkThemeChange: setDarkTheme,
-          currentFont: font,
-          onFontChange: setFont,
-          fontOptions: availableFonts.map((option) => option.id),
-          modelOrder,
-        });
-      } else if (activeMenu === "models") {
-        handleMenuNavigation(key, trees, {
-          modelOrder,
-          onNewModel: () => {
-            handleStartNewModel();
-          },
-          onEditModel: (modelId) => {
-            handleEditModel(modelId);
-          },
-          onDeleteModel: (modelId) => {
-            handleDeleteModel(modelId);
-          },
-          onToggleModelSort: cycleModelSort,
-        });
-
-        if (key === "Escape") {
-          // START closes the drawer, restoring the tree projection we
-          // came from (Loom or Map).
-          setActiveMenu(returnProjectionRef.current);
-          return;
-        }
-
-        if (key === "`") {
-          // SELECT toggles the drawer; inside Models, close it.
-          setActiveMenu(returnProjectionRef.current);
-          return;
-        }
-      } else if (activeMenu && activeMenu !== "map") {
-        handleMenuNavigation(key, trees, {
-          onNewTree: () => {
-            handleNewTree();
-            setSelectedTreeColumn(0);
-          },
-          onSelectTree: (key) => {
-            touchStoryActive(key);
-            setCurrentTreeKey(key);
-            setActiveMenu(null);
-            setSelectedTreeColumn(0);
-          },
-          onDeleteTree: (key) => {
-            handleDeleteTree(key);
-            setSelectedTreeColumn(0);
-          },
-          onExportTreeJson: handleExportTree,
-          onExportTreeThread: handleExportThread,
-        });
-        // START closes the drawer from any tab, restoring projection.
-        if (activeMenu === "start" && key === "Escape") {
-          setActiveMenu(returnProjectionRef.current);
-          return;
-        }
-      } else {
-        await handleStoryNavigation(key);
-      }
-
-      // Handle menu activation/deactivation
+      // projection === "loom"
       if (key === "`") {
-        // SELECT is the drawer toggle: open from Loom or Map, close from any
-        // drawer tab.  When opening, remember the current projection so we
-        // can return to it on close.
-        if (activeMenu === null || activeMenu === "map") {
-          returnProjectionRef.current = activeMenu;
-          setActiveMenu("select");
-        } else if (
-          activeMenu === "select" ||
-          activeMenu === "models" ||
-          activeMenu === "start" ||
-          activeMenu === "model-editor"
-        ) {
-          setActiveMenu(returnProjectionRef.current);
-        }
-      } else if (key === "Escape" && !activeMenu) {
-        // START toggles minimap on when reading
-        setActiveMenu("map");
-      } else if (key === "Escape" && activeMenu === "map") {
-        // START toggles minimap off when in map
-        setLastMapNodeId(highlightedNode.id);
-        setActiveMenu(null);
-        // Align LOOM on reveal
-        requestAnimationFrame(() => {
-          queueScroll({
-            nodeId: highlightedNode.id,
-            reason: "mode-exit-map",
-            priority: 90,
-          });
-        });
-      } else if (key === "Backspace" && !activeMenu) {
-        setActiveMenu("edit");
+        openDrawer("settings");
+        return;
       }
+      if (key === "Escape") {
+        setProjection("map");
+        return;
+      }
+      if (key === "Backspace") {
+        setScreen("edit");
+        return;
+      }
+      await handleStoryNavigation(key);
     },
     [
-      activeMenu,
-      trees,
-      handleMenuNavigation,
-      handleNewTree,
-      handleDeleteTree,
-      handleDeleteModel,
-      handleEditModel,
-      handleStartNewModel,
-      handleCancelModelEdit,
-      handleModelEditorActivate,
-      handleModelEditorAdjust,
-      handleModelEditorHighlight,
+      closeDrawer,
+      cursorOnTabs,
+      currentTreeKey,
+      drawerTab,
+      expandedModel,
       handleStoryNavigation,
-      setCurrentTreeKey,
-      setActiveMenu,
-      setSelectedTreeIndex,
-      setSelectedTreeColumn,
-      modelOrder,
-      modelEditorFields,
-      cycleModelSort,
-      selectedModelIndex,
-      editingModelId,
+      handleSubmitModel,
       highlightedNode,
-      showModelsMenu,
-      themeMode,
-      setThemeMode,
-      lightTheme,
-      setLightTheme,
-      darkTheme,
-      setDarkTheme,
-      font,
-      setFont,
-      availableFonts,
-      handleExportTree,
-      handleExportThread,
+      navigateModelEditor,
+      navigateModelsList,
+      navigateSettings,
+      navigateStories,
+      openDrawer,
+      orderedKeys,
+      projection,
+      queueScroll,
+      screen,
+      selectedModelIndex,
+      selectedParam,
+      selectedTreeIndex,
+      setDrawerTab,
+      setScreen,
+      setSelectedTreeColumn,
+      setSelectedTreeIndex,
     ]
   );
 
@@ -1084,9 +1306,12 @@ export const GamepadInterface = () => {
     []
   );
 
+  // True only when the loom view is the visible, unobstructed surface.
+  const onLoom = screen === null && projection === "loom";
+
   // Scroll to current depth when navigation changes
   useEffect(() => {
-    if (!activeMenu) {
+    if (onLoom) {
       const path = getCurrentPath();
       const current = path[currentDepth];
       if (current) {
@@ -1097,11 +1322,11 @@ export const GamepadInterface = () => {
         });
       }
     }
-  }, [currentDepth, getCurrentPath, activeMenu, scrollNodeIntoView]);
+  }, [currentDepth, getCurrentPath, onLoom, scrollNodeIntoView]);
 
   // Scroll to selected sibling when left/right navigation changes
   useEffect(() => {
-    if (!activeMenu) {
+    if (onLoom) {
       const path = getCurrentPath();
       const next = path[currentDepth + 1];
       if (next) {
@@ -1113,17 +1338,11 @@ export const GamepadInterface = () => {
         });
       }
     }
-  }, [
-    selectedOptions,
-    getCurrentPath,
-    activeMenu,
-    currentDepth,
-    scrollNodeIntoView,
-  ]);
+  }, [selectedOptions, getCurrentPath, onLoom, currentDepth, scrollNodeIntoView]);
 
   // Scroll to end when new content is added (after text splitting or generation)
   useEffect(() => {
-    if (storyTextRef.current && !isAnyGenerating && !activeMenu) {
+    if (storyTextRef.current && !isAnyGenerating && onLoom) {
       const container = storyTextRef.current;
       const path = getCurrentPath();
       const wasAtBottom = isAtBottom(container);
@@ -1210,51 +1429,42 @@ export const GamepadInterface = () => {
         <section className="terminal-screen" aria-label="Story Display">
           {/* Unified top mode bar */}
           {(() => {
-            const map: Record<MenuType, { title: string; hint: string }> & {
-              null: { title: string; hint: string };
-            } = {
-              null: {
-                title: "LOOM",
-                hint: "↵: GENERATE • ⌫: EDIT • START: MAP • SELECT: CONFIG",
-              },
-              map: {
-                title: "MAP",
-                hint: "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG",
-              },
-              select: {
-                title: cursorOnTabs ? "CONFIG / ◄► TABS" : "CONFIG / SETTINGS",
-                hint: cursorOnTabs
-                  ? "◄►: TAB • ↓: ROWS • START: CLOSE"
-                  : "↵: SELECT • ⌫: BACK • START: CLOSE",
-              },
-              start: {
-                title: cursorOnTabs ? "CONFIG / ◄► TABS" : "CONFIG / STORIES",
-                hint: cursorOnTabs
-                  ? "◄►: TAB • ↓: ROWS • START: CLOSE"
-                  : "↵: OPEN • ⌫: DELETE • START: CLOSE",
-              },
-              models: {
-                title: cursorOnTabs ? "CONFIG / ◄► TABS" : "CONFIG / MODELS",
-                hint: cursorOnTabs
-                  ? "◄►: TAB • ↓: ROWS • START: CLOSE"
-                  : "↵: EDIT • ⌫: DELETE • START: CLOSE",
-              },
-              edit: {
-                title: "EDIT",
-                hint: "START: SAVE • SELECT: CANCEL",
-              },
-              "model-editor": {
-                title: "CONFIG / MODELS / EDIT",
-                hint: "↵: EDIT FIELD • ⌫: BACK • START: SAVE",
-              },
-            } as const;
-            const key = (activeMenu ?? "null") as keyof typeof map;
-            const entry = map[key];
-            return entry ? (
-              <ModeBar title={entry.title} hint={entry.hint} />
-            ) : null;
+            const inModelEditor =
+              screen === "drawer" &&
+              drawerTab === "models" &&
+              expandedModel !== null;
+            let title = "";
+            let hint = "";
+            if (screen === "edit") {
+              title = "EDIT";
+              hint = "START: SAVE • SELECT: CANCEL";
+            } else if (inModelEditor) {
+              title = "CONFIG / MODELS / EDIT";
+              hint = "↵: EDIT FIELD • ⌫: BACK • START: SAVE";
+            } else if (screen === "drawer") {
+              if (cursorOnTabs) {
+                title = "CONFIG / ◄► TABS";
+                hint = "◄►: TAB • ↓: ROWS • START: CLOSE";
+              } else if (drawerTab === "settings") {
+                title = "CONFIG / SETTINGS";
+                hint = "↵: SELECT • ⌫: BACK • START: CLOSE";
+              } else if (drawerTab === "stories") {
+                title = "CONFIG / STORIES";
+                hint = "↵: OPEN • ⌫: DELETE • START: CLOSE";
+              } else if (drawerTab === "models") {
+                title = "CONFIG / MODELS";
+                hint = "↵: EDIT • ⌫: DELETE • START: CLOSE";
+              }
+            } else if (projection === "map") {
+              title = "MAP";
+              hint = "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG";
+            } else {
+              title = "LOOM";
+              hint = "↵: GENERATE • ⌫: EDIT • START: MAP • SELECT: CONFIG";
+            }
+            return <ModeBar title={title} hint={hint} />;
           })()}
-          {drawerTab ? (
+          {screen === "drawer" ? (
             <Drawer
               tab={drawerTab}
               setTab={setDrawerTab}
@@ -1300,7 +1510,7 @@ export const GamepadInterface = () => {
                   />
                 </MenuScreen>
               ) : drawerTab === "models" ? (
-                activeMenu === "model-editor" ? (
+                expandedModel !== null ? (
                   <MenuScreen>
                     <ModelEditor
                       formState={modelForm}
@@ -1347,7 +1557,7 @@ export const GamepadInterface = () => {
                     onSelect={(key) => {
                       touchStoryActive(key);
                       setCurrentTreeKey(key);
-                      setActiveMenu(null);
+                      closeDrawer();
                       setSelectedTreeColumn(0);
                     }}
                     onNew={() => {
@@ -1370,7 +1580,7 @@ export const GamepadInterface = () => {
                 </MenuScreen>
               ) : null}
             </Drawer>
-          ) : activeMenu === "map" ? (
+          ) : projection === "map" && screen === null ? (
             <StoryMinimap
               tree={storyTree}
               currentDepth={currentDepth}
@@ -1380,7 +1590,7 @@ export const GamepadInterface = () => {
               generatingInfo={generatingInfo}
               onSelectNode={(path) => {
                 setSelectionByPath(path);
-                setActiveMenu(null);
+                setProjection("loom");
                 requestAnimationFrame(() => {
                   const last = path[path.length - 1];
                   if (last) {
@@ -1392,11 +1602,11 @@ export const GamepadInterface = () => {
                   }
                 });
               }}
-              isVisible={activeMenu === "map"}
+              isVisible={projection === "map" && screen === null}
               lastMapNodeId={lastMapNodeId}
               currentNodeId={highlightedNode.id}
             />
-          ) : activeMenu === "edit" ? (
+          ) : screen === "edit" ? (
             <MenuScreen>
               <EditMenu
                 node={getCurrentPath()[currentDepth]}
@@ -1451,7 +1661,7 @@ export const GamepadInterface = () => {
                   setStoryTree(newTree);
                   // Mark story as updated for reverse-chronological order
                   touchStoryUpdated(currentTreeKey);
-                  setActiveMenu(null);
+                  setScreen(null);
 
                   // Align to end of updated content after text splitting
                   requestAnimationFrame(() => {
@@ -1466,14 +1676,14 @@ export const GamepadInterface = () => {
                     }
                   });
                 }}
-                onCancel={() => setActiveMenu(null)}
+                onCancel={() => setScreen(null)}
               />
             </MenuScreen>
           ) : null}
 
           {/* Keep LOOM mounted; hide when a menu is active */}
           <div
-            style={{ display: activeMenu ? "none" : "flex" }}
+            style={{ display: onLoom ? "flex" : "none" }}
             className="flex-1 flex flex-col min-h-0 overflow-hidden"
           >
             {renderStoryText()}
@@ -1494,13 +1704,13 @@ export const GamepadInterface = () => {
                   </span>
                 );
               }
-              if (drawerTab) {
+              if (screen === "drawer") {
                 const label = cursorOnTabs
                   ? "◄► tabs"
                   : drawerTab === "settings"
                     ? SETTINGS_ROW_LABELS[selectedParam] ?? ""
                     : drawerTab === "models"
-                      ? activeMenu === "model-editor"
+                      ? expandedModel !== null
                         ? `Editing: ${
                             modelForm.name || modelForm.id || "new model"
                           }`
@@ -1522,19 +1732,19 @@ export const GamepadInterface = () => {
                   </span>
                 );
               }
-              if (activeMenu === "edit") {
+              if (screen === "edit") {
                 return isOffline ? (
                   <span className="text-theme-focused text-sm">⚡ Offline</span>
                 ) : null;
               }
-              if (activeMenu === "map") {
+              if (projection === "map") {
                 // Map has its own minibuffer inside StoryMinimap; keep
                 // the bottom strip empty to avoid duplicated status UI.
                 return isOffline ? (
                   <span className="text-theme-focused text-xs">⚡</span>
                 ) : null;
               }
-              // LOOM (activeMenu === null)
+              // LOOM
               return (
                 <>
                   <NavigationDots
