@@ -56,7 +56,9 @@
   --min-width: 20rem;
   --max-width: 60rem;
   --install-banner-offset: 0px;
-  --font-family-mono: "Iosevka", ui-monospace, "Menlo", "SFMono-Regular", monospace;
+  /* --font-family-mono is set by the .font-use-* class on <html>;
+     the pre-hydration script in index.html puts one there before React
+     hydrates so the var is always defined. No :root fallback needed. */
 }
 
 /* Theme palettes extracted from SRCL — 14 themes across light/dark tones */
