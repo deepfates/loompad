@@ -127,6 +127,10 @@ export const GamepadInterface = () => {
   // and ArrowDown drops into the rows beneath.  ArrowUp from the
   // first row comes back up here.
   const [cursorOnTabs, setCursorOnTabs] = useState(false);
+  // Remember which tree projection was showing when the drawer opened so
+  // that closing the drawer restores it (SELECT from Map → drawer → START
+  // should return to Map, not Loom).
+  const returnProjectionRef = useRef<MenuType>(null);
   // Which drawer tab (derived from the legacy activeMenu state).
   const drawerTab: DrawerTab | null =
     activeMenu === "select"
@@ -920,14 +924,15 @@ export const GamepadInterface = () => {
         });
 
         if (key === "Escape") {
-          setActiveMenu("select");
+          // START closes the drawer, restoring the tree projection we
+          // came from (Loom or Map).
+          setActiveMenu(returnProjectionRef.current);
           return;
         }
 
         if (key === "`") {
-          if (selectedModelIndex !== 0) {
-            setActiveMenu("select");
-          }
+          // SELECT toggles the drawer; inside Models, close it.
+          setActiveMenu(returnProjectionRef.current);
           return;
         }
       } else if (activeMenu && activeMenu !== "map") {
@@ -949,27 +954,30 @@ export const GamepadInterface = () => {
           onExportTreeJson: handleExportTree,
           onExportTreeThread: handleExportThread,
         });
-        // Allow START to back out from Trees to Map
+        // START closes the drawer from any tab, restoring projection.
         if (activeMenu === "start" && key === "Escape") {
-          setActiveMenu("map");
+          setActiveMenu(returnProjectionRef.current);
           return;
         }
       } else {
         await handleStoryNavigation(key);
       }
 
-      // Handle menu activation/deactivation with zoom-out flow
+      // Handle menu activation/deactivation
       if (key === "`") {
-        // On Stories screen, SELECT returns to map
-        if (activeMenu === "start") {
-          setActiveMenu("map");
-        } else if (activeMenu !== "map") {
-          // Elsewhere, SELECT toggles Settings; keep last focused row
-          if (activeMenu === "select") {
-            setActiveMenu(null);
-          } else {
-            setActiveMenu("select");
-          }
+        // SELECT is the drawer toggle: open from Loom or Map, close from any
+        // drawer tab.  When opening, remember the current projection so we
+        // can return to it on close.
+        if (activeMenu === null || activeMenu === "map") {
+          returnProjectionRef.current = activeMenu;
+          setActiveMenu("select");
+        } else if (
+          activeMenu === "select" ||
+          activeMenu === "models" ||
+          activeMenu === "start" ||
+          activeMenu === "model-editor"
+        ) {
+          setActiveMenu(returnProjectionRef.current);
         }
       } else if (key === "Escape" && !activeMenu) {
         // START toggles minimap on when reading
