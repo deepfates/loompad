@@ -528,7 +528,12 @@ html, body {
 /* Selection conventions:
  *   .menu-item.selected           -> solid fill with focused-subdued (settings, models)
  *   .story-menu-item.selected     -> border-only with focused-foreground (story list)
- * Keep these two rules in sync when the tokens change. */
+ * Keep these two rules in sync when the tokens change.
+ *
+ * The Row primitive (client/interface/components/Row.tsx) uses
+ * .menu-item--row, .menu-item--pick/knob/toggle/action, plus child
+ * selectors below.  One visual convention; four input grammars.
+ */
 
 .menu-item {
   display: flex;
@@ -647,6 +652,96 @@ html, body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ===== Row primitive (client/interface/components/Row.tsx) =====
+ * One visual convention; four grammars.  Lives after the base .menu-item
+ * rules so it overrides .menu-item's flex-column default.
+ */
+.menu-item.menu-item--row {
+  display: grid;
+  align-items: center;
+  column-gap: 0.75ch;
+  padding: 0 0.75rem;
+  min-height: calc(1.3em + 0.25rem);
+  text-align: left;
+  width: 100%;
+  flex-direction: row;
+}
+
+.menu-item.menu-item--pick,
+.menu-item.menu-item--toggle {
+  grid-template-columns: auto 1fr auto;
+}
+
+.menu-item.menu-item--knob {
+  grid-template-columns: auto 1fr minmax(60px, 6rem) auto;
+  padding: 0.25rem 0.75rem;
+}
+
+.menu-item.menu-item--action {
+  grid-template-columns: auto 1fr auto auto;
+}
+
+.menu-item-value {
+  color: var(--theme-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-item.selected .menu-item-value {
+  color: inherit;
+  opacity: 0.9;
+}
+
+.menu-item-hint {
+  color: inherit;
+  opacity: 0.6;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.menu-item-glyph {
+  font-weight: bold;
+  width: 1ch;
+  text-align: center;
+}
+
+.menu-item-toggle-box {
+  display: inline-block;
+  width: 1ch;
+  font-weight: bold;
+  text-align: center;
+}
+
+.menu-item-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.menu-item-knob-bar {
+  position: relative;
+  height: 2px;
+  background: color-mix(in srgb, currentColor 25%, transparent);
+  width: 100%;
+}
+
+.menu-item-knob-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: currentColor;
+}
+
+.menu-item--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.menu-item--danger {
+  color: var(--theme-focused-foreground);
 }
 
 /* Story menu */

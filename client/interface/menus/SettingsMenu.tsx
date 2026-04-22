@@ -1,10 +1,15 @@
 import { SettingsMenuProps } from "../types";
-import { MenuKnob } from "../components/MenuKnob";
-import { MenuSelect } from "../components/MenuSelect";
-import { MenuToggle } from "../components/MenuToggle";
+import { Row } from "../components/Row";
 import type { ModelId } from "../../../shared/models";
 import { LENGTH_PRESETS, type LengthMode } from "../../../shared/lengthPresets";
 import { THEME_PRESETS } from "../components/ThemeToggle";
+
+const LENGTH_MODES: LengthMode[] = ["word", "sentence", "paragraph", "page"];
+const THEME_MODE_LABELS = {
+  light: "Light",
+  dark: "Dark",
+  system: "System",
+} as const;
 
 export const SettingsMenu = ({
   params,
@@ -18,171 +23,134 @@ export const SettingsMenu = ({
   onManageModels,
   fonts,
 }: SettingsMenuProps) => {
-  // Get model options
   const modelOptions = models ? (Object.keys(models) as ModelId[]) : [];
-  const modelNames = modelOptions.map(getModelName);
   const isModelsLoading = modelsLoading && !models;
 
-  const lengthModes: LengthMode[] = ["word", "sentence", "paragraph", "page"];
-  const lengthModeLabels = lengthModes.map(
-    (mode) => LENGTH_PRESETS[mode].label
-  );
-  const currentLengthLabel = LENGTH_PRESETS[params.lengthMode].label;
-  const themeModeOptions = ["Light", "Dark", "System"];
-
-  const themeOptionLabels: string[] = THEME_PRESETS.map(
-    (preset) => preset.label
-  );
-  const themeOptionIds = THEME_PRESETS.map((preset) => preset.id);
-  const getThemeLabel = (themeId: string) => {
-    const preset = THEME_PRESETS.find((preset) => preset.id === themeId);
-    return preset ? preset.label : themeId;
+  const cycle = <T,>(list: T[], current: T, delta: 1 | -1): T => {
+    if (!list.length) return current;
+    const idx = list.indexOf(current);
+    const next = ((idx === -1 ? 0 : idx) + delta + list.length) % list.length;
+    return list[next];
   };
 
-  const lightThemePresets = THEME_PRESETS.filter(
-    (preset) => preset.tone === "light"
-  );
-  const lightThemeLabels = lightThemePresets.map(
-    (preset) => preset.label
-  ) as string[];
-  const lightThemeIds = lightThemePresets.map((preset) => preset.id);
-
-  const darkThemePresets = THEME_PRESETS.filter(
-    (preset) => preset.tone === "dark"
-  );
-  const darkThemeLabels = darkThemePresets.map(
-    (preset) => preset.label
-  ) as string[];
-  const darkThemeIds = darkThemePresets.map((preset) => preset.id);
-  const fontLabels = fonts.map((font) => font.label);
-  const fontIds = fonts.map((font) => font.id);
-  const currentFontLabel =
-    fontLabels[fontIds.indexOf(params.font)] ?? params.font;
+  const lightThemes = THEME_PRESETS.filter((p) => p.tone === "light");
+  const darkThemes = THEME_PRESETS.filter((p) => p.tone === "dark");
+  const themeLabel = (id: string) =>
+    THEME_PRESETS.find((p) => p.id === id)?.label ?? id;
+  const fontLabel = (id: string) =>
+    fonts.find((f) => f.id === id)?.label ?? id;
 
   return (
     <div className="menu-content">
-      <MenuKnob
+      <Row
+        kind="knob"
         label="Temperature"
         value={params.temperature}
         min={0.1}
         max={2.0}
-        step={0.1}
-        onChange={(value) => onParamChange("temperature", value)}
+        formatValue={(v) => v.toFixed(1)}
         selected={selectedParam === 0}
-      />
-      <MenuSelect
-        label="Length"
-        value={currentLengthLabel}
-        options={lengthModeLabels}
-        onChange={(value) => {
-          const index = lengthModeLabels.indexOf(value);
-          if (index >= 0) {
-            onParamChange("lengthMode", lengthModes[index]);
-          }
-        }}
-        selected={selectedParam === 1}
-      />
-      <MenuSelect
-        label={`Model${isModelsLoading ? " (Loading...)" : ""}`}
-        value={getModelName(params.model)}
-        options={modelNames}
-        onChange={(value) => {
-          // Find the model ID that matches this display name
-          const modelId = modelOptions.find((id) => getModelName(id) === value);
-          if (modelId) {
-            onParamChange("model", modelId);
-          }
-        }}
-        selected={selectedParam === 2}
-      />
-      <MenuSelect
-        label="Theme Mode"
-        value={
-          params.themeMode === "light"
-            ? "Light"
-            : params.themeMode === "dark"
-            ? "Dark"
-            : "System"
+        onActivate={() =>
+          onParamChange(
+            "temperature",
+            Math.min(2.0, Math.round((params.temperature + 0.1) * 10) / 10),
+          )
         }
-        options={themeModeOptions}
-        onChange={(value) => {
-          const mode =
-            value === "Light" ? "light" : value === "Dark" ? "dark" : "system";
-          onParamChange("themeMode", mode);
+      />
+      <Row
+        kind="pick"
+        label="Length"
+        value={LENGTH_PRESETS[params.lengthMode].label}
+        selected={selectedParam === 1}
+        onActivate={() =>
+          onParamChange("lengthMode", cycle(LENGTH_MODES, params.lengthMode, 1))
+        }
+      />
+      <Row
+        kind="pick"
+        label={`Model${isModelsLoading ? " (loading…)" : ""}`}
+        value={getModelName(params.model)}
+        selected={selectedParam === 2}
+        onActivate={() => {
+          if (!modelOptions.length) return;
+          onParamChange("model", cycle(modelOptions, params.model, 1));
         }}
+      />
+      <Row
+        kind="pick"
+        label="Theme Mode"
+        value={THEME_MODE_LABELS[params.themeMode]}
         selected={selectedParam === 3}
+        onActivate={() => {
+          const modes = ["light", "dark", "system"] as const;
+          onParamChange("themeMode", cycle(modes as unknown as string[], params.themeMode, 1));
+        }}
       />
-      <MenuSelect
+      <Row
+        kind="pick"
         label="Light Theme"
-        value={getThemeLabel(params.lightTheme)}
-        options={lightThemeLabels}
-        onChange={(value) => {
-          const index = lightThemeLabels.indexOf(value);
-          if (index >= 0) {
-            onParamChange("lightTheme", lightThemeIds[index]);
-          }
-        }}
+        value={themeLabel(params.lightTheme)}
         selected={selectedParam === 4}
+        onActivate={() => {
+          const ids = lightThemes.map((p) => p.id);
+          onParamChange("lightTheme", cycle(ids, params.lightTheme, 1));
+        }}
       />
-      <MenuSelect
+      <Row
+        kind="pick"
         label="Dark Theme"
-        value={getThemeLabel(params.darkTheme)}
-        options={darkThemeLabels}
-        onChange={(value) => {
-          const index = darkThemeLabels.indexOf(value);
-          if (index >= 0) {
-            onParamChange("darkTheme", darkThemeIds[index]);
-          }
-        }}
+        value={themeLabel(params.darkTheme)}
         selected={selectedParam === 5}
-      />
-      <MenuSelect
-        label="Font"
-        value={currentFontLabel}
-        options={fontLabels}
-        onChange={(value) => {
-          const index = fontLabels.indexOf(value);
-          if (index >= 0) {
-            onParamChange("font", fontIds[index]);
-          }
+        onActivate={() => {
+          const ids = darkThemes.map((p) => p.id);
+          onParamChange("darkTheme", cycle(ids, params.darkTheme, 1));
         }}
-        selected={selectedParam === 6}
       />
-      <MenuToggle
+      <Row
+        kind="pick"
+        label="Font"
+        value={fontLabel(params.font)}
+        selected={selectedParam === 6}
+        onActivate={() => {
+          const ids = fonts.map((f) => f.id);
+          onParamChange("font", cycle(ids, params.font, 1));
+        }}
+      />
+      <Row
+        kind="toggle"
         label="Text Splitting"
         value={params.textSplitting}
-        onChange={(value) => onParamChange("textSplitting", value)}
         selected={selectedParam === 7}
+        onActivate={() => onParamChange("textSplitting", !params.textSplitting)}
       />
-      <MenuKnob
+      <Row
+        kind="knob"
         label="Auto Mode"
         value={params.autoModeIterations}
         min={0}
         max={4}
-        step={1}
-        onChange={(value) =>
-          onParamChange("autoModeIterations", Math.round(value))
-        }
-        formatValue={(value) => (value >= 4 ? "∞" : value.toString())}
+        formatValue={(v) => (v >= 4 ? "∞" : String(v))}
         selected={selectedParam === 8}
+        onActivate={() =>
+          onParamChange(
+            "autoModeIterations",
+            Math.min(4, params.autoModeIterations + 1),
+          )
+        }
       />
-      <button
-        type="button"
-        className={`menu-item text-left ${selectedParam === 9 ? "selected" : ""}`}
-        onClick={() => onManageModels?.()}
-      >
-        <div className="menu-item-body">
-          <div className="menu-item-label">
-            {selectedParam === 9 ? "▸" : "⭢"} Manage Models
-          </div>
-        </div>
-      </button>
+      <Row
+        kind="action"
+        label="Manage Models"
+        glyph="→"
+        selected={selectedParam === 9}
+        onActivate={() => onManageModels?.()}
+      />
       {modelsError && (
         <output className="error-message">
           Failed to load models: {modelsError}
         </output>
       )}
-      {isLoading && <output className="loading-message">Generating...</output>}
+      {isLoading && <output className="loading-message">Generating…</output>}
     </div>
   );
 };
