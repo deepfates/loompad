@@ -838,6 +838,12 @@ export const GamepadInterface = () => {
       }
 
       if (activeMenu === "model-editor") {
+        // START = save and go back; B = cancel and go back.  These shortcuts
+        // match the hint bar promises and the row actions.
+        if (key === "Escape") {
+          void handleSubmitModel();
+          return;
+        }
         handleMenuNavigation(key, trees, {
           modelEditorFields,
           onModelEditorEnter: handleModelEditorActivate,
@@ -845,10 +851,6 @@ export const GamepadInterface = () => {
           onModelEditorBack: handleCancelModelEdit,
           onModelEditorHighlight: handleModelEditorHighlight,
         });
-
-        if (key === "Escape") {
-          showModelsMenu(editingModelId);
-        }
         return;
       }
 
