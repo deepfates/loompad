@@ -171,6 +171,15 @@ const RowContent = (props: RowProps) => {
                 applyPointer(e);
               }
             }}
+            // The browser synthesizes a `click` event after pointerup
+            // that is separate from the pointer events above — without
+            // stopping it, it bubbles to the row-level onClick and
+            // fires onActivate, which for a knob means "nudge by one
+            // step," so the value the user just pointer-set gets
+            // clobbered by an immediate increment.
+            onClick={(e) => {
+              if (props.onSetValue) e.stopPropagation();
+            }}
           >
             <span
               className="menu-item-knob-fill"
