@@ -28,7 +28,7 @@ import {
 import { SettingsMenu } from "./menus/SettingsMenu";
 import { TreeListMenu } from "./menus/TreeListMenu";
 import { ModelsMenu } from "./menus/ModelsMenu";
-import { EditMenu } from "./menus/EditMenu";
+import { EditMenu, EDIT_CONTROL_EVENT } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ModeBar from "./components/ModeBar";
 import { Drawer, DRAWER_TABS } from "./components/Drawer";
@@ -1147,10 +1147,11 @@ export const GamepadInterface = () => {
   const handleControlAction = useCallback(
     async (key: string) => {
       // EDIT overlay — EditMenu owns keyboard via its own window listener.
-      // Button taps reach us here so we re-dispatch as a synthetic keydown.
+      // Button taps reach it through a dedicated custom event so the global
+      // keyboard hook does not recursively re-handle synthetic keydowns.
       if (screen === "edit") {
         if (key === "Escape" || key === "`") {
-          window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+          window.dispatchEvent(new CustomEvent(EDIT_CONTROL_EVENT, { detail: key }));
         }
         return;
       }

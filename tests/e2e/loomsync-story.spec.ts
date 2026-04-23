@@ -134,3 +134,31 @@ test("a copied story list link imports the shared index and listed roots", async
   await owner.close();
   await guest.close();
 });
+
+test("editing a node with children creates one revision instead of duplicating it repeatedly", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await mockGeneration(page, "Editable child");
+
+  await page.goto("/");
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Editable child 1.");
+
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Backspace");
+  await page.locator("textarea").fill("Edited child");
+  await page.getByRole("button", { name: "START" }).click();
+
+  await expect(page.locator("body")).toContainText("Edited child");
+  const threadText = await page.locator("body").innerText();
+  const editedMatches = threadText.match(/Edited child/g) ?? [];
+  expect(editedMatches.length).toBe(1);
+
+  await context.close();
+});
