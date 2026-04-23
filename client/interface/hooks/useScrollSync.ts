@@ -114,6 +114,16 @@ export function useScrollSync({
       // Cancel any pending animation frames from previous intents
       cancel();
       currentPriorityRef.current = priority;
+      // Priority is a *within-render* tiebreaker (both nav-up-down and
+      // nav-left-right effects fire from the same state change and the
+      // higher-priority one should win the scrollTo race).  Outside
+      // that render the priority should not persist — otherwise the
+      // first depth change locks out all future sibling scrolls.
+      // Clear on the next animation frame so same-render effects still
+      // see it, then it's gone for the next user action.
+      requestAnimationFrame(() => {
+        currentPriorityRef.current = -Infinity;
+      });
 
       // Find the element by data-node-id within the LOOM container
       const el = container.querySelector(

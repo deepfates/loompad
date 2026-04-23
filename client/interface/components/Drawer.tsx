@@ -26,6 +26,7 @@ export const Drawer = ({
   tab,
   setTab,
   cursorOnTabs,
+  onTabActivate,
   children,
 }: DrawerProps) => {
 
@@ -48,7 +49,14 @@ export const Drawer = ({
               ]
                 .filter(Boolean)
                 .join(" ")}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id);
+                // Clicking a tab should drop the tab-strip cursor so
+                // the body's selection becomes visible again; without
+                // this the pointer switch leaves cursorOnTabs true and
+                // the body renders with no highlighted row.
+                onTabActivate();
+              }}
             >
               {t.label}
             </button>
