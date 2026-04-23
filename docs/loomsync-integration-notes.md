@@ -15,6 +15,10 @@ LoomSync library. It is not intended to be merge-ready as-is.
 - `lastSelectedIndex` is no longer used by `useStoryTree` as shared content.
   Preferred child selection now lives in session state via
   `storySessionState.ts`.
+- Story creation/listing now goes through a LoomSync index document.
+- Browser runtime uses IndexedDB + BroadcastChannel through Automerge Repo.
+- Generation writes append generated continuations to the current LoomSync
+  world, then rematerializes the nested tree as a derived UI view.
 
 ## Verification Commands
 
@@ -44,20 +48,23 @@ Local session state:
 
 ## Lessons For LoomSync
 
-- The package barrel currently pulls in Automerge/browser modules. A consumer
-  that only needs memory/types may prefer subpath exports such as
-  `@loomsync/core/memory` and `@loomsync/core/types`.
+- The package barrel pulled in Automerge/browser modules during vendoring.
+  LoomSync now has subpath exports such as `@loomsync/core/memory` and
+  `@loomsync/core/types`.
+- Vite consumers need WASM support for Automerge via `vite-plugin-wasm` and
+  `vite-plugin-top-level-await`.
 - Importing nested legacy story trees into an append-only world is useful for
   migration, but not for steady-state editing. The app should write future
   generations with `appendAfter`.
 - Generated text splitting creates node chains, so LoomSync text helpers need a
   first-class `appendChain`/`appendStoryNodeChain` path.
 
-## Next Cutover Work
+## Remaining Cutover Work
 
-- Replace localStorage story-tree persistence with a LoomSync index document.
-- Store one Automerge root per story.
-- Use IndexedDB + BroadcastChannel in browser by default.
 - Add share/open-by-root-url flows.
-- Make generation write directly to the current story world, then materialize
-  nested UI data as a derived view.
+- Replace edit-menu tree rewrites with append-only edit records or a deliberate
+  root metadata/story replacement policy.
+- Persist and display human-readable story titles from index entries instead of
+  showing root IDs as menu keys.
+- Add cross-tab/browser sync tests around the IndexedDB + BroadcastChannel
+  runtime.

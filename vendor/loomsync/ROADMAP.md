@@ -25,4 +25,5 @@ pnpm verify
 - [x] Add browser adapter factory for IndexedDB + BroadcastChannel + WebSocket.
 - [x] Implement Automerge-backed `index`.
 - [x] Add WebSocket sync relay package or example.
-- [ ] Add Loompad compatibility adapter/hook examples.
+- [x] Add Loompad compatibility adapter/hook examples.
+- [x] Add package subpath exports from Loompad integration feedback.
