@@ -3,19 +3,22 @@ interface ModeBarProps {
   hint?: string;
 }
 
+/**
+ * Top strip of the terminal screen.  Title is pinned to the left at a
+ * fixed flex basis; hint flows on the right with horizontal overflow
+ * hidden behind a gradient mask so it can carry a long chord legend on
+ * desktop and still drop gracefully on mobile (user can touch-scroll
+ * the hint row horizontally to see what's clipped).  Explicit gap
+ * between the two so the title never butts up against the chord text.
+ */
 export const ModeBar = ({ title, hint }: ModeBarProps) => (
   <div
-    className="mode-bar flex items-center justify-between gap-2 border-b border-solid border-theme-border min-w-0 overflow-hidden flex-shrink-0"
-    style={{ padding: "1ch" }}
+    className="mode-bar"
     role="region"
     aria-label={`${title} mode`}
   >
-    <strong className="font-bold tracking-[0.05em]">{title}</strong>
-    {hint && (
-      <span className="opacity-70 text-right flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-        {hint}
-      </span>
-    )}
+    <strong className="mode-bar-title">{title}</strong>
+    {hint && <span className="mode-bar-hint" aria-label="controls">{hint}</span>}
   </div>
 );
 

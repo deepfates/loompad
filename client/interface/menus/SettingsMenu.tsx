@@ -192,7 +192,6 @@ export const SettingsMenu = ({
           Failed to load models: {modelsError}
         </output>
       )}
-      {isLoading && <output className="loading-message">Generating…</output>}
     </div>
   );
 };

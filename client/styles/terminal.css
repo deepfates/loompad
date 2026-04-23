@@ -409,9 +409,54 @@ html, body {
 
 /* Mode bar (utility classes may not survive build) */
 .mode-bar {
-  padding: 1ch;
+  display: flex;
+  align-items: center;
+  gap: 1.5ch;
+  padding: 0.75ch 1.25ch;
   border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+  min-width: 0;
 }
+
+.mode-bar-title {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Hint line takes the remainder, scrolls horizontally when overflowed
+   (touch-draggable on mobile), and fades at the trailing edge so the
+   clipped state reads as "there's more over here" instead of a hard
+   cutoff.  Scrollbar hidden since the content is non-essential glyph
+   legend — the buttons themselves are still reachable. */
+.mode-bar-hint {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  opacity: 0.7;
+  text-align: right;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 2ch,
+    #000 calc(100% - 2ch),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 2ch,
+    #000 calc(100% - 2ch),
+    transparent 100%
+  );
+}
+
+.mode-bar-hint::-webkit-scrollbar { display: none; }
 
 /* ===== BUTTONS ===== */
 .gamepad-btn {

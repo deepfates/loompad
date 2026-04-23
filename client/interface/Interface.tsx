@@ -1457,30 +1457,30 @@ export const GamepadInterface = () => {
             let hint = "";
             if (screen === "edit") {
               title = "EDIT";
-              hint = "START: SAVE • SELECT: CANCEL";
+              hint = "START SAVE • SELECT CANCEL";
             } else if (inModelEditor) {
-              title = "CONFIG / MODELS / EDIT";
-              hint = "↵: EDIT FIELD • ⌫: BACK • START: SAVE";
+              title = "EDIT MODEL";
+              hint = "↵ EDIT FIELD • ⌫ BACK • START SAVE";
             } else if (screen === "drawer") {
               if (cursorOnTabs) {
-                title = "CONFIG / ◄► TABS";
-                hint = "◄►: TAB • ↓: ROWS • START: CLOSE";
+                title = "TABS";
+                hint = "◄► TAB • ↓ ROWS • START CLOSE";
               } else if (drawerTab === "settings") {
-                title = "CONFIG / SETTINGS";
-                hint = "↵: SELECT • ⌫: BACK • START: CLOSE";
+                title = "SETTINGS";
+                hint = "↵ CYCLE • ⌫ BACK • START CLOSE";
               } else if (drawerTab === "stories") {
-                title = "CONFIG / STORIES";
-                hint = "↵: OPEN • ⌫: DELETE • START: CLOSE";
+                title = "STORIES";
+                hint = "↵ OPEN • ⌫ DELETE • START CLOSE";
               } else if (drawerTab === "models") {
-                title = "CONFIG / MODELS";
-                hint = "↵: EDIT • ⌫: DELETE • START: CLOSE";
+                title = "MODELS";
+                hint = "↵ EDIT • ⌫ DELETE • START CLOSE";
               }
             } else if (projection === "map") {
               title = "MAP";
-              hint = "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG";
+              hint = "↵ GENERATE • ⌫ EDIT • START LOOM • SELECT CONFIG";
             } else {
               title = "LOOM";
-              hint = "↵: GENERATE • ⌫: EDIT • START: MAP • SELECT: CONFIG";
+              hint = "↵ GENERATE • ⌫ EDIT • START MAP • SELECT CONFIG";
             }
             return <ModeBar title={title} hint={hint} />;
           })()}
