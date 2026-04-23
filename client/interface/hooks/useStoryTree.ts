@@ -14,6 +14,7 @@ import {
 } from "../loomsync/storyAdapter";
 import {
   createStoryWorld,
+  importStoryRootFromUrl,
   listStoryEntries,
   openStoryWorld,
   removeStory,
@@ -78,6 +79,7 @@ export function useStoryTree(params: StoryParams) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      await importStoryRootFromUrl();
       const entries = await listStoryEntries();
       if (cancelled) return;
 

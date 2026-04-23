@@ -89,6 +89,49 @@ export async function createStoryWorld(title: string, rootText: string) {
   return { root, world };
 }
 
+export function getStoryRootIdFromLocation(location: Location = window.location) {
+  const params = new URLSearchParams(location.search);
+  const fromQuery = params.get("story") ?? params.get("root");
+  if (fromQuery) return fromQuery;
+  const hash = location.hash.replace(/^#/, "");
+  if (!hash) return null;
+  const hashParams = new URLSearchParams(hash.includes("=") ? hash : `story=${hash}`);
+  return hashParams.get("story") ?? hashParams.get("root");
+}
+
+export function createStoryShareUrl(rootId: string, location: Location = window.location) {
+  const url = new URL(location.href);
+  url.searchParams.set("story", rootId);
+  url.hash = "";
+  return url.toString();
+}
+
+export async function addStoryRootToIndex(
+  rootId: string,
+  meta: StoryEntryMeta,
+): Promise<void> {
+  const index = await getStoryIndex();
+  if (await index.has(rootId)) return;
+  await index.addRoot(rootId, {
+    title: meta.title,
+    kind: "story",
+    meta,
+  });
+}
+
+export async function importStoryRootFromUrl(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  const rootId = getStoryRootIdFromLocation(window.location);
+  if (!rootId) return null;
+  const world = await openStoryWorld(rootId);
+  const root = await world.root();
+  await addStoryRootToIndex(rootId, {
+    title: root.meta?.title ?? "Shared Story",
+    rootText: root.meta?.rootText ?? "",
+  });
+  return rootId;
+}
+
 export async function listStoryEntries() {
   return (await getStoryIndex()).entries();
 }
