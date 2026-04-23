@@ -1,6 +1,14 @@
 import { TreeListProps } from "../types";
-import { sortTreeEntriesByRecency } from "../utils/storyMeta";
+import {
+  orderKeysByStorySort,
+  type StorySortOption,
+} from "../utils/storyMeta";
 import { Row } from "../components/Row";
+
+const SORT_LABELS: Record<StorySortOption, string> = {
+  recent: "Recent",
+  oldest: "Oldest",
+};
 
 const SaveIcon = () => (
   <svg
@@ -33,8 +41,11 @@ const PrintIcon = () => (
 );
 
 /**
- * Stories list.  Each story row is an action row whose trailing slot
- * contains up to two sub-action buttons (export JSON / export thread).
+ * Stories list.  Mirrors the Models-tab row layout:
+ *   row 0 — Sort pick (Recent / A→Z / Z→A)
+ *   row 1 — + New Story action
+ *   row 2+ — each existing story as an action row whose trailing slot
+ *            carries up to two sub-actions (export JSON / export thread)
  * The cursor is (rowIndex, columnIndex) — column 0 is the story body,
  * columns 1+ are the sub-actions in order.
  */
@@ -42,13 +53,15 @@ export const TreeListMenu = ({
   trees,
   selectedIndex,
   selectedColumn,
+  sortOrder,
+  onToggleSort,
   onSelect,
   onNew,
   onExportJson,
   onExportThread,
   onHighlight,
 }: TreeListProps) => {
-  const treeEntries = sortTreeEntriesByRecency(trees);
+  const orderedKeys = orderKeysByStorySort(trees, sortOrder);
   const hasJson = Boolean(onExportJson);
   const hasThread = Boolean(onExportThread);
   const jsonColumn = hasJson ? 1 : -1;
@@ -57,18 +70,28 @@ export const TreeListMenu = ({
   return (
     <div className="menu-content">
       <Row
-        kind="action"
-        label="New Story"
-        glyph="+"
+        kind="pick"
+        label="Sort"
+        value={SORT_LABELS[sortOrder]}
         selected={selectedIndex === 0 && selectedColumn === 0}
-        onHover={() => onHighlight?.(0, 0)}
         onActivate={() => {
-          onNew?.();
+          onToggleSort?.(1);
           onHighlight?.(0, 0);
         }}
       />
-      {treeEntries.map(([key, tree], index) => {
-        const rowIndex = index + 1;
+      <Row
+        kind="action"
+        label="New Story"
+        glyph="+"
+        selected={selectedIndex === 1 && selectedColumn === 0}
+        onActivate={() => {
+          onNew?.();
+          onHighlight?.(1, 0);
+        }}
+      />
+      {orderedKeys.map((key, index) => {
+        const tree = trees[key];
+        const rowIndex = index + 2;
         const bodySelected =
           selectedIndex === rowIndex && selectedColumn === 0;
         const jsonSelected =
@@ -93,7 +116,6 @@ export const TreeListMenu = ({
                     onExportJson?.(key);
                     onHighlight?.(rowIndex, jsonColumn);
                   }}
-                  onMouseEnter={() => onHighlight?.(rowIndex, jsonColumn)}
                   onFocus={() => onHighlight?.(rowIndex, jsonColumn)}
                 >
                   <SaveIcon />
@@ -109,7 +131,6 @@ export const TreeListMenu = ({
                     onExportThread?.(key);
                     onHighlight?.(rowIndex, threadColumn);
                   }}
-                  onMouseEnter={() => onHighlight?.(rowIndex, threadColumn)}
                   onFocus={() => onHighlight?.(rowIndex, threadColumn)}
                 >
                   <PrintIcon />
@@ -129,7 +150,6 @@ export const TreeListMenu = ({
             stacked
             trailing={trailing}
             selected={bodySelected}
-            onHover={() => onHighlight?.(rowIndex, 0)}
             onActivate={() => {
               onSelect(key);
               onHighlight?.(rowIndex, 0);

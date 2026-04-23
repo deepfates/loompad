@@ -44,6 +44,8 @@ export interface TreeListProps {
   trees: { [key: string]: { root: StoryNode } };
   selectedIndex: number;
   selectedColumn: number;
+  sortOrder: import("../utils/storyMeta").StorySortOption;
+  onToggleSort?: (direction: -1 | 1) => void;
   onSelect: (key: string) => void;
   onDelete?: (key: string) => void;
   onNew?: () => void;

@@ -100,7 +100,6 @@ export const Row = (props: RowProps) => {
       aria-selected={selected}
       aria-disabled={isDisabled || undefined}
       onClick={handleClick}
-      onMouseEnter={onHover}
       onFocus={onHover}
     >
       <RowContent {...props} />

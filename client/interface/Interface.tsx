@@ -43,11 +43,13 @@ import type { StoryNode, ModelSortOption, DrawerTab } from "./types";
 import type { ModelId, ModelConfig } from "../../shared/models";
 import {
   orderKeysReverseChronological,
+  orderKeysByStorySort,
   getDefaultStoryKey,
   getStoryMeta,
   setStoryMeta,
   touchStoryUpdated,
   touchStoryActive,
+  type StorySortOption,
 } from "./utils/storyMeta";
 import {
   downloadStoryThreadText,
@@ -158,6 +160,7 @@ export const GamepadInterface = () => {
   } = useModels();
 
   const [modelSort, setModelSort] = useState<ModelSortOption>("name-asc");
+  const [storySort, setStorySort] = useState<StorySortOption>("recent");
   const [modelForm, setModelForm] = useState<ModelFormState>(() =>
     createEmptyModelForm()
   );
@@ -191,8 +194,8 @@ export const GamepadInterface = () => {
 
   // Compute reverse-chronologically ordered trees for menus
   const orderedKeys = useMemo(
-    () => orderKeysReverseChronological(trees),
-    [trees]
+    () => orderKeysByStorySort(trees, storySort),
+    [trees, storySort]
   );
   // Use orderedKeys directly where needed; no reordered trees object required
 
@@ -347,6 +350,10 @@ export const GamepadInterface = () => {
       }
       return "name-asc";
     });
+  }, []);
+
+  const cycleStorySort = useCallback((_delta: -1 | 1 = 1) => {
+    setStorySort((prev) => (prev === "recent" ? "oldest" : "recent"));
   }, []);
 
   const handleModelFormChange = useCallback(
@@ -922,14 +929,16 @@ export const GamepadInterface = () => {
 
   const navigateStories = useCallback(
     (key: string) => {
-      const totalItems = orderedKeys.length + 1; // +1 for "+ New Story"
+      // Row 0 is Sort, row 1 is "+ New Story", rows 2+ are the stories.
+      const baseOffset = 2;
+      const totalItems = orderedKeys.length + baseOffset;
       const columnTypes: Array<"story" | "json" | "thread"> = [
         "story",
         "json",
         "thread",
       ];
       const maxColumnFor = (index: number) =>
-        index === 0 ? 0 : columnTypes.length - 1;
+        index < baseOffset ? 0 : columnTypes.length - 1;
       switch (key) {
         case "ArrowUp":
         case "ArrowDown": {
@@ -943,20 +952,32 @@ export const GamepadInterface = () => {
           return;
         }
         case "ArrowLeft":
-          setSelectedTreeColumn((prev) => Math.max(0, prev - 1));
+          if (selectedTreeIndex === 0) {
+            cycleStorySort(-1);
+          } else {
+            setSelectedTreeColumn((prev) => Math.max(0, prev - 1));
+          }
           return;
         case "ArrowRight":
-          setSelectedTreeColumn((prev) =>
-            Math.min(maxColumnFor(selectedTreeIndex), prev + 1)
-          );
+          if (selectedTreeIndex === 0) {
+            cycleStorySort(1);
+          } else {
+            setSelectedTreeColumn((prev) =>
+              Math.min(maxColumnFor(selectedTreeIndex), prev + 1)
+            );
+          }
           return;
         case "Enter": {
           if (selectedTreeIndex === 0) {
+            cycleStorySort(1);
+            return;
+          }
+          if (selectedTreeIndex === 1) {
             handleNewTree();
             setSelectedTreeColumn(0);
             return;
           }
-          const treeKey = orderedKeys[selectedTreeIndex - 1];
+          const treeKey = orderedKeys[selectedTreeIndex - baseOffset];
           if (!treeKey) return;
           if (selectedTreeColumn === 0) {
             touchStoryActive(treeKey);
@@ -971,8 +992,8 @@ export const GamepadInterface = () => {
           return;
         }
         case "Backspace": {
-          if (selectedTreeIndex > 0 && orderedKeys.length > 1) {
-            const treeKey = orderedKeys[selectedTreeIndex - 1];
+          if (selectedTreeIndex >= baseOffset && orderedKeys.length > 1) {
+            const treeKey = orderedKeys[selectedTreeIndex - baseOffset];
             if (treeKey) {
               handleDeleteTree(treeKey);
               setSelectedTreeColumn(0);
@@ -984,6 +1005,7 @@ export const GamepadInterface = () => {
     },
     [
       closeDrawer,
+      cycleStorySort,
       handleDeleteTree,
       handleExportThread,
       handleExportTree,
@@ -1193,7 +1215,8 @@ export const GamepadInterface = () => {
             0,
             orderedKeys.indexOf(currentTreeKey)
           );
-          setSelectedTreeIndex(currentIndex + 1);
+          // +2: row 0 = Sort, row 1 = "+ New Story", rows 2+ = stories.
+          setSelectedTreeIndex(currentIndex + 2);
           setSelectedTreeColumn(0);
           setLastMapNodeId(highlightedNode.id);
           openDrawer("stories");
@@ -1581,6 +1604,8 @@ export const GamepadInterface = () => {
                     trees={trees}
                     selectedIndex={cursorOnTabs ? -1 : selectedTreeIndex}
                     selectedColumn={selectedTreeColumn}
+                    sortOrder={storySort}
+                    onToggleSort={cycleStorySort}
                     onSelect={(key) => {
                       touchStoryActive(key);
                       setCurrentTreeKey(key);
@@ -1749,8 +1774,10 @@ export const GamepadInterface = () => {
                                 .name ?? ""
                       : drawerTab === "stories"
                         ? selectedTreeIndex === 0
-                          ? "+ New Story"
-                          : orderedKeys[selectedTreeIndex - 1] ?? ""
+                          ? "Sort"
+                          : selectedTreeIndex === 1
+                            ? "+ New Story"
+                            : orderedKeys[selectedTreeIndex - 2] ?? ""
                         : "";
                 return (
                   <span className="navbar-minibuffer" aria-live="polite">
