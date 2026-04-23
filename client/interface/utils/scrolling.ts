@@ -151,46 +151,35 @@ export function getPrefersReducedMotion(): boolean {
  * Mode:
  * - 'top'     => align element top to viewport with padding
  * - 'nearest' => scroll just enough to bring into view with padding
+ * - 'center'  => center the element vertically in the viewport
  */
 export function getElementTargetTop(
   container: HTMLElement,
   el: HTMLElement,
   padding: number = 16,
-  mode: "nearest" | "top" = "nearest",
+  mode: "nearest" | "top" | "center" = "nearest",
 ): number | null {
-  // Prefer offsetTop traversal for robust relative positioning
-  const computeRelativeTop = (
-    node: HTMLElement,
-    stopAt: HTMLElement,
-  ): { top: number; reachedStop: boolean } => {
-    let top = 0;
-    let cur: HTMLElement | null = node;
-    while (cur && cur !== stopAt) {
-      top += cur.offsetTop;
-      cur = cur.offsetParent as HTMLElement | null;
-    }
-    return { top, reachedStop: cur === stopAt };
-  };
-
-  const _rel = computeRelativeTop(el, container);
-  let elementTop = _rel.top;
-  const reachedStop = _rel.reachedStop;
-  let elementBottom = elementTop + el.offsetHeight;
-
-  // Fallback to DOMRect if offsetParent chain didn't reach container (including null)
-  if (!reachedStop) {
-    const elRect = el.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    const scrollTop = container.scrollTop;
-    elementTop = scrollTop + (elRect.top - containerRect.top);
-    elementBottom = elementTop + elRect.height;
-  }
-
+  // Use DOMRect as the primary measurement: story nodes are inline
+  // <span>s that wrap across multiple lines, and offsetTop/offsetHeight
+  // on inline elements only report the first line-box — so a wrapped
+  // 80px paragraph would measure as ~24px tall, which made center-align
+  // undershoot (the "center" of a 24px stub is barely different from
+  // its top).  getBoundingClientRect returns the full wrapped height.
+  const elRect = el.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
   const scrollTop = container.scrollTop;
+  const elementTop = scrollTop + (elRect.top - containerRect.top);
+  const elementBottom = elementTop + elRect.height;
   const containerHeight = container.clientHeight;
 
   if (mode === "top") {
     return Math.max(0, elementTop - padding);
+  }
+
+  if (mode === "center") {
+    const elementHeight = elementBottom - elementTop;
+    const offset = Math.max(0, (containerHeight - elementHeight) / 2);
+    return Math.max(0, elementTop - offset);
   }
 
   const viewportTop = scrollTop + padding;

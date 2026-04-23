@@ -13,7 +13,7 @@ import { MenuButton } from "./components/MenuButton";
 import { MenuScreen } from "./components/MenuScreen";
 import { NavigationDots } from "./components/NavigationDots";
 import { StoryMinimap } from "./components/StoryMinimap";
-import { useTheme } from "./components/ThemeToggle";
+import { useTheme, THEME_PRESETS } from "./components/ThemeToggle";
 import type {
   ThemeClass,
   ThemeMode,
@@ -31,19 +31,25 @@ import { ModelsMenu } from "./menus/ModelsMenu";
 import { EditMenu } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ModeBar from "./components/ModeBar";
+import { Drawer, DRAWER_TABS } from "./components/Drawer";
 import { splitTextToNodes } from "./utils/textSplitter";
-import { scrollElementIntoViewIfNeeded, isAtBottom } from "./utils/scrolling";
+import {
+  scrollElementIntoViewIfNeeded,
+  isAtBottom,
+  scrollMenuItemElIntoView,
+} from "./utils/scrolling";
 
-import type { StoryNode, MenuType, ModelSortOption } from "./types";
+import type { StoryNode, ModelSortOption, DrawerTab } from "./types";
 import type { ModelId, ModelConfig } from "../../shared/models";
-import { DEFAULT_LENGTH_MODE } from "../../shared/lengthPresets";
 import {
   orderKeysReverseChronological,
+  orderKeysByStorySort,
   getDefaultStoryKey,
   getStoryMeta,
   setStoryMeta,
   touchStoryUpdated,
   touchStoryActive,
+  type StorySortOption,
 } from "./utils/storyMeta";
 import {
   downloadStoryThreadText,
@@ -51,12 +57,27 @@ import {
 } from "./utils/storyExport";
 
 const DEFAULT_PARAMS = {
-  temperature: 0.7,
-  lengthMode: DEFAULT_LENGTH_MODE,
-  model: "meta-llama/llama-3.1-405b" as ModelId,
+  temperature: 1.0,
+  lengthMode: "paragraph" as const,
+  model: "deepseek/deepseek-chat-v3.1" as ModelId,
   textSplitting: true,
   autoModeIterations: 0,
 };
+
+// Row labels for Settings, in cursor-index order.  Used by the navigation-bar
+// minibuffer to tell the user what row they're on.  Keep in sync with the
+// row order in SettingsMenu and the SETTINGS_PARAMS array below.
+const SETTINGS_ROW_LABELS = [
+  "Temperature",
+  "Length",
+  "Model",
+  "Auto Mode",
+  "Text Splitting",
+  "Theme Mode",
+  "Light Theme",
+  "Dark Theme",
+  "Font",
+];
 
 const createEmptyModelForm = (): ModelFormState => ({
   id: "" as ModelId | "",
@@ -74,8 +95,6 @@ export const GamepadInterface = () => {
     setLightTheme,
     darkTheme,
     setDarkTheme,
-    resolvedTheme,
-    resolvedTone,
     font,
     setFont,
     availableFonts,
@@ -85,8 +104,12 @@ export const GamepadInterface = () => {
   // (select menu navigation now handled in useMenuSystem)
 
   const {
-    activeMenu,
-    setActiveMenu,
+    screen,
+    setScreen,
+    drawerTab,
+    setDrawerTab,
+    expandedModel,
+    setExpandedModel,
     selectedParam,
     setSelectedParam,
     selectedTreeIndex,
@@ -99,8 +122,31 @@ export const GamepadInterface = () => {
     setSelectedModelField,
     menuParams,
     setMenuParams,
-    handleMenuNavigation,
   } = useMenuSystem(DEFAULT_PARAMS);
+
+  // Which tree projection (loom / map) is showing when no overlay is up.
+  // Persists while the drawer or edit overlay is open, so closing just
+  // restores the prior view — no stash/return ref needed.
+  const [projection, setProjection] = useState<"loom" | "map">("loom");
+  // When cursor is on the drawer's tab strip, Left/Right cycle tabs
+  // and ArrowDown drops into the rows beneath.  ArrowUp from the
+  // first row comes back up here.
+  const [cursorOnTabs, setCursorOnTabs] = useState(false);
+
+  const openDrawer = useCallback(
+    (tab: DrawerTab = drawerTab) => {
+      setDrawerTab(tab);
+      setScreen("drawer");
+      setCursorOnTabs(false);
+    },
+    [drawerTab, setDrawerTab, setScreen],
+  );
+  const closeDrawer = useCallback(() => {
+    setExpandedModel(null);
+    setScreen(null);
+    setCursorOnTabs(false);
+  }, [setExpandedModel, setScreen]);
+
 
   const {
     models,
@@ -114,6 +160,7 @@ export const GamepadInterface = () => {
   } = useModels();
 
   const [modelSort, setModelSort] = useState<ModelSortOption>("name-asc");
+  const [storySort, setStorySort] = useState<StorySortOption>("recent");
   const [modelForm, setModelForm] = useState<ModelFormState>(() =>
     createEmptyModelForm()
   );
@@ -147,8 +194,8 @@ export const GamepadInterface = () => {
 
   // Compute reverse-chronologically ordered trees for menus
   const orderedKeys = useMemo(
-    () => orderKeysReverseChronological(trees),
-    [trees]
+    () => orderKeysByStorySort(trees, storySort),
+    [trees, storySort]
   );
   // Use orderedKeys directly where needed; no reordered trees object required
 
@@ -235,8 +282,8 @@ export const GamepadInterface = () => {
     }));
     touchStoryActive(newKey);
     setCurrentTreeKey(newKey);
-    setActiveMenu(null);
-  }, [trees, setTrees, setCurrentTreeKey, setActiveMenu]);
+    closeDrawer();
+  }, [trees, setTrees, setCurrentTreeKey, closeDrawer]);
 
   const handleDeleteTree = useCallback(
     (key: string) => {
@@ -289,6 +336,7 @@ export const GamepadInterface = () => {
 
   const handleStoryHighlight = useCallback(
     (index: number, column: number) => {
+      setCursorOnTabs(false);
       setSelectedTreeIndex(index);
       setSelectedTreeColumn(column);
     },
@@ -302,6 +350,10 @@ export const GamepadInterface = () => {
       }
       return "name-asc";
     });
+  }, []);
+
+  const cycleStorySort = useCallback((_delta: -1 | 1 = 1) => {
+    setStorySort((prev) => (prev === "recent" ? "oldest" : "recent"));
   }, []);
 
   const handleModelFormChange = useCallback(
@@ -323,8 +375,10 @@ export const GamepadInterface = () => {
     setModelForm(createEmptyModelForm());
     setModelFormError(null);
     setSelectedModelField(0);
-    setActiveMenu("model-editor");
-  }, [setActiveMenu, setSelectedModelField]);
+    setScreen("drawer");
+    setDrawerTab("models");
+    setExpandedModel("__new__");
+  }, [setDrawerTab, setExpandedModel, setScreen, setSelectedModelField]);
 
   const handleEditModel = useCallback(
     (modelId: ModelId) => {
@@ -340,9 +394,11 @@ export const GamepadInterface = () => {
       });
       setModelFormError(null);
       setSelectedModelField(0);
-      setActiveMenu("model-editor");
+      setScreen("drawer");
+      setDrawerTab("models");
+      setExpandedModel(modelId);
     },
-    [models, setActiveMenu, setSelectedModelField]
+    [models, setDrawerTab, setExpandedModel, setScreen, setSelectedModelField]
   );
 
   const showModelsMenu = useCallback(
@@ -359,9 +415,19 @@ export const GamepadInterface = () => {
         setSelectedModelIndex(1);
       }
       setModelFormError(null);
-      setActiveMenu("models");
+      setScreen("drawer");
+      setDrawerTab("models");
+      setExpandedModel(null);
     },
-    [menuParams.model, modelOrder, models, setActiveMenu, setSelectedModelIndex]
+    [
+      menuParams.model,
+      modelOrder,
+      models,
+      setDrawerTab,
+      setExpandedModel,
+      setScreen,
+      setSelectedModelIndex,
+    ]
   );
 
   const handleCancelModelEdit = useCallback(() => {
@@ -724,38 +790,441 @@ export const GamepadInterface = () => {
     }
   }, [models, menuParams.model, modelOrder, setMenuParams]);
 
+  // Per-tab navigators — each consumes a key and mutates the cursor / values
+  // for its own tab.  Factored out so handleControlAction stays a clean
+  // top-level switch on (screen, projection, drawerTab, expandedModel).
+
+  const lightThemeOptions = THEME_PRESETS.filter(
+    (p) => p.tone === "light"
+  ).map((p) => p.id);
+  const darkThemeOptions = THEME_PRESETS.filter(
+    (p) => p.tone === "dark"
+  ).map((p) => p.id);
+
+  const SETTINGS_PARAMS = useMemo(
+    () =>
+      [
+        "temperature",
+        "lengthMode",
+        "model",
+        "autoModeIterations",
+        "textSplitting",
+        "themeMode",
+        "lightTheme",
+        "darkTheme",
+        "font",
+      ] as const,
+    []
+  );
+
+  const scrollCurrentMenuItemIntoView = useCallback((index: number) => {
+    const menuContent = document.querySelector(".menu-content");
+    if (!menuContent) return;
+    const container = menuContent as HTMLElement;
+    const items = container.querySelectorAll(".menu-item");
+    const el = items[index] as HTMLElement | null;
+    if (el) scrollMenuItemElIntoView(container, el);
+  }, []);
+
+  const navigateSettings = useCallback(
+    (key: string) => {
+      const count = SETTINGS_PARAMS.length;
+      if (key === "ArrowUp" || key === "ArrowDown") {
+        const delta = key === "ArrowUp" ? -1 : 1;
+        setSelectedParam((prev) => {
+          const n = (prev + delta + count) % count;
+          scrollCurrentMenuItemIntoView(n);
+          return n;
+        });
+        return;
+      }
+      const param = SETTINGS_PARAMS[selectedParam];
+      const dir: -1 | 1 =
+        key === "ArrowLeft" ? -1 : 1; // Enter/ArrowRight both forward
+      const wrap = <T,>(list: T[], current: T, delta: -1 | 1): T => {
+        if (!list.length) return current;
+        const idx = list.indexOf(current);
+        const n = ((idx === -1 ? 0 : idx) + delta + list.length) % list.length;
+        return list[n];
+      };
+      if (key === "ArrowLeft" || key === "ArrowRight" || key === "Enter") {
+        if (param === "temperature") {
+          if (key === "Enter") return;
+          setMenuParams((prev) => ({
+            ...prev,
+            temperature: Math.max(
+              0,
+              Math.min(2, Math.round((prev.temperature + dir * 0.1) * 10) / 10)
+            ),
+          }));
+        } else if (param === "lengthMode") {
+          setMenuParams((prev) => ({
+            ...prev,
+            lengthMode: wrap(
+              ["word", "sentence", "paragraph", "page"],
+              prev.lengthMode,
+              dir
+            ),
+          }));
+        } else if (param === "model") {
+          if (!modelOrder.length) return;
+          setMenuParams((prev) => ({
+            ...prev,
+            model: wrap(modelOrder, prev.model, dir),
+          }));
+        } else if (param === "autoModeIterations") {
+          if (key === "Enter") {
+            setMenuParams((prev) => ({
+              ...prev,
+              autoModeIterations: (prev.autoModeIterations + 1) % 5,
+            }));
+            return;
+          }
+          setMenuParams((prev) => ({
+            ...prev,
+            autoModeIterations: Math.max(
+              0,
+              Math.min(4, prev.autoModeIterations + dir)
+            ),
+          }));
+        } else if (param === "textSplitting") {
+          setMenuParams((prev) => ({
+            ...prev,
+            textSplitting: !prev.textSplitting,
+          }));
+        } else if (param === "themeMode") {
+          const modes: ThemeMode[] = ["light", "dark", "system"];
+          setThemeMode(wrap(modes, themeMode, dir));
+        } else if (param === "lightTheme") {
+          setLightTheme(wrap(lightThemeOptions, lightTheme, dir));
+        } else if (param === "darkTheme") {
+          setDarkTheme(wrap(darkThemeOptions, darkTheme, dir));
+        } else if (param === "font") {
+          const ids = availableFonts.map((f) => f.id);
+          if (!ids.length) return;
+          setFont(wrap(ids, font, dir));
+        }
+      }
+    },
+    [
+      SETTINGS_PARAMS,
+      availableFonts,
+      darkTheme,
+      darkThemeOptions,
+      font,
+      lightTheme,
+      lightThemeOptions,
+      modelOrder,
+      scrollCurrentMenuItemIntoView,
+      selectedParam,
+      setDarkTheme,
+      setFont,
+      setLightTheme,
+      setMenuParams,
+      setSelectedParam,
+      setThemeMode,
+      themeMode,
+    ]
+  );
+
+  const navigateStories = useCallback(
+    (key: string) => {
+      // Row 0 is Sort, row 1 is "+ New Story", rows 2+ are the stories.
+      const baseOffset = 2;
+      const totalItems = orderedKeys.length + baseOffset;
+      const columnTypes: Array<"story" | "json" | "thread"> = [
+        "story",
+        "json",
+        "thread",
+      ];
+      const maxColumnFor = (index: number) =>
+        index < baseOffset ? 0 : columnTypes.length - 1;
+      switch (key) {
+        case "ArrowUp":
+        case "ArrowDown": {
+          const delta = key === "ArrowUp" ? -1 : 1;
+          setSelectedTreeIndex((prev) => {
+            const n = (prev + delta + totalItems) % totalItems;
+            scrollCurrentMenuItemIntoView(n);
+            setSelectedTreeColumn((c) => Math.min(c, maxColumnFor(n)));
+            return n;
+          });
+          return;
+        }
+        case "ArrowLeft":
+          if (selectedTreeIndex === 0) {
+            cycleStorySort(-1);
+          } else {
+            setSelectedTreeColumn((prev) => Math.max(0, prev - 1));
+          }
+          return;
+        case "ArrowRight":
+          if (selectedTreeIndex === 0) {
+            cycleStorySort(1);
+          } else {
+            setSelectedTreeColumn((prev) =>
+              Math.min(maxColumnFor(selectedTreeIndex), prev + 1)
+            );
+          }
+          return;
+        case "Enter": {
+          if (selectedTreeIndex === 0) {
+            cycleStorySort(1);
+            return;
+          }
+          if (selectedTreeIndex === 1) {
+            handleNewTree();
+            setSelectedTreeColumn(0);
+            return;
+          }
+          const treeKey = orderedKeys[selectedTreeIndex - baseOffset];
+          if (!treeKey) return;
+          if (selectedTreeColumn === 0) {
+            touchStoryActive(treeKey);
+            setCurrentTreeKey(treeKey);
+            closeDrawer();
+            setSelectedTreeColumn(0);
+          } else if (columnTypes[selectedTreeColumn] === "json") {
+            handleExportTree(treeKey);
+          } else if (columnTypes[selectedTreeColumn] === "thread") {
+            handleExportThread(treeKey);
+          }
+          return;
+        }
+        case "Backspace": {
+          if (selectedTreeIndex >= baseOffset && orderedKeys.length > 1) {
+            const treeKey = orderedKeys[selectedTreeIndex - baseOffset];
+            if (treeKey) {
+              handleDeleteTree(treeKey);
+              setSelectedTreeColumn(0);
+            }
+          }
+          return;
+        }
+      }
+    },
+    [
+      closeDrawer,
+      cycleStorySort,
+      handleDeleteTree,
+      handleExportThread,
+      handleExportTree,
+      handleNewTree,
+      orderedKeys,
+      scrollCurrentMenuItemIntoView,
+      selectedTreeColumn,
+      selectedTreeIndex,
+      setCurrentTreeKey,
+      setSelectedTreeColumn,
+      setSelectedTreeIndex,
+    ]
+  );
+
+  const navigateModelsList = useCallback(
+    (key: string) => {
+      const baseOffset = 2; // sort row + new model row
+      const totalItems = modelOrder.length + baseOffset;
+      switch (key) {
+        case "ArrowUp":
+        case "ArrowDown": {
+          const delta = key === "ArrowUp" ? -1 : 1;
+          setSelectedModelIndex((prev) => {
+            const n = (prev + delta + totalItems) % totalItems;
+            scrollCurrentMenuItemIntoView(n);
+            return n;
+          });
+          return;
+        }
+        case "ArrowLeft":
+          if (selectedModelIndex === 0) cycleModelSort(-1);
+          return;
+        case "ArrowRight":
+          if (selectedModelIndex === 0) cycleModelSort(1);
+          return;
+        case "Enter": {
+          if (selectedModelIndex === 0) {
+            cycleModelSort(1);
+          } else if (selectedModelIndex === 1) {
+            handleStartNewModel();
+          } else {
+            const modelId = modelOrder[selectedModelIndex - baseOffset];
+            if (modelId) handleEditModel(modelId);
+          }
+          return;
+        }
+        case "Backspace": {
+          if (selectedModelIndex >= baseOffset) {
+            const modelId = modelOrder[selectedModelIndex - baseOffset];
+            if (modelId) void handleDeleteModel(modelId);
+          }
+          return;
+        }
+      }
+    },
+    [
+      cycleModelSort,
+      handleDeleteModel,
+      handleEditModel,
+      handleStartNewModel,
+      modelOrder,
+      scrollCurrentMenuItemIntoView,
+      selectedModelIndex,
+      setSelectedModelIndex,
+    ]
+  );
+
+  const navigateModelEditor = useCallback(
+    (key: string) => {
+      const fields = modelEditorFields;
+      const total = fields.length;
+      if (!total) return;
+      switch (key) {
+        case "ArrowUp":
+        case "ArrowDown": {
+          const delta = key === "ArrowUp" ? -1 : 1;
+          setSelectedModelField((prev) => {
+            const n = (prev + delta + total) % total;
+            handleModelEditorHighlight(fields[n]);
+            return n;
+          });
+          return;
+        }
+        case "ArrowLeft":
+          handleModelEditorAdjust(fields[selectedModelField], -1);
+          return;
+        case "ArrowRight":
+          handleModelEditorAdjust(fields[selectedModelField], 1);
+          return;
+        case "Enter":
+          handleModelEditorActivate(fields[selectedModelField]);
+          return;
+        case "Backspace":
+          handleCancelModelEdit();
+          return;
+      }
+    },
+    [
+      handleCancelModelEdit,
+      handleModelEditorActivate,
+      handleModelEditorAdjust,
+      handleModelEditorHighlight,
+      modelEditorFields,
+      selectedModelField,
+      setSelectedModelField,
+    ]
+  );
+
   const handleControlAction = useCallback(
     async (key: string) => {
-      if (activeMenu === "edit") {
-        // Let EditMenu handle keyboard events, but also handle button clicks
+      // EDIT overlay — EditMenu owns keyboard via its own window listener.
+      // Button taps reach us here so we re-dispatch as a synthetic keydown.
+      if (screen === "edit") {
         if (key === "Escape" || key === "`") {
-          // Simulate keyboard event for the EditMenu
           window.dispatchEvent(new KeyboardEvent("keydown", { key }));
         }
         return;
       }
 
-      if (activeMenu === "map") {
-        // In map mode, navigation and generation work normally
-        if (key === "Backspace") {
-          // B button exits map and goes to edit mode
-          setLastMapNodeId(highlightedNode.id);
-          setActiveMenu("edit");
+      // DRAWER overlay.
+      if (screen === "drawer") {
+        // Tab-strip cursor zone.
+        if (cursorOnTabs) {
+          if (key === "ArrowDown" || key === "Enter") {
+            setCursorOnTabs(false);
+            return;
+          }
+          if (key === "ArrowUp") return;
+          if (key === "ArrowLeft" || key === "ArrowRight") {
+            const idx = DRAWER_TABS.findIndex((t) => t.id === drawerTab);
+            const delta = key === "ArrowRight" ? 1 : -1;
+            const next =
+              DRAWER_TABS[
+                (idx + delta + DRAWER_TABS.length) % DRAWER_TABS.length
+              ];
+            setDrawerTab(next.id);
+            return;
+          }
+          if (key === "Escape" || key === "`") {
+            closeDrawer();
+            return;
+          }
           return;
-        } else if (key === "`") {
-          // SELECT from map opens story list
-          // Set selection to current story on open (reverse-chronological order)
-          const currentIndex = Math.max(0, orderedKeys.indexOf(currentTreeKey));
-          setSelectedTreeIndex(currentIndex + 1); // +1 for "+ New Story"
+        }
+
+        // ArrowUp from the first row of the body → tab strip.
+        if (key === "ArrowUp") {
+          const atTop =
+            (drawerTab === "settings" && selectedParam === 0) ||
+            (drawerTab === "models" &&
+              expandedModel === null &&
+              selectedModelIndex === 0) ||
+            (drawerTab === "stories" && selectedTreeIndex === 0);
+          if (atTop) {
+            setCursorOnTabs(true);
+            return;
+          }
+        }
+
+        // Model editor: START saves; SELECT closes the drawer entirely.
+        if (drawerTab === "models" && expandedModel !== null) {
+          if (key === "Escape") {
+            void handleSubmitModel();
+            return;
+          }
+          if (key === "`") {
+            closeDrawer();
+            return;
+          }
+          navigateModelEditor(key);
+          return;
+        }
+
+        // Everywhere else in the drawer: START/SELECT close the drawer.
+        if (key === "Escape" || key === "`") {
+          closeDrawer();
+          return;
+        }
+
+        if (drawerTab === "settings") {
+          navigateSettings(key);
+          return;
+        }
+        if (drawerTab === "stories") {
+          navigateStories(key);
+          return;
+        }
+        if (drawerTab === "models") {
+          navigateModelsList(key);
+          return;
+        }
+        return;
+      }
+
+      // Tree view: projection "loom" or "map".
+      if (projection === "map") {
+        if (key === "Backspace") {
+          setLastMapNodeId(highlightedNode.id);
+          setScreen("edit");
+          return;
+        }
+        if (key === "`") {
+          // SELECT from map opens the drawer on stories with cursor on
+          // current story.  Return projection is "map" so closing restores
+          // the map view.
+          const currentIndex = Math.max(
+            0,
+            orderedKeys.indexOf(currentTreeKey)
+          );
+          // +2: row 0 = Sort, row 1 = "+ New Story", rows 2+ = stories.
+          setSelectedTreeIndex(currentIndex + 2);
           setSelectedTreeColumn(0);
           setLastMapNodeId(highlightedNode.id);
-          setActiveMenu("start");
+          openDrawer("stories");
           return;
-        } else if (key === "Escape") {
-          // START toggles map off back to reading
+        }
+        if (key === "Escape") {
           setLastMapNodeId(highlightedNode.id);
-          setActiveMenu(null);
-          // Align LOOM on reveal
+          setProjection("loom");
           requestAnimationFrame(() => {
             queueScroll({
               nodeId: highlightedNode.id,
@@ -765,176 +1234,50 @@ export const GamepadInterface = () => {
           });
           return;
         }
-        // Let arrow keys and Enter fall through to story navigation
-      }
-
-      if (activeMenu === "model-editor") {
-        handleMenuNavigation(key, trees, {
-          modelEditorFields,
-          onModelEditorEnter: handleModelEditorActivate,
-          onModelEditorAdjust: handleModelEditorAdjust,
-          onModelEditorBack: handleCancelModelEdit,
-          onModelEditorHighlight: handleModelEditorHighlight,
-        });
-
-        if (key === "Escape") {
-          showModelsMenu(editingModelId);
-        }
+        await handleStoryNavigation(key);
         return;
       }
 
-      if (activeMenu === "select") {
-        handleMenuNavigation(key, trees, {
-          onNewTree: () => {
-            handleNewTree();
-            setSelectedTreeColumn(0);
-          },
-          onSelectTree: (key) => {
-            touchStoryActive(key);
-            setCurrentTreeKey(key);
-            setActiveMenu(null);
-            setSelectedTreeColumn(0);
-          },
-          onDeleteTree: (key) => {
-            handleDeleteTree(key);
-            setSelectedTreeColumn(0);
-          },
-          onExportTreeJson: handleExportTree,
-          onExportTreeThread: handleExportThread,
-          currentThemeMode: themeMode,
-          currentLightTheme: lightTheme,
-          currentDarkTheme: darkTheme,
-          onThemeModeChange: setThemeMode,
-          onLightThemeChange: setLightTheme,
-          onDarkThemeChange: setDarkTheme,
-          currentFont: font,
-          onFontChange: setFont,
-          fontOptions: availableFonts.map((option) => option.id),
-          modelOrder,
-          onManageModels: () => showModelsMenu(),
-        });
-      } else if (activeMenu === "models") {
-        handleMenuNavigation(key, trees, {
-          modelOrder,
-          onNewModel: () => {
-            handleStartNewModel();
-          },
-          onEditModel: (modelId) => {
-            handleEditModel(modelId);
-          },
-          onDeleteModel: (modelId) => {
-            handleDeleteModel(modelId);
-          },
-          onToggleModelSort: cycleModelSort,
-        });
-
-        if (key === "Escape") {
-          setActiveMenu("select");
-          return;
-        }
-
-        if (key === "`") {
-          if (selectedModelIndex !== 0) {
-            setActiveMenu("select");
-          }
-          return;
-        }
-      } else if (activeMenu && activeMenu !== "map") {
-        handleMenuNavigation(key, trees, {
-          onNewTree: () => {
-            handleNewTree();
-            setSelectedTreeColumn(0);
-          },
-          onSelectTree: (key) => {
-            touchStoryActive(key);
-            setCurrentTreeKey(key);
-            setActiveMenu(null);
-            setSelectedTreeColumn(0);
-          },
-          onDeleteTree: (key) => {
-            handleDeleteTree(key);
-            setSelectedTreeColumn(0);
-          },
-          onExportTreeJson: handleExportTree,
-          onExportTreeThread: handleExportThread,
-        });
-        // Allow START to back out from Trees to Map
-        if (activeMenu === "start" && key === "Escape") {
-          setActiveMenu("map");
-          return;
-        }
-      } else {
-        await handleStoryNavigation(key);
-      }
-
-      // Handle menu activation/deactivation with zoom-out flow
+      // projection === "loom"
       if (key === "`") {
-        // On Stories screen, SELECT returns to map
-        if (activeMenu === "start") {
-          setActiveMenu("map");
-        } else if (activeMenu !== "map") {
-          // Elsewhere, SELECT toggles Settings; keep last focused row
-          if (activeMenu === "select") {
-            setActiveMenu(null);
-          } else {
-            setActiveMenu("select");
-          }
-        }
-      } else if (key === "Escape" && !activeMenu) {
-        // START toggles minimap on when reading
-        setActiveMenu("map");
-      } else if (key === "Escape" && activeMenu === "map") {
-        // START toggles minimap off when in map
-        setLastMapNodeId(highlightedNode.id);
-        setActiveMenu(null);
-        // Align LOOM on reveal
-        requestAnimationFrame(() => {
-          queueScroll({
-            nodeId: highlightedNode.id,
-            reason: "mode-exit-map",
-            priority: 90,
-          });
-        });
-      } else if (key === "Backspace" && !activeMenu) {
-        setActiveMenu("edit");
+        openDrawer("settings");
+        return;
       }
+      if (key === "Escape") {
+        setProjection("map");
+        return;
+      }
+      if (key === "Backspace") {
+        setScreen("edit");
+        return;
+      }
+      await handleStoryNavigation(key);
     },
     [
-      activeMenu,
-      trees,
-      handleMenuNavigation,
-      handleNewTree,
-      handleDeleteTree,
-      handleDeleteModel,
-      handleEditModel,
-      handleStartNewModel,
-      handleCancelModelEdit,
-      handleModelEditorActivate,
-      handleModelEditorAdjust,
-      handleModelEditorHighlight,
+      closeDrawer,
+      cursorOnTabs,
+      currentTreeKey,
+      drawerTab,
+      expandedModel,
       handleStoryNavigation,
-      setCurrentTreeKey,
-      setActiveMenu,
-      setSelectedTreeIndex,
-      setSelectedTreeColumn,
-      modelOrder,
-      modelEditorFields,
-      cycleModelSort,
-      selectedModelIndex,
-      editingModelId,
+      handleSubmitModel,
       highlightedNode,
-      showModelsMenu,
-      themeMode,
-      setThemeMode,
-      lightTheme,
-      setLightTheme,
-      darkTheme,
-      setDarkTheme,
-      font,
-      setFont,
-      availableFonts,
-      handleExportTree,
-      handleExportThread,
+      navigateModelEditor,
+      navigateModelsList,
+      navigateSettings,
+      navigateStories,
+      openDrawer,
+      orderedKeys,
+      projection,
+      queueScroll,
+      screen,
+      selectedModelIndex,
+      selectedParam,
+      selectedTreeIndex,
+      setDrawerTab,
+      setScreen,
+      setSelectedTreeColumn,
+      setSelectedTreeIndex,
     ]
   );
 
@@ -943,7 +1286,6 @@ export const GamepadInterface = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<"portrait" | "landscape">("portrait");
-  const isLightTheme = resolvedTone === "light";
 
   useEffect(() => {
     const checkLayout = () => {
@@ -985,24 +1327,35 @@ export const GamepadInterface = () => {
     []
   );
 
-  // Scroll to current depth when navigation changes
+  // True only when the loom view is the visible, unobstructed surface.
+  const onLoom = screen === null && projection === "loom";
+
+  // Scroll to current depth when navigation changes.  Center on the
+  // cursor span (path[currentDepth + 1]) so the user's eye lands on the
+  // highlighted text at the middle of the viewport, with context
+  // flowing in above and preview flowing in below.  Falls back to
+  // path[currentDepth] for the rare case of no next continuation.
   useEffect(() => {
-    if (!activeMenu) {
+    if (onLoom) {
       const path = getCurrentPath();
-      const current = path[currentDepth];
-      if (current) {
+      const target = path[currentDepth + 1] ?? path[currentDepth];
+      if (target) {
         queueScroll({
-          nodeId: current.id,
+          nodeId: target.id,
+          align: "center",
           reason: "nav-up-down",
-          priority: 100,
+          // Higher than nav-left-right so that when both effects fire
+          // during a depth change (ArrowDown mutates both currentDepth
+          // and selectedOptions), the center wins over the top-align.
+          priority: 150,
         });
       }
     }
-  }, [currentDepth, getCurrentPath, activeMenu, scrollNodeIntoView]);
+  }, [currentDepth, getCurrentPath, onLoom, scrollNodeIntoView]);
 
   // Scroll to selected sibling when left/right navigation changes
   useEffect(() => {
-    if (!activeMenu) {
+    if (onLoom) {
       const path = getCurrentPath();
       const next = path[currentDepth + 1];
       if (next) {
@@ -1014,17 +1367,11 @@ export const GamepadInterface = () => {
         });
       }
     }
-  }, [
-    selectedOptions,
-    getCurrentPath,
-    activeMenu,
-    currentDepth,
-    scrollNodeIntoView,
-  ]);
+  }, [selectedOptions, getCurrentPath, onLoom, currentDepth, scrollNodeIntoView]);
 
   // Scroll to end when new content is added (after text splitting or generation)
   useEffect(() => {
-    if (storyTextRef.current && !isAnyGenerating && !activeMenu) {
+    if (storyTextRef.current && !isAnyGenerating && onLoom) {
       const container = storyTextRef.current;
       const path = getCurrentPath();
       const wasAtBottom = isAtBottom(container);
@@ -1055,32 +1402,46 @@ export const GamepadInterface = () => {
           const isNextDepth = index === currentDepth + 1;
           const isLoading = isGeneratingAt(segment.id);
 
+          // Four coloration tiers, graded by distance from the cursor so the
+          // eye lands on the highlighted continuation first but the whole
+          // thread stays readable:
+          //
+          //   cursor-node  (D+1) — primary fill on inverted text; matches the
+          //                        minimap's "selected" node exactly.  Styled
+          //                        by .cursor-node in terminal.css.
+          //   parent       (D)   — fullest normal text.
+          //   ancestors    (<D)  — slightly less intense.
+          //   descendants  (>D+1)— dimmest tier; will change if you regenerate
+          //                        or move siblings.
           const spanClasses = ["story-node"];
           if (isNextDepth) {
-            spanClasses.push(
-              "cursor-node",
-              "font-semibold",
-              "py-[0.125ch]",
-              "rounded-[0.125ch]"
-            );
-            // Use special color if we're in light mode, else use theme-button-foreground
-            if (isLightTheme) {
-              spanClasses.push(
-                "bg-theme-focused-subdued",
-                "text-theme-background"
-              );
-            } else {
-              spanClasses.push("text-theme-focused");
-            }
+            spanClasses.push("cursor-node");
           } else if (isCurrentDepth) {
-            spanClasses.push("font-semibold", "text-theme-text");
+            spanClasses.push("text-theme-text");
+          } else if (index < currentDepth) {
+            spanClasses.push("text-theme-text", "opacity-80");
           } else {
-            spanClasses.push("text-theme-background-modal-footer");
+            spanClasses.push("text-theme-text", "opacity-55");
           }
           if (isLoading) {
             spanClasses.push("opacity-50");
           }
 
+          // On the cursor span only, peel off trailing whitespace/newlines
+          // so the pill hugs the last word rather than extending past
+          // the paragraph.  The stripped whitespace still renders
+          // inline so the next span's text starts correctly.
+          if (isNextDepth) {
+            const match = segment.text.match(/^([\s\S]*?)(\s*)$/);
+            const body = match?.[1] ?? segment.text;
+            const tail = match?.[2] ?? "";
+            return (
+              <span key={segment.id} data-node-id={segment.id}>
+                <span className={spanClasses.join(" ")}>{body}</span>
+                {tail}
+              </span>
+            );
+          }
           return (
             <span
               key={segment.id}
@@ -1111,74 +1472,167 @@ export const GamepadInterface = () => {
         <section className="terminal-screen" aria-label="Story Display">
           {/* Unified top mode bar */}
           {(() => {
-            const map: Record<MenuType, { title: string; hint: string }> & {
-              null: { title: string; hint: string };
-            } = {
-              null: { title: "LOOM", hint: "START: MAP • SELECT: SETTINGS" },
-              map: { title: "MAP", hint: "SELECT: STORIES • START: LOOM" },
-              select: { title: "SETTINGS", hint: "START: CLOSE" },
-              start: {
-                title: "STORIES",
-                hint: "↵: OPEN • ⌫: DELETE • START: MAP",
-              },
-              models: {
-                title: "MODELS",
-                hint: "↵: EDIT • ⌫: DELETE • SELECT: SETTINGS",
-              },
-              edit: { title: "EDIT", hint: "SELECT: CANCEL • START: SAVE" },
-              "model-editor": {
-                title: "MODEL EDITOR",
-                hint: "SELECT: BACK • START: SAVE",
-              },
-            } as const;
-            const key = (activeMenu ?? "null") as keyof typeof map;
-            const entry = map[key];
-            return entry ? (
-              <ModeBar title={entry.title} hint={entry.hint} />
-            ) : null;
+            const inModelEditor =
+              screen === "drawer" &&
+              drawerTab === "models" &&
+              expandedModel !== null;
+            let title = "";
+            let hint = "";
+            if (screen === "edit") {
+              title = "EDIT";
+              hint = "START: SAVE • SELECT: CANCEL";
+            } else if (inModelEditor) {
+              title = "EDIT MODEL";
+              hint = "↵: EDIT FIELD • ⌫: BACK • START: SAVE";
+            } else if (screen === "drawer") {
+              if (cursorOnTabs) {
+                title = "TABS";
+                hint = "◄►: TAB • ↓: ROWS • START: CLOSE";
+              } else if (drawerTab === "settings") {
+                title = "SETTINGS";
+                hint = "↵: CYCLE • ⌫: BACK • START: CLOSE";
+              } else if (drawerTab === "stories") {
+                title = "STORIES";
+                hint = "↵: OPEN • ⌫: DELETE • START: CLOSE";
+              } else if (drawerTab === "models") {
+                title = "MODELS";
+                hint = "↵: EDIT • ⌫: DELETE • START: CLOSE";
+              }
+            } else if (projection === "map") {
+              title = "MAP";
+              hint = "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG";
+            } else {
+              title = "LOOM";
+              hint = "↵: GENERATE • ⌫: EDIT • START: MAP • SELECT: CONFIG";
+            }
+            return <ModeBar title={title} hint={hint} />;
           })()}
-          {activeMenu === "select" ? (
-            <>
-              <MenuScreen>
-                <SettingsMenu
-                  params={{
-                    ...menuParams,
-                    themeMode,
-                    lightTheme,
-                    darkTheme,
-                    font,
-                  }}
-                  onParamChange={(param, value) => {
-                    if (param === "themeMode") {
-                      setThemeMode(value as ThemeMode);
-                      return;
-                    }
-                    if (param === "lightTheme") {
-                      setLightTheme(value as ThemeClass);
-                      return;
-                    }
-                    if (param === "darkTheme") {
-                      setDarkTheme(value as ThemeClass);
-                      return;
-                    }
-                    if (param === "font") {
-                      setFont(value as FontOption);
-                      return;
-                    }
-                    setMenuParams((prev) => ({ ...prev, [param]: value }));
-                  }}
-                  selectedParam={selectedParam}
-                  isLoading={isAnyGenerating}
-                  models={models}
-                  modelsLoading={modelsLoading}
-                  modelsError={modelsError}
-                  getModelName={getModelName}
-                  onManageModels={() => showModelsMenu()}
-                  fonts={availableFonts.map(({ id, label }) => ({ id, label }))}
-                />
-              </MenuScreen>
-            </>
-          ) : activeMenu === "map" ? (
+          {screen === "drawer" ? (
+            <Drawer
+              tab={drawerTab}
+              setTab={setDrawerTab}
+              cursorOnTabs={cursorOnTabs}
+              onTabActivate={() => setCursorOnTabs(false)}
+            >
+              {drawerTab === "settings" ? (
+                <MenuScreen>
+                  <SettingsMenu
+                    params={{
+                      ...menuParams,
+                      themeMode,
+                      lightTheme,
+                      darkTheme,
+                      font,
+                    }}
+                    onParamChange={(param, value) => {
+                      if (param === "themeMode") {
+                        setThemeMode(value as ThemeMode);
+                        return;
+                      }
+                      if (param === "lightTheme") {
+                        setLightTheme(value as ThemeClass);
+                        return;
+                      }
+                      if (param === "darkTheme") {
+                        setDarkTheme(value as ThemeClass);
+                        return;
+                      }
+                      if (param === "font") {
+                        setFont(value as FontOption);
+                        return;
+                      }
+                      setMenuParams((prev) => ({ ...prev, [param]: value }));
+                    }}
+                    selectedParam={cursorOnTabs ? -1 : selectedParam}
+                    onSelectParam={(index) => {
+                      setCursorOnTabs(false);
+                      setSelectedParam(index);
+                    }}
+                    isLoading={isAnyGenerating}
+                    models={models}
+                    modelsLoading={modelsLoading}
+                    modelsError={modelsError}
+                    getModelName={getModelName}
+                    fonts={availableFonts.map(({ id, label }) => ({ id, label }))}
+                  />
+                </MenuScreen>
+              ) : drawerTab === "models" ? (
+                expandedModel !== null ? (
+                  <MenuScreen>
+                    <ModelEditor
+                      formState={modelForm}
+                      fields={modelEditorFields}
+                      selectedField={currentModelEditorField}
+                      onSelectField={handleModelEditorHighlight}
+                      onActivateField={handleModelEditorActivate}
+                      onChange={handleModelFormChange}
+                      onSubmit={handleSubmitModel}
+                      onCancel={handleCancelModelEdit}
+                      onDelete={
+                        modelEditorMode === "edit" && editingModelId
+                          ? () => {
+                              void handleDeleteModel(editingModelId);
+                            }
+                          : undefined
+                      }
+                      mode={modelEditorMode}
+                      isSaving={modelsSaving}
+                      error={modelFormError}
+                    />
+                  </MenuScreen>
+                ) : (
+                  <MenuScreen>
+                    <ModelsMenu
+                      modelEntries={sortedModelEntries}
+                      selectedIndex={cursorOnTabs ? -1 : selectedModelIndex}
+                      sortOrder={modelSort}
+                      onToggleSort={cycleModelSort}
+                      onSelectIndex={(i) => {
+                        setCursorOnTabs(false);
+                        setSelectedModelIndex(i);
+                      }}
+                      onNew={handleStartNewModel}
+                      onEditModel={handleEditModel}
+                      isLoading={modelsLoading || modelsSaving}
+                      error={modelsError ?? undefined}
+                    />
+                  </MenuScreen>
+                )
+              ) : drawerTab === "stories" ? (
+                <MenuScreen>
+                  <TreeListMenu
+                    trees={trees}
+                    selectedIndex={cursorOnTabs ? -1 : selectedTreeIndex}
+                    selectedColumn={selectedTreeColumn}
+                    sortOrder={storySort}
+                    onToggleSort={cycleStorySort}
+                    onSelect={(key) => {
+                      touchStoryActive(key);
+                      setCurrentTreeKey(key);
+                      closeDrawer();
+                      setSelectedTreeColumn(0);
+                    }}
+                    onNew={() => {
+                      handleNewTree();
+                      setSelectedTreeColumn(0);
+                    }}
+                    onDelete={(key) => {
+                      handleDeleteTree(key);
+                      if (selectedTreeIndex > 0) {
+                        setSelectedTreeIndex((prev) =>
+                          Math.min(prev, Object.keys(trees).length - 1)
+                        );
+                        setSelectedTreeColumn(0);
+                      }
+                    }}
+                    onExportJson={handleExportTree}
+                    onExportThread={handleExportThread}
+                    onHighlight={handleStoryHighlight}
+                  />
+                </MenuScreen>
+              ) : null}
+            </Drawer>
+          ) : projection === "map" && screen === null ? (
             <StoryMinimap
               tree={storyTree}
               currentDepth={currentDepth}
@@ -1188,7 +1642,7 @@ export const GamepadInterface = () => {
               generatingInfo={generatingInfo}
               onSelectNode={(path) => {
                 setSelectionByPath(path);
-                setActiveMenu(null);
+                setProjection("loom");
                 requestAnimationFrame(() => {
                   const last = path[path.length - 1];
                   if (last) {
@@ -1200,81 +1654,11 @@ export const GamepadInterface = () => {
                   }
                 });
               }}
-              isVisible={activeMenu === "map"}
+              isVisible={projection === "map" && screen === null}
               lastMapNodeId={lastMapNodeId}
               currentNodeId={highlightedNode.id}
             />
-          ) : activeMenu === "start" ? (
-            <>
-              <MenuScreen>
-                <TreeListMenu
-                  trees={trees}
-                  selectedIndex={selectedTreeIndex}
-                  selectedColumn={selectedTreeColumn}
-                  onSelect={(key) => {
-                    touchStoryActive(key);
-                    setCurrentTreeKey(key);
-                    setActiveMenu(null);
-                    setSelectedTreeColumn(0);
-                  }}
-                  onNew={() => {
-                    handleNewTree();
-                    setSelectedTreeColumn(0);
-                  }}
-                  onDelete={(key) => {
-                    handleDeleteTree(key);
-                    // Adjust selected index if needed
-                    if (selectedTreeIndex > 0) {
-                      setSelectedTreeIndex((prev) =>
-                        Math.min(prev, Object.keys(trees).length - 1)
-                      );
-                      setSelectedTreeColumn(0);
-                    }
-                  }}
-                  onExportJson={handleExportTree}
-                  onExportThread={handleExportThread}
-                  onHighlight={handleStoryHighlight}
-                />
-              </MenuScreen>
-            </>
-          ) : activeMenu === "models" ? (
-            <MenuScreen>
-              <ModelsMenu
-                modelEntries={sortedModelEntries}
-                selectedIndex={selectedModelIndex}
-                sortOrder={modelSort}
-                onToggleSort={cycleModelSort}
-                onSelectIndex={setSelectedModelIndex}
-                onNew={handleStartNewModel}
-                onEditModel={handleEditModel}
-                isLoading={modelsLoading || modelsSaving}
-                error={modelsError ?? undefined}
-              />
-            </MenuScreen>
-          ) : activeMenu === "model-editor" ? (
-            <MenuScreen>
-              <ModelEditor
-                formState={modelForm}
-                fields={modelEditorFields}
-                selectedField={currentModelEditorField}
-                onSelectField={handleModelEditorHighlight}
-                onActivateField={handleModelEditorActivate}
-                onChange={handleModelFormChange}
-                onSubmit={handleSubmitModel}
-                onCancel={handleCancelModelEdit}
-                onDelete={
-                  modelEditorMode === "edit" && editingModelId
-                    ? () => {
-                        void handleDeleteModel(editingModelId);
-                      }
-                    : undefined
-                }
-                mode={modelEditorMode}
-                isSaving={modelsSaving}
-                error={modelFormError}
-              />
-            </MenuScreen>
-          ) : activeMenu === "edit" ? (
+          ) : screen === "edit" ? (
             <MenuScreen>
               <EditMenu
                 node={getCurrentPath()[currentDepth]}
@@ -1329,7 +1713,7 @@ export const GamepadInterface = () => {
                   setStoryTree(newTree);
                   // Mark story as updated for reverse-chronological order
                   touchStoryUpdated(currentTreeKey);
-                  setActiveMenu(null);
+                  setScreen(null);
 
                   // Align to end of updated content after text splitting
                   requestAnimationFrame(() => {
@@ -1344,49 +1728,93 @@ export const GamepadInterface = () => {
                     }
                   });
                 }}
-                onCancel={() => setActiveMenu(null)}
+                onCancel={() => setScreen(null)}
               />
             </MenuScreen>
           ) : null}
 
           {/* Keep LOOM mounted; hide when a menu is active */}
           <div
-            style={{ display: activeMenu ? "none" : "flex" }}
+            style={{ display: onLoom ? "flex" : "none" }}
             className="flex-1 flex flex-col min-h-0 overflow-hidden"
           >
             {renderStoryText()}
           </div>
 
-          {/* Navigation bar - always visible at bottom of screen */}
+          {/* Navigation bar - always visible at bottom of screen.
+           *  In Loom:   sibling dots at current depth
+           *  In Map:    (empty — StoryMinimap has its own minibuffer)
+           *  In Drawer: current cursor context (tab / row label)
+           *  In Edit:   (empty — overlay owns the whole screen)
+           */}
           <div className="navigation-bar">
-            {activeMenu ? (
-              // Show status messages in menus
-              <>
-                {isOffline && (
-                  <span className="text-theme-focused text-sm">⚡ Offline</span>
-                )}
-                {error && (
+            {(() => {
+              if (error) {
+                return (
                   <span className="text-red-500 text-sm">
                     Error: {error.message}
                   </span>
-                )}
-              </>
-            ) : (
-              // Show navigation dots in LOOM mode
-              <>
-                <NavigationDots
-                  options={getOptionsAtDepth(currentDepth)}
-                  currentDepth={currentDepth}
-                  selectedOptions={selectedOptions}
-                  activeControls={activeControls}
-                  inFlight={inFlight}
-                  generatingInfo={generatingInfo}
-                />
-                {isOffline && (
-                  <span className="text-theme-focused text-xs ml-2">⚡</span>
-                )}
-              </>
-            )}
+                );
+              }
+              if (screen === "drawer") {
+                const label = cursorOnTabs
+                  ? "◄► tabs"
+                  : drawerTab === "settings"
+                    ? SETTINGS_ROW_LABELS[selectedParam] ?? ""
+                    : drawerTab === "models"
+                      ? expandedModel !== null
+                        ? `Editing: ${
+                            modelForm.name || modelForm.id || "new model"
+                          }`
+                        : selectedModelIndex === 0
+                          ? "Sort"
+                          : selectedModelIndex === 1
+                            ? "+ New Model"
+                            : sortedModelEntries[selectedModelIndex - 2]?.[1]
+                                .name ?? ""
+                      : drawerTab === "stories"
+                        ? selectedTreeIndex === 0
+                          ? "Sort"
+                          : selectedTreeIndex === 1
+                            ? "+ New Story"
+                            : orderedKeys[selectedTreeIndex - 2] ?? ""
+                        : "";
+                return (
+                  <span className="navbar-minibuffer" aria-live="polite">
+                    {label}
+                    {isOffline ? "  ⚡" : ""}
+                  </span>
+                );
+              }
+              if (screen === "edit") {
+                return isOffline ? (
+                  <span className="text-theme-focused text-sm">⚡ Offline</span>
+                ) : null;
+              }
+              if (projection === "map") {
+                // Map has its own minibuffer inside StoryMinimap; keep
+                // the bottom strip empty to avoid duplicated status UI.
+                return isOffline ? (
+                  <span className="text-theme-focused text-xs">⚡</span>
+                ) : null;
+              }
+              // LOOM
+              return (
+                <>
+                  <NavigationDots
+                    options={getOptionsAtDepth(currentDepth)}
+                    currentDepth={currentDepth}
+                    selectedOptions={selectedOptions}
+                    activeControls={activeControls}
+                    inFlight={inFlight}
+                    generatingInfo={generatingInfo}
+                  />
+                  {isOffline && (
+                    <span className="text-theme-focused text-xs ml-2">⚡</span>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </section>
 

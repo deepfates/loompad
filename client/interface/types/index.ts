@@ -17,32 +17,6 @@ export interface MenuScreenProps {
   children: React.ReactNode;
 }
 
-export interface MenuKnobProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  selected: boolean;
-  formatValue?: (value: number) => string;
-}
-
-export interface MenuSelectProps {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-  selected: boolean;
-}
-
-export interface MenuToggleProps {
-  label: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-  selected: boolean;
-}
-
 export interface SettingsMenuProps {
   params: {
     temperature: number;
@@ -57,12 +31,12 @@ export interface SettingsMenuProps {
   };
   onParamChange: (param: string, value: number | string | boolean) => void;
   selectedParam: number;
+  onSelectParam?: (index: number) => void;
   isLoading?: boolean;
   models: AvailableModels | null;
   modelsLoading?: boolean;
   modelsError?: string | null;
   getModelName: (modelId: ModelId) => string;
-  onManageModels?: () => void;
   fonts: Array<{ id: FontOption; label: string }>;
 }
 
@@ -70,6 +44,8 @@ export interface TreeListProps {
   trees: { [key: string]: { root: StoryNode } };
   selectedIndex: number;
   selectedColumn: number;
+  sortOrder: import("../utils/storyMeta").StorySortOption;
+  onToggleSort?: (direction: -1 | 1) => void;
   onSelect: (key: string) => void;
   onDelete?: (key: string) => void;
   onNew?: () => void;
@@ -119,11 +95,17 @@ export interface ActiveControls {
   start: boolean;
 }
 
-export type MenuType =
-  | "select"
-  | "start"
-  | "edit"
-  | "map"
-  | "models"
-  | "model-editor"
-  | null;
+/**
+ * Top-level screen overlay.  The tree view (loom + map) is always the base
+ * layer; `screen` chooses what's on top of it.
+ *   - null   : no overlay; tree is fully visible
+ *   - "drawer" : configuration drawer with tabs (settings / models / stories)
+ *   - "edit"   : full-screen text edit overlay on the current node
+ */
+export type Screen = "drawer" | "edit" | null;
+
+/** Which projection of the tree is visible when no overlay is open. */
+export type Projection = "loom" | "map";
+
+/** Which tab is active in the configuration drawer. */
+export type DrawerTab = "settings" | "models" | "stories";

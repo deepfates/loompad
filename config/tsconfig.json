@@ -23,13 +23,7 @@
       "server/*": ["../server/*"],
       "client/*": ["../client/*"],
       "shared/*": ["../shared/*"],
-      "config/*": ["../config/*"],
-      "srcl/*": ["../node_modules/srcl/*"],
-      "@/*": ["../node_modules/srcl/src/*"],
-      "@common/*": ["../node_modules/srcl/common/*"],
-      "@components/*": ["../node_modules/srcl/components/*"],
-      "@lib/*": ["../node_modules/srcl/lib/*"],
-      "@modules/*": ["../node_modules/srcl/modules/*"]
+      "config/*": ["../config/*"]
     }
   },
   "include": [

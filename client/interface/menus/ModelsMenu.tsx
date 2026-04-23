@@ -1,5 +1,6 @@
 import type { ModelConfig, ModelId } from "../../../shared/models";
 import type { ModelSortOption } from "../types";
+import { Row } from "../components/Row";
 
 interface ModelsMenuProps {
   modelEntries: Array<[ModelId, ModelConfig]>;
@@ -14,8 +15,8 @@ interface ModelsMenuProps {
 }
 
 const SORT_LABELS: Record<ModelSortOption, string> = {
-  "name-asc": "Name (A → Z)",
-  "name-desc": "Name (Z → A)",
+  "name-asc": "A → Z",
+  "name-desc": "Z → A",
 };
 
 export const ModelsMenu = ({
@@ -29,89 +30,47 @@ export const ModelsMenu = ({
   isLoading = false,
   error,
 }: ModelsMenuProps) => {
-  const handleSortActivate = () => {
-    onToggleSort(1);
-  };
-
   return (
-    <div className="menu-content models-menu">
-      <div
-        className={`menu-item models-menu__sort ${selectedIndex === 0 ? "selected" : ""}`}
-        role="button"
-        tabIndex={0}
-        onMouseEnter={() => onSelectIndex(0)}
-        onClick={handleSortActivate}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            handleSortActivate();
-          } else if (event.key === "ArrowLeft") {
-            event.preventDefault();
-            onToggleSort(-1);
-          } else if (event.key === "ArrowRight") {
-            event.preventDefault();
-            onToggleSort(1);
-          }
-        }}
-      >
-        <div className="menu-item-label">Sort Models</div>
-        <div className="menu-item-preview">
-          {SORT_LABELS[sortOrder]} (◄► to change)
-        </div>
-      </div>
-
-      <div
-        className={`menu-item ${selectedIndex === 1 ? "selected" : ""}`}
-        onMouseEnter={() => onSelectIndex(1)}
-        onClick={() => {
+    <div className="menu-content">
+      <Row
+        kind="pick"
+        label="Sort"
+        value={SORT_LABELS[sortOrder]}
+        selected={selectedIndex === 0}
+        onHover={() => onSelectIndex(0)}
+        onActivate={() => onToggleSort(1)}
+      />
+      <Row
+        kind="action"
+        label="New Model"
+        glyph="+"
+        preview="Add an OpenRouter model"
+        stacked
+        selected={selectedIndex === 1}
+        onHover={() => onSelectIndex(1)}
+        onActivate={() => {
           onSelectIndex(1);
           onNew();
         }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onSelectIndex(1);
-            onNew();
-          }
-        }}
-      >
-        <div className="menu-item-label">+ New Model</div>
-        <div className="menu-item-preview">Add an OpenRouter model</div>
-      </div>
-
+      />
       {modelEntries.map(([modelId, config], index) => {
-        const listIndex = index + 2; // account for sort + new rows
+        const listIndex = index + 2;
         return (
-          <div
+          <Row
             key={modelId}
-            className={`menu-item models-menu__item ${
-              selectedIndex === listIndex ? "selected" : ""
-            }`}
-            onMouseEnter={() => onSelectIndex(listIndex)}
-            onClick={() => {
+            kind="action"
+            label={config.name}
+            preview={`${modelId} · ${config.maxTokens}tok · T=${config.defaultTemp}`}
+            stacked
+            selected={selectedIndex === listIndex}
+            onHover={() => onSelectIndex(listIndex)}
+            onActivate={() => {
               onSelectIndex(listIndex);
               onEditModel(modelId);
             }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onSelectIndex(listIndex);
-                onEditModel(modelId);
-              }
-            }}
-          >
-            <div className="menu-item-label">{config.name}</div>
-            <div className="menu-item-preview">
-              {modelId} • Max Tokens: {config.maxTokens} • Temp: {config.defaultTemp}
-            </div>
-          </div>
+          />
         );
       })}
-
       {isLoading && (
         <output className="loading-message">Loading models…</output>
       )}

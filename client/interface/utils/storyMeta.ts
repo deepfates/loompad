@@ -192,6 +192,22 @@ export function sortTreeEntriesByRecency<T extends Record<string, unknown>>(
   return ordered.map((k) => [k, trees[k]] as [string, T[keyof T]]);
 }
 
+export type StorySortOption = "recent" | "oldest";
+
+/**
+ * Return story keys sorted per the user's chosen option.
+ *   recent — last-active, then last-updated, then created (newest first)
+ *   oldest — reverse of recent
+ */
+export function orderKeysByStorySort(
+  trees: Record<string, unknown>,
+  sort: StorySortOption,
+  metaMap?: StoryMetaMap,
+): string[] {
+  const recent = orderKeysReverseChronological(trees, metaMap);
+  return sort === "recent" ? recent : recent.slice().reverse();
+}
+
 /**
  * Choose a default story to open:
  * - Prefer most recently active

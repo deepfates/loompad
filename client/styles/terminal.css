@@ -1,10 +1,27 @@
 @import "tailwindcss";
 
-/* Tone down heavy mono weights from SRCL so every font feels lighter */
+@font-face {
+  font-family: "Iosevka";
+  src: url("../assets/fonts/Iosevka-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Slab";
+  src: url("../assets/fonts/IosevkaSlab-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 [class*="font-use-"] {
   font-weight: 400;
   letter-spacing: -0.01em;
 }
+
+.font-use-iosevka { --font-family-mono: "Iosevka", ui-monospace, "Menlo", monospace; }
+.font-use-iosevka-slab { --font-family-mono: "Iosevka Slab", ui-monospace, "Menlo", monospace; }
 
 @theme {
   --color-theme-bg: var(--theme-background);
@@ -14,7 +31,6 @@
   --color-theme-border: var(--theme-border);
   --color-theme-border-subdued: var(--theme-border-subdued);
   --color-theme-text: var(--theme-text);
-  --color-theme-text-muted: var(--theme-text-muted);
   --color-theme-button: var(--theme-button);
   --color-theme-button-text: var(--theme-button-text);
   --color-theme-button-fg: var(--theme-button-foreground);
@@ -40,6 +56,161 @@
   --min-width: 20rem;
   --max-width: 60rem;
   --install-banner-offset: 0px;
+  /* --font-family-mono is set by the .font-use-* class on <html>;
+     the pre-hydration script in index.html puts one there before React
+     hydrates so the var is always defined. No :root fallback needed. */
+}
+
+/* Theme palettes extracted from SRCL — 14 themes across light/dark tones */
+
+/* Per-theme focus treatment.  Two paired token sets because the
+ * same "this is what you'd activate" intent wants different visual
+ * weight depending on the surface:
+ *
+ *   --theme-focus-bg / --theme-focus-fg
+ *     Inline-text focus (loom cursor span).  Light themes get a pale
+ *     fill; dark themes leave the bg alone and shift the text color
+ *     to the primary accent — reads better than a washed-out bg on a
+ *     dark canvas.
+ *
+ *   --theme-row-bg / --theme-row-fg
+ *     Full-width surface focus (menu row, drawer tab cursor).  Light
+ *     themes mirror the inline treatment — pale fill + normal text —
+ *     which feels right there.  Dark themes INVERT: solid primary
+ *     fill plus background text, so the selected row pops against
+ *     the quieter unselected rows instead of drowning in them.
+ */
+
+.theme-light {
+  --theme-focus-bg: var(--theme-focused-foreground-subdued);
+  --theme-focus-fg: var(--theme-text);
+  --theme-row-bg: var(--theme-focused-foreground-subdued);
+  --theme-row-fg: var(--theme-text);
+  --theme-background: rgba(255, 255, 255, 1);
+  --theme-background-modal: rgba(224, 224, 224, 1);
+  --theme-background-modal-footer: rgba(168, 168, 168, 1);
+  --theme-background-input: rgba(244, 244, 244, 1);
+  --theme-border: rgba(224, 224, 224, 1);
+  --theme-border-subdued: rgba(168, 168, 168, 0.2);
+  --theme-text: rgba(0, 0, 0, 1);
+  --theme-button: rgba(0, 0, 0, 1);
+  --theme-button-text: rgba(255, 255, 255, 1);
+  --theme-button-foreground: rgba(198, 198, 198, 1);
+  --theme-button-background: rgba(224, 224, 224, 1);
+  --theme-focused-foreground: rgba(92, 255, 59, 1);
+  --theme-focused-foreground-subdued: rgba(92, 255, 59, 0.5);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(82, 82, 91, 1);
+}
+
+.theme-blue {
+  --theme-focus-bg: var(--theme-focused-foreground-subdued);
+  --theme-focus-fg: var(--theme-text);
+  --theme-row-bg: var(--theme-focused-foreground-subdued);
+  --theme-row-fg: var(--theme-text);
+  --theme-background: rgba(0, 45, 156, 1);
+  --theme-background-modal: rgba(0, 67, 206, 1);
+  --theme-background-modal-footer: rgba(0, 29, 108, 1);
+  --theme-background-input: rgba(15, 98, 254, 1);
+  --theme-border: rgba(0, 67, 206, 1);
+  --theme-border-subdued: rgba(15, 98, 254, 0.2);
+  --theme-text: rgba(237, 245, 255, 1);
+  --theme-button: rgba(237, 245, 255, 1);
+  --theme-button-text: rgba(0, 45, 156, 1);
+  --theme-button-foreground: rgba(15, 98, 254, 1);
+  --theme-button-background: rgba(0, 67, 206, 1);
+  --theme-focused-foreground: rgba(69, 137, 255, 1);
+  --theme-focused-foreground-subdued: rgba(69, 137, 255, 0.5);
+  --theme-overlay: rgba(208, 226, 255, 0.5);
+  --theme-muted: rgba(166, 200, 255, 1);
+}
+
+.theme-black-green {
+  --theme-focus-bg: transparent;
+  --theme-focus-fg: var(--theme-focused-foreground);
+  --theme-row-bg: var(--theme-focused-foreground);
+  --theme-row-fg: var(--theme-background);
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(38, 38, 38, 1);
+  --theme-background-modal-footer: rgba(57, 57, 57, 1);
+  --theme-background-input: rgba(82, 82, 82, 1);
+  --theme-border: rgba(57, 57, 57, 1);
+  --theme-border-subdued: rgba(82, 82, 82, 0.3);
+  --theme-text: rgba(36, 161, 72, 1);
+  --theme-button: rgba(36, 161, 72, 1);
+  --theme-button-text: rgba(4, 67, 23, 1);
+  --theme-button-foreground: rgba(4, 67, 23, 1);
+  --theme-button-background: rgba(2, 45, 13, 1);
+  --theme-focused-foreground: rgba(198, 198, 198, 1);
+  --theme-focused-foreground-subdued: rgba(198, 198, 198, 0.5);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(111, 220, 140, 1);
+}
+
+.theme-nerv {
+  --theme-focus-bg: transparent;
+  --theme-focus-fg: var(--theme-focused-foreground);
+  --theme-row-bg: var(--theme-focused-foreground);
+  --theme-row-fg: var(--theme-background);
+  --theme-background: rgba(0, 0, 0, 1);
+  --theme-background-modal: rgba(40, 10, 10, 1);
+  --theme-background-modal-footer: rgba(25, 5, 5, 1);
+  --theme-background-input: rgba(40, 40, 40, 1);
+  --theme-border: rgba(200, 50, 50, 1);
+  --theme-border-subdued: rgba(200, 50, 50, 0.3);
+  --theme-text: rgba(255, 150, 50, 1);
+  --theme-button: rgba(255, 255, 100, 1);
+  --theme-button-text: rgba(0, 0, 0, 1);
+  --theme-button-foreground: rgba(255, 150, 50, 1);
+  --theme-button-background: rgba(40, 10, 10, 1);
+  --theme-focused-foreground: rgba(150, 255, 150, 1);
+  --theme-focused-foreground-subdued: rgba(150, 255, 150, 0.5);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(255, 150, 50, 0.7);
+}
+
+.theme-outrun {
+  --theme-focus-bg: transparent;
+  --theme-focus-fg: var(--theme-focused-foreground);
+  --theme-row-bg: var(--theme-focused-foreground);
+  --theme-row-fg: var(--theme-background);
+  --theme-background: rgba(15, 0, 30, 1);
+  --theme-background-modal: rgba(50, 0, 100, 1);
+  --theme-background-modal-footer: rgba(30, 0, 60, 1);
+  --theme-background-input: rgba(40, 0, 80, 1);
+  --theme-border: rgba(255, 71, 184, 1);
+  --theme-border-subdued: rgba(255, 71, 184, 0.3);
+  --theme-text: rgba(71, 255, 255, 1);
+  --theme-button: rgba(255, 215, 0, 1);
+  --theme-button-text: rgba(15, 0, 30, 1);
+  --theme-button-foreground: rgba(255, 0, 255, 1);
+  --theme-button-background: rgba(50, 0, 100, 1);
+  --theme-focused-foreground: rgba(255, 255, 255, 1);
+  --theme-focused-foreground-subdued: rgba(255, 255, 255, 0.5);
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-muted: rgba(255, 71, 184, 1);
+}
+
+.theme-aperture {
+  --theme-focus-bg: var(--theme-focused-foreground-subdued);
+  --theme-focus-fg: var(--theme-text);
+  --theme-row-bg: var(--theme-focused-foreground-subdued);
+  --theme-row-fg: var(--theme-text);
+  --theme-background: rgba(255, 255, 255, 1);
+  --theme-background-modal: rgba(230, 230, 230, 1);
+  --theme-background-modal-footer: rgba(150, 150, 150, 1);
+  --theme-background-input: rgba(250, 250, 250, 1);
+  --theme-border: rgba(255, 125, 0, 1);
+  --theme-border-subdued: rgba(0, 150, 255, 0.3);
+  --theme-text: rgba(0, 0, 0, 1);
+  --theme-button: rgba(255, 125, 0, 1);
+  --theme-button-text: rgba(255, 255, 255, 1);
+  --theme-button-foreground: rgba(0, 150, 255, 1);
+  --theme-button-background: rgba(230, 230, 230, 1);
+  --theme-focused-foreground: rgba(0, 100, 200, 1);
+  --theme-focused-foreground-subdued: rgba(0, 100, 200, 0.5);
+  --theme-overlay: rgba(150, 150, 150, 0.4);
+  --theme-muted: rgba(150, 150, 150, 1);
 }
 
 /* ===== BASE STYLES ===== */
@@ -136,7 +307,26 @@ html, body {
 
 .story-text .story-node {
   display: inline;
-  transition: color 0.15s ease, opacity 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+}
+
+/* Cursor span — the selected continuation at currentDepth+1.
+   Routed through --theme-focus-bg / --theme-focus-fg so light themes
+   get a pale highlight fill behind normal text, and dark themes shift
+   the text itself to the primary accent (no background wash). */
+.story-text .story-node.cursor-node {
+  background: var(--theme-focus-bg);
+  color: var(--theme-focus-fg);
+  font-weight: 600;
+  /* line-height on .story-text is 1.6, so each line-box has ~0.3em of
+     leading above and below its glyphs.  Vertical padding of 0.3em
+     extends the inline bg into that leading without resizing the
+     line-box itself, so adjacent wrapped fragments of the cursor span
+     paint a continuous highlight with no visible gap between lines. */
+  padding: 0.3em 0.2ch;
+  border-radius: 0.125ch;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .story-text::-webkit-scrollbar { width: 6px; }
@@ -240,8 +430,56 @@ html, body {
 
 /* Mode bar (utility classes may not survive build) */
 .mode-bar {
-  padding: 1ch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5ch;
+  padding: 0.75ch 1.25ch;
   border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.mode-bar-title {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Hint frame: capped-width wrapper that holds the scrollable hint
+   text plus a "›" indicator.  No fade — the caret is an explicit
+   "there's more this way" cue that appears only when the hint
+   overflows. */
+.mode-bar-hint-frame {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
+  min-width: 0;
+  max-width: 60ch;
+}
+
+.mode-bar-hint {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.mode-bar-hint::-webkit-scrollbar { display: none; }
+
+.mode-bar-scroll-hint {
+  flex-shrink: 0;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.mode-bar-scroll-hint.is-visible {
+  opacity: 0.8;
 }
 
 /* ===== BUTTONS ===== */
@@ -335,9 +573,12 @@ html, body {
   width: 100%;
   min-height: 0;
   flex: 1;
-  /* CSS variables for SVG theming */
+  /* CSS variables for SVG theming.  --primary-color is the "selected"
+     node fill — intentionally bound to the subdued primary so the map's
+     selected node reads the same value as every other focus highlight
+     in the app (menu rows, drawer tab, loom cursor). */
   --font-color: var(--theme-text);
-  --primary-color: var(--theme-focused-foreground);
+  --primary-color: var(--theme-focused-foreground-subdued);
   --secondary-color: var(--theme-border);
   --surface-color: var(--theme-background-modal);
   --background-color: var(--theme-background);
@@ -396,122 +637,290 @@ html, body {
 }
 
 
+/* Selection conventions:
+ *   .menu-item.selected           -> solid fill with focused-subdued (settings, models)
+ *   .story-menu-item.selected     -> border-only with focused-foreground (story list)
+ * Keep these two rules in sync when the tokens change.
+ *
+ * The Row primitive (client/interface/components/Row.tsx) uses
+ * .menu-item--row, .menu-item--pick/knob/toggle/action, plus child
+ * selectors below.  One visual convention; four input grammars.
+ */
+
 .menu-item {
   display: flex;
   flex-direction: column;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  border: 2px solid transparent;
+  padding: 0 0.75rem;
+  margin: 0;
+  background: var(--theme-background-input);
+  border: 0;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  line-height: 1.3;
 }
 
 .menu-item.selected {
-  border-color: var(--theme-focused-foreground);
-  box-shadow: 0 0 4px var(--theme-focused-foreground);
+  background: var(--theme-row-bg);
+  color: var(--theme-row-fg);
 }
 
-.menu-item-body {
-  display: flex;
-  flex-direction: column;
+.menu-item.selected .menu-item-preview {
+  color: inherit;
+  opacity: 0.9;
 }
 
 .menu-item-label {
   font-weight: bold;
-  margin-bottom: 0.25rem;
 }
 
 .menu-item-preview {
-  opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.menu-knob__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.menu-knob__value {
-  color: var(--theme-muted);
-  font-size: 0.85em;
-}
-
-.menu-knob__slider label {
-  display: none;
-}
-
-/* Story menu */
-.story-menu-row {
-  display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
-}
-
-.story-menu-row .story-menu-item { flex: 1; }
-
-.story-menu-item {
+/* ===== Row primitive (client/interface/components/Row.tsx) =====
+ * One visual convention; four grammars.  Lives after the base .menu-item
+ * rules so it overrides .menu-item's flex-column default.
+ */
+.menu-item.menu-item--row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: start;
+  align-items: center;
+  column-gap: 0.75ch;
+  padding: 0 0.75rem;
+  min-height: calc(1.3em + 0.25rem);
+  text-align: left;
+  width: 100%;
+  flex-direction: row;
+}
+
+.menu-item.menu-item--pick,
+.menu-item.menu-item--toggle {
+  grid-template-columns: auto 1fr auto;
+}
+
+.menu-item.menu-item--knob {
+  grid-template-columns: auto 1fr minmax(60px, 6rem) auto;
+  padding: 0.25rem 0.75rem;
+}
+
+.menu-item.menu-item--action {
+  grid-template-columns: auto 1fr auto auto;
+}
+
+.menu-item.menu-item--action.menu-item--stacked {
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  padding: 0.25rem 0.75rem;
+  row-gap: 0;
+}
+
+.menu-item.menu-item--stacked .menu-item-glyph {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.menu-item.menu-item--stacked .menu-item-label {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.menu-item.menu-item--stacked .menu-item-preview {
+  grid-row: 2;
+  grid-column: 2;
+  color: var(--theme-muted);
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-item.selected.menu-item--stacked .menu-item-preview {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.menu-item.menu-item--stacked .menu-item-trailing {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  align-self: center;
+}
+
+.menu-item-value {
+  color: var(--theme-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-item.selected .menu-item-value {
+  color: inherit;
+  opacity: 0.9;
+}
+
+.menu-item-hint {
+  color: inherit;
+  opacity: 0.6;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.menu-item-glyph {
+  font-weight: bold;
+  width: 1ch;
+  text-align: center;
+}
+
+.menu-item-toggle-box {
+  display: inline-block;
+  width: 1ch;
+  font-weight: bold;
+  text-align: center;
+}
+
+.menu-item-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.menu-item-knob-bar {
+  position: relative;
+  height: 10px;
+  background: transparent;
+  width: 100%;
+  cursor: ew-resize;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+}
+
+/* The visible line inside the bigger hit area. */
+.menu-item-knob-bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: color-mix(in srgb, currentColor 25%, transparent);
+  pointer-events: none;
+}
+
+.menu-item-knob-fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: currentColor;
+  pointer-events: none;
+}
+
+.menu-item--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.menu-item--danger {
+  color: var(--theme-focused-foreground);
+}
+
+/* ===== Drawer with tabs ===== */
+.drawer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.drawer-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--theme-border);
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.drawer-tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  opacity: 0.6;
+}
+
+.drawer-tab--active {
+  opacity: 1;
+  border-bottom-color: var(--theme-focused-foreground);
+}
+
+.drawer-tab--selected {
+  background: var(--theme-row-bg);
+  color: var(--theme-row-fg);
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-body > .menu-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.5rem 1rem;
+}
+
+.navbar-minibuffer {
+  font-size: 0.9em;
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Story list action cluster (icons inside the trailing slot of a story row). */
+.story-action-cluster {
+  display: inline-flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.story-menu-item .menu-item-body { min-width: 0; }
-
-.story-menu-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  justify-content: center;
-  justify-self: end;
-}
-
-.story-menu-action {
+.story-action {
   appearance: none;
   background: transparent;
   border: none;
-  color: var(--theme-text);
+  color: inherit;
   cursor: pointer;
   padding: 0.25rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.story-menu-action:hover,
-.story-menu-action:focus-visible,
-.story-menu-action.selected {
+.story-action.selected {
   color: var(--theme-focused-foreground);
-  outline: none;
 }
 
-/* Model editor */
-.model-editor-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.menu-item.selected .story-action.selected {
+  color: inherit;
+  opacity: 1;
 }
-
-.model-editor-menu__header { margin-bottom: 0.5rem; }
-.model-editor-menu__title { margin: 0; }
-.model-editor-menu__hint { margin: 0.25rem 0 0; opacity: 0.7; }
-.model-editor-menu__field.locked { opacity: 0.6; }
-.model-editor-menu__action { cursor: pointer; }
-.model-editor-menu__knob .menu-item { margin-bottom: 0; }
-
-.model-editor-menu__action.danger {
-  border-color: #ef4444;
-  color: #ef4444;
-}
-
-.model-editor-menu__action.danger.selected {
-  box-shadow: 0 0 4px #ef4444;
-}
-
-/* Models menu */
-.models-menu__item .menu-item-preview { white-space: normal; }
 
 /* Edit textarea */
 .edit-textarea {
@@ -599,23 +1008,3 @@ html, body {
 .font-mono {
   font-family: var(--font-family-mono, "IosevkaTerm-Regular", monospace);
 }
-
-/* Tailwind-style theme utility shims */
-.text-theme-text { color: var(--theme-text); }
-.text-theme-border-subdued { color: var(--theme-border-subdued); }
-.text-theme-button { color: var(--theme-button); }
-.text-theme-button-text { color: var(--theme-button-text); }
-.text-theme-focused { color: var(--theme-focused-foreground); }
-.text-theme-focused-subdued { color: var(--theme-focused-foreground-subdued); }
-
-
-.bg-theme-bg { background-color: var(--theme-background); }
-.bg-theme-bg-modal { background-color: var(--theme-background-modal); }
-.bg-theme-background-modal-footer { background-color: var(--theme-background-modal-footer); }
-.bg-theme-button { background-color: var(--theme-button); }
-.bg-theme-button-bg { background-color: var(--theme-button-background); }
-.hover\:bg-theme-button-bg:hover { background-color: var(--theme-button-background); }
-
-.border-theme-border { border-color: var(--theme-border); }
-.border-theme-focused { border-color: var(--theme-focused-foreground); }
-.border-theme-focused-subdued { border-color: var(--theme-focused-foreground-subdued); }

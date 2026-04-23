@@ -5,7 +5,7 @@ import {
   isAtBottom,
 } from "../utils/scrolling";
 
-type AlignMode = "nearest" | "top";
+type AlignMode = "nearest" | "top" | "center";
 type ScrollReason =
   | "nav-up-down"
   | "nav-left-right"
@@ -114,6 +114,16 @@ export function useScrollSync({
       // Cancel any pending animation frames from previous intents
       cancel();
       currentPriorityRef.current = priority;
+      // Priority is a *within-render* tiebreaker (both nav-up-down and
+      // nav-left-right effects fire from the same state change and the
+      // higher-priority one should win the scrollTo race).  Outside
+      // that render the priority should not persist — otherwise the
+      // first depth change locks out all future sibling scrolls.
+      // Clear on the next animation frame so same-render effects still
+      // see it, then it's gone for the next user action.
+      requestAnimationFrame(() => {
+        currentPriorityRef.current = -Infinity;
+      });
 
       // Find the element by data-node-id within the LOOM container
       const el = container.querySelector(
@@ -126,8 +136,15 @@ export function useScrollSync({
         return;
       }
 
-      const effectiveAlign: AlignMode =
-        el.offsetHeight >= container.clientHeight ? "top" : align;
+      // If the element is taller than the viewport (even with breathing
+      // room for padding), snap it to the top — centering would push the
+      // top off-screen.  Otherwise honor the caller's requested align.
+      // Use getBoundingClientRect so multi-line inline spans report
+      // their true wrapped height, not first-line-box height.
+      const rectHeight = el.getBoundingClientRect().height;
+      const fitsInViewport =
+        rectHeight + padding * 2 <= container.clientHeight;
+      const effectiveAlign: AlignMode = fitsInViewport ? align : "top";
 
       // Compute target scrollTop
       const targetTop = getElementTargetTop(
@@ -162,16 +179,21 @@ export function useScrollSync({
         return;
       }
 
-      // Short distance: standard smooth
+      // Short distance: smooth.  This is the common case (one arrow
+       // step moves the cursor to an adjacent node, a modest delta) and
+       // smooth reads as continuous motion.
       if (distance < SMALL_THRESHOLD) {
         container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
         setProgrammaticWindow();
         return;
       }
 
-
-      // Mid-range distance: a single smooth scroll feels right
-      container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+      // Long distance: instant.  Happens when the user has manually
+      // scrolled far from the cursor and then navigates — smooth-
+      // scrolling a whole screen height feels like drifting, not
+      // "snap back to where I am."  Setting scrollTop directly puts
+      // the cursor at the computed target in one frame.
+      container.scrollTop = Math.max(0, targetTop);
       setProgrammaticWindow();
     },
     [containerRef, padding, cancel, setProgrammaticWindow],
