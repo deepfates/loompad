@@ -9,9 +9,14 @@
     "build": "vite build --outDir=dist/server --ssr server/ssr.tsx  --config config/vite.config.ts && vite build --outDir=dist/client --config config/vite.config.ts",
     "prod": "bun run.ts --mode=production",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test": "bun test"
+    "test": "bun test",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@automerge/automerge-repo": "^2.5.5",
+    "@automerge/automerge-repo-network-broadcastchannel": "^2.5.5",
+    "@automerge/automerge-repo-network-websocket": "^2.5.5",
+    "@automerge/automerge-repo-storage-indexeddb": "^2.5.5",
     "@ax-llm/ax": "^14.0.39",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/d3-flextree": "^2.1.4",
@@ -25,6 +30,7 @@
     "d3-flextree": "^2.1.2",
     "d3-hierarchy": "^3.1.2",
     "express": "^4.19.2",
+    "isomorphic-ws": "^5.0.0",
     "nocache": "^4.0.0",
     "nodemon": "^3.1.0",
     "openai": "^4.77.0",
@@ -33,10 +39,12 @@
     "srcl": "github:deepfates/srcl",
     "styled-components": "^6.1.8",
     "tailwindcss": "^4.1.17",
+    "uuid": "^14.0.0",
     "wouter": "^3.3.5",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@rollup/rollup-linux-x64-gnu": "^4.52.4",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
@@ -48,6 +56,8 @@
     "eslint-plugin-react-refresh": "^0.4.6",
     "typescript": "^5.2.2",
     "vite": "^5.2.8",
-    "vite-plugin-pwa": "^1.0.1"
+    "vite-plugin-pwa": "^1.0.1",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0"
   }
 }

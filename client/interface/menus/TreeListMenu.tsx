@@ -33,6 +33,22 @@ const PrintIcon = () => (
   </svg>
 );
 
+const LinkIcon = () => (
+  <svg
+    aria-hidden="true"
+    focusable="false"
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    className="story-menu-icon"
+  >
+    <path
+      d="M6.2 10.9 5.1 12a2.1 2.1 0 0 1-3-3l2.4-2.4a2.1 2.1 0 0 1 3 0l.6.6-.9.9-.6-.6a.9.9 0 0 0-1.2 0L3 9.9a.9.9 0 0 0 1.2 1.2l1.1-1.1.9.9zm3.6-5.8L10.9 4a2.1 2.1 0 0 1 3 3l-2.4 2.4a2.1 2.1 0 0 1-3 0l-.6-.6.9-.9.6.6a.9.9 0 0 0 1.2 0L13 6.1a.9.9 0 0 0-1.2-1.2l-1.1 1.1-.9-.9zM5.6 9.5l3.9-3.9.9.9-3.9 3.9-.9-.9z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 export const TreeListMenu = ({
   trees,
   selectedIndex,
@@ -41,15 +57,18 @@ export const TreeListMenu = ({
   onNew,
   onExportJson,
   onExportThread,
+  onShareStory,
+  onShareIndex,
   onHighlight,
 }: TreeListProps) => {
   const treeEntries = sortTreeEntriesByRecency(trees);
 
-  const actionColumns: Array<"story" | "json" | "thread"> = ["story"];
+  const actionColumns: Array<"story" | "share" | "json" | "thread"> = ["story"];
+  if (onShareStory) actionColumns.push("share");
   if (onExportJson) actionColumns.push("json");
   if (onExportThread) actionColumns.push("thread");
 
-  const getColumnIndex = (action: "json" | "thread") =>
+  const getColumnIndex = (action: "share" | "json" | "thread") =>
     actionColumns.indexOf(action);
 
   return (
@@ -71,6 +90,24 @@ export const TreeListMenu = ({
           <div className="menu-item-body">
             <div className="menu-item-label">+ New Story</div>
           </div>
+          {onShareIndex ? (
+            <button
+              type="button"
+              className="story-menu-action"
+              title="Copy all stories link"
+              aria-label="Copy all stories link"
+              onClick={(event) => {
+                event.stopPropagation();
+                onShareIndex();
+                onHighlight?.(0, 1);
+              }}
+              onMouseEnter={() => onHighlight?.(0, 1)}
+              onFocus={() => onHighlight?.(0, 1)}
+            >
+              <LinkIcon />
+              <span className="visually-hidden">Copy all stories link</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -78,6 +115,7 @@ export const TreeListMenu = ({
         const rowIndex = index + 1;
         const isStorySelected =
           selectedIndex === rowIndex && selectedColumn === 0;
+        const shareColumn = getColumnIndex("share");
         const saveColumn = getColumnIndex("json");
         const printColumn = getColumnIndex("thread");
 
@@ -103,12 +141,35 @@ export const TreeListMenu = ({
                 </div>
               </div>
 
-              {onExportJson || onExportThread ? (
+              {onShareStory || onExportJson || onExportThread ? (
                 <div
                   className="story-menu-actions"
                   role="group"
-                  aria-label="Story export options"
+                  aria-label="Story actions"
                 >
+                  {onShareStory ? (
+                    <button
+                      type="button"
+                      className={`story-menu-action ${
+                        selectedIndex === rowIndex && selectedColumn === shareColumn
+                          ? "selected"
+                          : ""
+                      }`}
+                      title="Copy story link"
+                      aria-label="Copy story link"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onShareStory(key);
+                        onHighlight?.(rowIndex, shareColumn);
+                      }}
+                      onMouseEnter={() => onHighlight?.(rowIndex, shareColumn)}
+                      onFocus={() => onHighlight?.(rowIndex, shareColumn)}
+                    >
+                      <LinkIcon />
+                      <span className="visually-hidden">Copy story link</span>
+                    </button>
+                  ) : null}
+
                   {onExportJson ? (
                     <button
                       type="button"

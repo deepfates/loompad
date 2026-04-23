@@ -3,6 +3,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import tailwindcss from "@tailwindcss/postcss";
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
 
 if (process.env.NODE_ENV !== "production") {
   console.log("Loading vite config from config/vite.config.ts...");
@@ -14,6 +16,8 @@ const mode = "production";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    wasm(),
+    topLevelAwait(),
     react(),
     VitePWA({
       registerType: "autoUpdate",
@@ -88,6 +92,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["srcl"],
+    include: ["eventemitter3"],
+    exclude: ["srcl", "@automerge/automerge"],
   },
 });

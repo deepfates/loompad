@@ -27,3 +27,6 @@ bun.lockb
 **/credentials/*.json
 
 .env
+.data/
+test-results/
+playwright-report/
