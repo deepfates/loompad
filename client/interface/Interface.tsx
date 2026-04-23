@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
-import { useStoryTree, INITIAL_STORY } from "./hooks/useStoryTree";
+import { useStoryTree } from "./hooks/useStoryTree";
 import { useOfflineStatus } from "./hooks/useOfflineStatus";
 import { useScrollSync } from "./hooks/useScrollSync";
 import { useModels } from "./hooks/useModels";
@@ -143,6 +143,8 @@ export const GamepadInterface = () => {
     setTrees,
     setStoryTree,
     setSelectionByPath,
+    createTree,
+    deleteTree,
   } = useStoryTree(menuParams);
 
   // Compute reverse-chronologically ordered trees for menus
@@ -227,25 +229,16 @@ export const GamepadInterface = () => {
     padding: 8,
   });
 
-  const handleNewTree = useCallback(() => {
-    const newKey = `Story ${Object.keys(trees).length + 1}`;
-    setTrees((prev) => ({
-      ...prev,
-      [newKey]: INITIAL_STORY,
-    }));
+  const handleNewTree = useCallback(async () => {
+    const newKey = await createTree();
     touchStoryActive(newKey);
-    setCurrentTreeKey(newKey);
     setActiveMenu(null);
-  }, [trees, setTrees, setCurrentTreeKey, setActiveMenu]);
+  }, [createTree, setActiveMenu]);
 
   const handleDeleteTree = useCallback(
     (key: string) => {
       if (window.confirm(`Are you sure you want to delete "${key}"?`)) {
-        setTrees((prev) => {
-          const newTrees = { ...prev };
-          delete newTrees[key];
-          return newTrees;
-        });
+        void deleteTree(key);
         {
           const meta = getStoryMeta();
           if (meta[key]) {
@@ -266,7 +259,7 @@ export const GamepadInterface = () => {
         }
       }
     },
-    [currentTreeKey, trees, setTrees, setCurrentTreeKey]
+    [currentTreeKey, trees, deleteTree, setCurrentTreeKey]
   );
 
   const handleExportTree = useCallback(

@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
-import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import { touchStoryUpdated } from "../utils/storyMeta";
@@ -9,6 +8,17 @@ import {
   getPreferredChildIndex,
   setPreferredChildIndex,
 } from "../loomsync/storySessionState";
+import {
+  appendStoryContinuations,
+  materializeStoryTree,
+} from "../loomsync/storyAdapter";
+import {
+  createStoryWorld,
+  listStoryEntries,
+  openStoryWorld,
+  removeStory,
+  type StoryWorld,
+} from "../loomsync/storyRuntime";
 
 export const INITIAL_STORY = {
   root: {
@@ -34,7 +44,8 @@ interface StoryParams {
 }
 
 export function useStoryTree(params: StoryParams) {
-  const [trees, setTrees] = useLocalStorage(DEFAULT_TREES);
+  const [trees, setTrees] = useState(DEFAULT_TREES);
+  const [worldsByKey, setWorldsByKey] = useState<Record<string, StoryWorld>>({});
   const [currentTreeKey, setCurrentTreeKey] = useState(
     () => Object.keys(trees)[0],
   );
@@ -49,6 +60,62 @@ export function useStoryTree(params: StoryParams) {
 
   const { generateContinuation, chooseContinuation, error } =
     useStoryGeneration();
+
+  const refreshTreeFromWorld = useCallback(
+    async (key: string, world: StoryWorld) => {
+      const root = await world.root();
+      const tree = await materializeStoryTree(
+        world,
+        root.meta?.rootText ?? INITIAL_STORY.root.text,
+      );
+      setTrees((prev) => ({ ...prev, [key]: tree }));
+      if (key === currentTreeKey) setStoryTree(tree);
+      return tree;
+    },
+    [currentTreeKey],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const entries = await listStoryEntries();
+      if (cancelled) return;
+
+      if (!entries.length) {
+        const { root, world } = await createStoryWorld(
+          "Story 1",
+          INITIAL_STORY.root.text,
+        );
+        if (cancelled) return;
+        setWorldsByKey({ [root.id]: world });
+        const tree = await materializeStoryTree(world, INITIAL_STORY.root.text);
+        setTrees({ [root.id]: tree });
+        setCurrentTreeKey(root.id);
+        setStoryTree(tree);
+        return;
+      }
+
+      const nextTrees: Record<string, { root: StoryNode }> = {};
+      const nextWorlds: Record<string, StoryWorld> = {};
+      for (const entry of entries) {
+        const world = await openStoryWorld(entry.rootId);
+        nextWorlds[entry.rootId] = world;
+        nextTrees[entry.rootId] = await materializeStoryTree(
+          world,
+          entry.meta?.rootText ?? INITIAL_STORY.root.text,
+        );
+      }
+      if (cancelled) return;
+      const firstKey = entries[0]?.rootId ?? Object.keys(nextTrees)[0];
+      setWorldsByKey(nextWorlds);
+      setTrees(nextTrees);
+      setCurrentTreeKey(firstKey);
+      setStoryTree(nextTrees[firstKey] ?? INITIAL_STORY);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Helper to check if a specific node is generating
   const isGeneratingAt = useCallback(
@@ -507,14 +574,16 @@ export function useStoryTree(params: StoryParams) {
 
           try {
             const newContinuations = await generateContinuations(count);
+            const world = worldsByKey[currentTreeKey];
+            if (!world) throw new Error(`Missing story world: ${currentTreeKey}`);
+            await appendStoryContinuations(
+              world,
+              currentNode.id === "root" ? null : currentNode.id,
+              newContinuations,
+            );
 
             const parentPath = currentPath.slice(0, currentDepth + 1);
-            let updatedTree = addContinuations(
-              storyTree,
-              parentPath,
-              newContinuations,
-              !hasExistingContinuations,
-            );
+            let updatedTree = await refreshTreeFromWorld(currentTreeKey, world);
 
             if (!hasExistingContinuations && params.autoModeIterations > 0) {
               updatedTree = await autoExpandChildren(
@@ -569,6 +638,8 @@ export function useStoryTree(params: StoryParams) {
       storyTree,
       currentTreeKey,
       setTrees,
+      worldsByKey,
+      refreshTreeFromWorld,
       getLastSelectedIndex,
       updateLastSelectedIndex,
       isGeneratingAt,
@@ -593,6 +664,34 @@ export function useStoryTree(params: StoryParams) {
       setStoryTree(trees[key] || INITIAL_STORY);
       setCurrentDepth(0);
       setSelectedOptions([0]);
+    },
+    createTree: async () => {
+      const title = `Story ${Object.keys(trees).length + 1}`;
+      const { root, world } = await createStoryWorld(
+        title,
+        INITIAL_STORY.root.text,
+      );
+      setWorldsByKey((prev) => ({ ...prev, [root.id]: world }));
+      const tree = await materializeStoryTree(world, INITIAL_STORY.root.text);
+      setTrees((prev) => ({ ...prev, [root.id]: tree }));
+      setCurrentTreeKey(root.id);
+      setStoryTree(tree);
+      setCurrentDepth(0);
+      setSelectedOptions([0]);
+      return root.id;
+    },
+    deleteTree: async (key: string) => {
+      await removeStory(key);
+      setWorldsByKey((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setTrees((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     },
     // Set selection state (currentDepth and selectedOptions) from a provided path.
     // Matches path IDs against current storyTree to compute indices.

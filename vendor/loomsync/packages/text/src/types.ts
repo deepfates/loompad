@@ -1,4 +1,4 @@
-import type { LoomNodeId } from "@loomsync/core";
+import type { LoomNodeId } from "../../core/src/types";
 
 export type TextPayload = { text: string };
 

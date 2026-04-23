@@ -1,4 +1,4 @@
-import type { LoomRootId } from "@loomsync/core";
+import type { LoomRootId } from "../../core/src/types";
 
 export type LoomIndexId = string;
 

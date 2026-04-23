@@ -1,5 +1,5 @@
-import { LoomError } from "@loomsync/core";
-import type { LoomRootId } from "@loomsync/core";
+import { LoomError } from "../../core/src/errors";
+import type { LoomRootId } from "../../core/src/types";
 import type {
   LoomIndex,
   LoomIndexEntry,

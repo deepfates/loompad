@@ -1,5 +1,6 @@
 import { DocHandle, Repo, type AutomergeUrl } from "@automerge/automerge-repo";
-import { LoomError, type LoomRootId } from "@loomsync/core";
+import { LoomError } from "../../core/src/errors";
+import type { LoomRootId } from "../../core/src/types";
 import type {
   LoomIndex,
   LoomIndexEntry,

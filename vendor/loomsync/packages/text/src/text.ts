@@ -4,7 +4,7 @@ import type {
   LoomRoot,
   LoomSnapshot,
   LoomWorld,
-} from "@loomsync/core";
+} from "../../core/src/types";
 import type { StoryNode, StoryPathNode, TextPayload } from "./types.js";
 
 export function flattenPath(nodes: LoomNode<TextPayload>[]): string {
