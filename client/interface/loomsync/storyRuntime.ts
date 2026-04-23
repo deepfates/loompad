@@ -128,8 +128,22 @@ export async function addStoryRootToIndex(
   rootId: string,
   meta: StoryEntryMeta,
 ): Promise<void> {
-  const index = await getStoryIndex();
-  if (await index.has(rootId)) return;
+  await addStoryRootToIndexHandle(await getStoryIndex(), rootId, meta);
+}
+
+export async function addStoryRootToIndexHandle(
+  index: LoomIndex<StoryEntryMeta, { app: "loompad" }>,
+  rootId: string,
+  meta: StoryEntryMeta,
+): Promise<void> {
+  if (await index.has(rootId)) {
+    await index.updateRoot(rootId, {
+      title: meta.title,
+      kind: "story",
+      meta,
+    });
+    return;
+  }
   await index.addRoot(rootId, {
     title: meta.title,
     kind: "story",
@@ -139,11 +153,24 @@ export async function addStoryRootToIndex(
 
 export async function importStoryRootFromUrl(): Promise<string | null> {
   if (typeof window === "undefined") return null;
-  const rootId = getStoryRootIdFromLocation(window.location);
+  return importStoryRootFromLocation(window.location, {
+    worlds: getStoryWorlds(),
+    index: await getStoryIndex(),
+  });
+}
+
+export async function importStoryRootFromLocation(
+  location: Location,
+  options: {
+    worlds: LoomWorlds<TextPayload, StoryRootMeta>;
+    index: LoomIndex<StoryEntryMeta, { app: "loompad" }>;
+  },
+): Promise<string | null> {
+  const rootId = getStoryRootIdFromLocation(location);
   if (!rootId) return null;
-  const world = await openStoryWorld(rootId);
+  const world = await openRootWithRetry(options.worlds, rootId);
   const root = await world.root();
-  await addStoryRootToIndex(rootId, {
+  await addStoryRootToIndexHandle(options.index, rootId, {
     title: root.meta?.title ?? "Shared Story",
     rootText: root.meta?.rootText ?? "",
   });

@@ -99,10 +99,11 @@ export function useStoryTree(params: StoryParams) {
     const nextWorlds: Record<string, StoryWorld> = {};
     for (const entry of entries) {
       const world = await openStoryWorld(entry.rootId);
+      const root = await world.root();
       nextWorlds[entry.rootId] = world;
       nextTrees[entry.rootId] = await materializeStoryTree(
         world,
-        entry.meta?.rootText ?? INITIAL_STORY.root.text,
+        root.meta?.rootText ?? INITIAL_STORY.root.text,
       );
     }
     const firstKey = entries[0]?.rootId ?? Object.keys(nextTrees)[0];
@@ -118,8 +119,12 @@ export function useStoryTree(params: StoryParams) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      await importStoryIndexFromUrl();
-      await importStoryRootFromUrl();
+      await importStoryIndexFromUrl().catch((error) => {
+        console.warn("Failed to import shared story index from URL:", error);
+      });
+      await importStoryRootFromUrl().catch((error) => {
+        console.warn("Failed to import shared story from URL:", error);
+      });
       if (!cancelled) await loadStoriesFromIndex();
     })();
     return () => {
