@@ -68,7 +68,7 @@ test("same-browser tabs converge on generated story updates without refresh", as
   await context.close();
 });
 
-test("a copied story link opens the same Automerge root in another browser context", async ({
+test("a copied story link opens the same loom in another browser context", async ({
   browser,
 }) => {
   const owner = await browser.newContext();
@@ -90,7 +90,7 @@ test("a copied story link opens the same Automerge root in another browser conte
   await page.keyboard.press("Enter");
 
   const storyUrl = await readCapturedClipboard(page);
-  expect(storyUrl).toContain("?story=");
+  expect(storyUrl).toContain("?ref=");
 
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
@@ -102,7 +102,7 @@ test("a copied story link opens the same Automerge root in another browser conte
   await guest.close();
 });
 
-test("a copied story list link imports the shared index and listed roots", async ({
+test("a copied story list link imports the shared index and listed looms", async ({
   browser,
 }) => {
   const owner = await browser.newContext();
@@ -121,7 +121,7 @@ test("a copied story list link imports the shared index and listed roots", async
   await page.keyboard.press("Enter");
 
   const indexUrl = await readCapturedClipboard(page);
-  expect(indexUrl).toContain("?index=");
+  expect(indexUrl).toContain("?ref=");
 
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
@@ -131,6 +131,45 @@ test("a copied story list link imports the shared index and listed roots", async
   await expect(guestPage.locator("body")).toContainText("Shared index 1.");
   await openStoriesDrawer(guestPage);
   await expect(guestPage.locator("body")).toContainText("Story 1");
+  await owner.close();
+  await guest.close();
+});
+
+test("a copied thread link opens the same loom and lands on the intended thread", async ({
+  browser,
+}) => {
+  const owner = await browser.newContext();
+  const page = await owner.newPage();
+  await captureClipboard(page);
+  await mockGeneration(page, "Shared thread");
+
+  await page.goto("/");
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Shared thread 1.");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Shared thread 4.");
+
+  await openStoriesDrawer(page);
+  await page
+    .getByRole("button", { name: "Copy current thread link" })
+    .first()
+    .focus();
+  await page.keyboard.press("Enter");
+
+  const threadUrl = await readCapturedClipboard(page);
+  expect(threadUrl).toContain("?ref=");
+
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await mockGeneration(guestPage, "Guest");
+  await guestPage.goto(threadUrl);
+
+  await expect(guestPage.locator("body")).toContainText("Shared thread 1.");
+  await expect(guestPage.locator("body")).toContainText("Shared thread 4.");
   await owner.close();
   await guest.close();
 });

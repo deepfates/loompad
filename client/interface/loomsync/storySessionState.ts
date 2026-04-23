@@ -27,24 +27,24 @@ function writeState(state: StorySessionState) {
 }
 
 export function getPreferredChildIndex(
-  rootId: string,
+  loomId: string,
   nodeId: string,
   childCount: number,
   fallbackIndex = 0,
 ) {
-  const value = readState()[rootId]?.[nodeId];
+  const value = readState()[loomId]?.[nodeId];
   return typeof value === "number" && value >= 0 && value < childCount
     ? value
     : fallbackIndex;
 }
 
 export function setPreferredChildIndex(
-  rootId: string,
+  loomId: string,
   nodeId: string,
   index: number,
 ) {
   const state = readState();
-  state[rootId] ??= {};
-  state[rootId][nodeId] = index;
+  state[loomId] ??= {};
+  state[loomId][nodeId] = index;
   writeState(state);
 }

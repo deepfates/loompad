@@ -1,7 +1,7 @@
 {
   "name": "@loomsync/core",
-  "version": "0.1.0",
-  "description": "Core APIs for append-only rooted branching worlds.",
+  "version": "0.2.0",
+  "description": "Core APIs for local-first addressable looms.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -28,15 +28,15 @@
       "import": "./dist/errors.js",
       "default": "./dist/errors.js"
     },
-    "./links": {
-      "types": "./dist/links.d.ts",
-      "import": "./dist/links.js",
-      "default": "./dist/links.js"
-    },
     "./memory": {
       "types": "./dist/memory.d.ts",
       "import": "./dist/memory.js",
       "default": "./dist/memory.js"
+    },
+    "./references": {
+      "types": "./dist/references.d.ts",
+      "import": "./dist/references.js",
+      "default": "./dist/references.js"
     },
     "./types": {
       "types": "./dist/types.d.ts",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createMemoryLoomWorlds } from "../../../../vendor/loomsync/packages/core/src/memory";
+import { createMemoryLooms } from "../../../../vendor/loomsync/packages/core/src/memory";
 import type { TextPayload } from "../../../../vendor/loomsync/packages/text/src/types";
 import type { StoryNode } from "../../types";
 import {
@@ -7,21 +7,21 @@ import {
   appendStoryNodeRevision,
   materializeStoryTree,
   storyTreeToSnapshot,
-  type LoompadStoryRootMeta,
+  type LoompadStoryLoomMeta,
 } from "../storyAdapter";
 
-function createWorlds() {
+function createLooms() {
   let nextId = 0;
-  return createMemoryLoomWorlds<TextPayload, LoompadStoryRootMeta>({
-    createId: () => `node-${++nextId}`,
+  return createMemoryLooms<TextPayload, LoompadStoryLoomMeta>({
+    createId: () => `turn-${++nextId}`,
     now: () => 1000 + nextId,
   });
 }
 
 describe("Loompad story adapter", () => {
   it("exports shared story content without session traversal state", () => {
-    const root = {
-      id: "root-1",
+    const info = {
+      id: "loom-1",
       meta: { title: "Draft", rootText: "Start" },
       createdAt: 1000,
     };
@@ -36,12 +36,12 @@ describe("Loompad story adapter", () => {
       },
     };
 
-    const snapshot = storyTreeToSnapshot(tree, root);
+    const snapshot = storyTreeToSnapshot(tree, info);
 
-    expect(snapshot.nodes).toEqual([
+    expect(snapshot.turns).toEqual([
       {
         id: "a",
-        rootId: "root-1",
+        loomId: "loom-1",
         parentId: null,
         payload: { text: "A" },
         createdAt: 1000,
@@ -51,21 +51,21 @@ describe("Loompad story adapter", () => {
   });
 
   it("appends and materializes a branching story in canonical child order", async () => {
-    const worlds = createWorlds();
-    const root = await worlds.createRoot({ title: "Story", rootText: "Start" });
-    const world = await worlds.openRoot(root.id);
+    const looms = createLooms();
+    const info = await looms.create({ title: "Story", rootText: "Start" });
+    const loom = await looms.open(info.id);
 
-    await appendStoryContinuations(world, null, [
+    await appendStoryContinuations(loom, null, [
       { id: "legacy-a", text: "A" },
       { id: "legacy-b", text: "B" },
     ]);
 
-    const [first] = await world.childrenOf(null);
-    await appendStoryContinuations(world, first.id, [
+    const [first] = await loom.childrenOf(null);
+    await appendStoryContinuations(loom, first.id, [
       { id: "legacy-c", text: "C" },
     ]);
 
-    expect(await materializeStoryTree(world, "Start")).toEqual({
+    expect(await materializeStoryTree(loom, "Start")).toEqual({
       root: {
         id: "root",
         text: "Start",
@@ -75,14 +75,14 @@ describe("Loompad story adapter", () => {
             text: "A",
             continuations: [
               {
-                id: "node-4",
+                id: "turn-4",
                 text: "C",
                 continuations: [],
               },
             ],
           },
           {
-            id: "node-3",
+            id: "turn-3",
             text: "B",
             continuations: [],
           },
@@ -92,12 +92,12 @@ describe("Loompad story adapter", () => {
   });
 
   it("saves edits as a new sibling revision without copying descendants", async () => {
-    const worlds = createWorlds();
-    const root = await worlds.createRoot({ title: "Story", rootText: "Start" });
-    const world = await worlds.openRoot(root.id);
+    const looms = createLooms();
+    const info = await looms.create({ title: "Story", rootText: "Start" });
+    const loom = await looms.open(info.id);
 
-    const original = await world.appendAfter(null, { text: "Original" });
-    await world.appendAfter(original.id, { text: "Original child" });
+    const original = await loom.appendTurn(null, { text: "Original" });
+    await loom.appendTurn(original.id, { text: "Original child" });
 
     const revision: StoryNode = {
       id: "ignored",
@@ -110,8 +110,8 @@ describe("Loompad story adapter", () => {
         },
       ],
     };
-    const appended = await appendStoryNodeRevision(world, null, revision);
-    const tree = await materializeStoryTree(world, "Start");
+    const appended = await appendStoryNodeRevision(loom, null, revision);
+    const tree = await materializeStoryTree(loom, "Start");
 
     expect(tree.root.continuations?.map((node) => node.text)).toEqual([
       "Original",
@@ -124,7 +124,7 @@ describe("Loompad story adapter", () => {
       text: "Edited",
       continuations: [
         {
-          id: "node-5",
+          id: "turn-5",
           text: "Split tail",
           continuations: [],
         },

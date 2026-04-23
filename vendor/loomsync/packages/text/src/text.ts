@@ -1,52 +1,52 @@
 import type {
-  LoomNode,
-  LoomNodeId,
-  LoomRoot,
+  Loom,
+  LoomInfo,
   LoomSnapshot,
-  LoomWorld,
+  Turn,
+  TurnId,
 } from "../../core/src/index";
-import type { StoryNode, StoryPathNode, TextPayload } from "./types.js";
+import type { StoryNode, StoryThreadTurn, TextPayload } from "./types.js";
 
-export function flattenPath(nodes: LoomNode<TextPayload>[]): string {
-  return nodes.map((node) => node.payload.text).join("");
+export function flattenThread(turns: Turn<TextPayload>[]): string {
+  return turns.map((turn) => turn.payload.text).join("");
 }
 
-export function pathToStoryNodes(nodes: LoomNode<TextPayload>[]): StoryPathNode[] {
-  return nodes.map((node) => ({
-    id: node.id,
-    text: node.payload.text,
+export function threadToStoryTurns(turns: Turn<TextPayload>[]): StoryThreadTurn[] {
+  return turns.map((turn) => ({
+    id: turn.id,
+    text: turn.payload.text,
   }));
 }
 
-export async function appendChain<TNodeMeta = unknown>(
-  world: LoomWorld<TextPayload, unknown, TNodeMeta>,
-  parentId: LoomNodeId | null,
+export async function appendChain<TTurnMeta = unknown>(
+  loom: Loom<TextPayload, unknown, TTurnMeta>,
+  parentId: TurnId | null,
   chunks: TextPayload[],
-  meta?: TNodeMeta,
-): Promise<LoomNode<TextPayload, TNodeMeta>[]> {
-  const appended: LoomNode<TextPayload, TNodeMeta>[] = [];
+  meta?: TTurnMeta,
+): Promise<Turn<TextPayload, TTurnMeta>[]> {
+  const appended: Turn<TextPayload, TTurnMeta>[] = [];
   let currentParent = parentId;
   for (const chunk of chunks) {
-    const node = await world.appendAfter(currentParent, chunk, meta);
-    appended.push(node);
-    currentParent = node.id;
+    const turn = await loom.appendTurn(currentParent, chunk, meta);
+    appended.push(turn);
+    currentParent = turn.id;
   }
   return appended;
 }
 
-export function snapshotFromNestedStory<TRootMeta = unknown>(
+export function snapshotFromNestedStory<TLoomMeta = unknown>(
   tree: { root: StoryNode },
-  root: LoomRoot<TRootMeta>,
-): LoomSnapshot<TextPayload, TRootMeta> {
-  const nodes: LoomNode<TextPayload>[] = [];
+  loom: LoomInfo<TLoomMeta>,
+): LoomSnapshot<TextPayload, TLoomMeta> {
+  const turns: Turn<TextPayload>[] = [];
 
-  const visit = (node: StoryNode, parentId: LoomNodeId | null) => {
-    nodes.push({
+  const visit = (node: StoryNode, parentId: TurnId | null) => {
+    turns.push({
       id: node.id,
-      rootId: root.id,
+      loomId: loom.id,
       parentId,
       payload: { text: node.text },
-      createdAt: root.createdAt,
+      createdAt: loom.createdAt,
     });
 
     for (const child of node.continuations ?? []) {
@@ -58,5 +58,5 @@ export function snapshotFromNestedStory<TRootMeta = unknown>(
     visit(child, null);
   }
 
-  return { root, nodes };
+  return { loom, turns };
 }

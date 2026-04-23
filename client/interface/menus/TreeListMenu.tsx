@@ -60,7 +60,7 @@ const LinkIcon = () => (
  *   row 0 — Sort pick (Recent / A→Z / Z→A)
  *   row 1 — + New Story action
  *   row 2+ — each existing story as an action row whose trailing slot
- *            carries sub-actions (copy link / export JSON / export thread)
+ *            carries sub-actions (copy links / export JSON / export thread)
  * The cursor is (rowIndex, columnIndex) — column 0 is the story body,
  * columns 1+ are the sub-actions in order.
  */
@@ -74,6 +74,7 @@ export const TreeListMenu = ({
   onSelect,
   onNew,
   onShareStory,
+  onShareThread,
   onShareIndex,
   onExportJson,
   onExportThread,
@@ -81,13 +82,17 @@ export const TreeListMenu = ({
 }: TreeListProps) => {
   const orderedKeys = orderKeysByStorySort(trees, sortOrder);
   const hasShare = Boolean(onShareStory);
+  const hasThreadShare = Boolean(onShareThread);
   const hasIndexShare = Boolean(onShareIndex);
   const hasJson = Boolean(onExportJson);
   const hasThread = Boolean(onExportThread);
   const shareColumn = hasShare ? 1 : -1;
-  const jsonColumn = hasJson ? 1 + (hasShare ? 1 : 0) : -1;
+  const threadShareColumn = hasThreadShare ? 1 + (hasShare ? 1 : 0) : -1;
+  const jsonColumn = hasJson
+    ? 1 + (hasShare ? 1 : 0) + (hasThreadShare ? 1 : 0)
+    : -1;
   const threadColumn = hasThread
-    ? 1 + (hasShare ? 1 : 0) + (hasJson ? 1 : 0)
+    ? 1 + (hasShare ? 1 : 0) + (hasThreadShare ? 1 : 0) + (hasJson ? 1 : 0)
     : -1;
 
   return (
@@ -144,6 +149,10 @@ export const TreeListMenu = ({
           hasShare &&
           selectedIndex === rowIndex &&
           selectedColumn === shareColumn;
+        const threadShareSelected =
+          hasThreadShare &&
+          selectedIndex === rowIndex &&
+          selectedColumn === threadShareColumn;
         const jsonSelected =
           hasJson &&
           selectedIndex === rowIndex &&
@@ -154,7 +163,7 @@ export const TreeListMenu = ({
           selectedColumn === threadColumn;
 
         const trailing =
-          hasShare || hasJson || hasThread ? (
+          hasShare || hasThreadShare || hasJson || hasThread ? (
             <div className="story-action-cluster" role="group">
               {hasShare ? (
                 <button
@@ -167,6 +176,23 @@ export const TreeListMenu = ({
                     onHighlight?.(rowIndex, shareColumn);
                   }}
                   onFocus={() => onHighlight?.(rowIndex, shareColumn)}
+                >
+                  <LinkIcon />
+                </button>
+              ) : null}
+              {hasThreadShare ? (
+                <button
+                  type="button"
+                  className={`story-action${
+                    threadShareSelected ? " selected" : ""
+                  }`}
+                  aria-label="Copy current thread link"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onShareThread?.(key);
+                    onHighlight?.(rowIndex, threadShareColumn);
+                  }}
+                  onFocus={() => onHighlight?.(rowIndex, threadShareColumn)}
                 >
                   <LinkIcon />
                 </button>

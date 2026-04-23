@@ -1,5 +1,6 @@
 import { DocHandle, Repo, type AutomergeUrl } from "@automerge/automerge-repo";
-import { LoomError, type LoomRootId } from "../../core/src/index";
+import { LoomError, duplicateLoomId, loomRef, unknownIndex } from "../../core/src/index";
+import type { IndexId, LoomId, LoomReference } from "../../core/src/index";
 import type {
   LoomIndex,
   LoomIndexEntry,
@@ -7,7 +8,6 @@ import type {
   LoomIndexEntryPatch,
   LoomIndexes,
   LoomIndexEvent,
-  LoomIndexId,
   LoomIndexInfo,
   LoomIndexListener,
   LoomIndexSnapshot,
@@ -16,8 +16,8 @@ import type {
 type IndexDoc<TEntryMeta, TIndexMeta> = {
   version: 1;
   index: LoomIndexInfo<TIndexMeta>;
-  entries: Record<LoomRootId, LoomIndexEntry<TEntryMeta>>;
-  order: LoomRootId[];
+  entries: Record<LoomId, LoomIndexEntry<TEntryMeta>>;
+  order: LoomId[];
 };
 
 export interface AutomergeLoomIndexesOptions {
@@ -33,12 +33,12 @@ export function createAutomergeLoomIndexes<
   const now = options.now ?? (() => Date.now());
 
   return {
-    async createIndex(meta) {
+    async create(meta) {
       assertJsonEncodable(meta, "index meta");
       const handle = repo.create<IndexDoc<TEntryMeta, TIndexMeta>>({
         version: 1,
         index: {
-          id: "" as LoomIndexId,
+          id: "" as IndexId,
           ...(meta === undefined ? {} : { meta: cloneJson(meta) }),
           createdAt: now(),
         },
@@ -51,7 +51,7 @@ export function createAutomergeLoomIndexes<
       return new AutomergeLoomIndex(handle.url, handle, now);
     },
 
-    async openIndex(indexId) {
+    async open(indexId) {
       let handle: DocHandle<IndexDoc<TEntryMeta, TIndexMeta>>;
       try {
         handle = await repo.find<IndexDoc<TEntryMeta, TIndexMeta>>(
@@ -59,17 +59,17 @@ export function createAutomergeLoomIndexes<
         );
         await handle.whenReady();
       } catch {
-        throw new LoomError("UNKNOWN_ROOT", `Unknown index: ${indexId}`);
+        throw unknownIndex(indexId);
       }
       return new AutomergeLoomIndex(indexId, handle, now);
     },
 
-    async importIndex(snapshot) {
+    async import(snapshot) {
       validateSnapshot(snapshot);
       const handle = repo.create<IndexDoc<TEntryMeta, TIndexMeta>>({
         version: 1,
         index: {
-          id: "" as LoomIndexId,
+          id: "" as IndexId,
           ...(snapshot.index.meta === undefined
             ? {}
             : { meta: cloneJson(snapshot.index.meta) }),
@@ -81,8 +81,8 @@ export function createAutomergeLoomIndexes<
       handle.change((doc) => {
         doc.index.id = handle.url;
         for (const entry of snapshot.entries) {
-          doc.entries[entry.rootId] = cloneJson(entry);
-          doc.order.push(entry.rootId);
+          doc.entries[entry.ref.loomId] = cloneJson(entry);
+          doc.order.push(entry.ref.loomId);
         }
       });
       return new AutomergeLoomIndex(handle.url, handle, now);
@@ -95,26 +95,26 @@ class AutomergeLoomIndex<TEntryMeta, TIndexMeta>
 {
   private closed = false;
   private listeners = new Set<LoomIndexListener<TEntryMeta, TIndexMeta>>();
-  private knownRootIds: Set<LoomRootId>;
+  private knownLoomIds: Set<LoomId>;
 
   constructor(
-    readonly id: LoomIndexId,
+    readonly id: IndexId,
     private readonly handle: DocHandle<IndexDoc<TEntryMeta, TIndexMeta>>,
     private readonly now: () => number,
   ) {
-    this.knownRootIds = new Set(Object.keys(this.handle.doc().entries ?? {}));
+    this.knownLoomIds = new Set(Object.keys(this.handle.doc().entries ?? {}));
     this.handle.on("change", ({ doc }) => {
       const current = new Set(Object.keys(doc.entries ?? {}));
-      for (const rootId of current) {
-        if (!this.knownRootIds.has(rootId)) {
-          const entry = doc.entries[rootId];
+      for (const loomId of current) {
+        if (!this.knownLoomIds.has(loomId)) {
+          const entry = doc.entries[loomId];
           if (entry) this.emit({ type: "entry-added", indexId: this.id, entry: cloneJson(entry) });
         }
       }
-      for (const rootId of this.knownRootIds) {
-        if (!current.has(rootId)) this.emit({ type: "entry-removed", indexId: this.id, rootId });
+      for (const loomId of this.knownLoomIds) {
+        if (!current.has(loomId)) this.emit({ type: "entry-removed", indexId: this.id, loomId });
       }
-      this.knownRootIds = current;
+      this.knownLoomIds = current;
     });
   }
 
@@ -123,7 +123,7 @@ class AutomergeLoomIndex<TEntryMeta, TIndexMeta>
     return cloneJson(this.doc().index);
   }
 
-  async updateInfoMeta(meta: TIndexMeta): Promise<LoomIndexInfo<TIndexMeta>> {
+  async updateMeta(meta: TIndexMeta): Promise<LoomIndexInfo<TIndexMeta>> {
     this.assertOpen();
     assertJsonEncodable(meta, "index meta");
     this.handle.change((doc) => {
@@ -137,81 +137,80 @@ class AutomergeLoomIndex<TEntryMeta, TIndexMeta>
   async entries(): Promise<LoomIndexEntry<TEntryMeta>[]> {
     this.assertOpen();
     const doc = this.doc();
-    return doc.order.map((rootId) => {
-      const entry = doc.entries[rootId];
-      if (!entry) throw new LoomError("BROKEN_TOPOLOGY", `Index order references missing root: ${rootId}`);
+    return doc.order.map((loomId) => {
+      const entry = doc.entries[loomId];
+      if (!entry) throw new LoomError("BROKEN_TOPOLOGY", `Index order references missing loom: ${loomId}`);
       return cloneJson(entry);
     });
   }
 
-  async get(rootId: LoomRootId): Promise<LoomIndexEntry<TEntryMeta> | null> {
+  async get(loomId: LoomId): Promise<LoomIndexEntry<TEntryMeta> | null> {
     this.assertOpen();
-    const entry = this.doc().entries[rootId];
+    const entry = this.doc().entries[loomId];
     return entry ? cloneJson(entry) : null;
   }
 
-  async has(rootId: LoomRootId): Promise<boolean> {
+  async has(loomId: LoomId): Promise<boolean> {
     this.assertOpen();
-    return Boolean(this.doc().entries[rootId]);
+    return Boolean(this.doc().entries[loomId]);
   }
 
-  async addRoot(
-    rootId: LoomRootId,
+  async addLoom(
+    ref: Extract<LoomReference, { kind: "loom" }>,
     input: LoomIndexEntryInput<TEntryMeta> = {},
   ): Promise<LoomIndexEntry<TEntryMeta>> {
     this.assertOpen();
     assertJsonEncodable(input, "index entry");
-    if (this.doc().entries[rootId]) {
-      throw new LoomError("DUPLICATE_NODE_ID", `Index already contains root: ${rootId}`);
+    if (this.doc().entries[ref.loomId]) {
+      throw duplicateLoomId(ref.loomId);
     }
-
     const entry = omitUndefined({
-      rootId,
+      ref: loomRef(ref.loomId),
       title: input.title,
       kind: input.kind,
       meta: cloneJson(input.meta),
       addedAt: this.now(),
       updatedAt: input.updatedAt,
     }) as LoomIndexEntry<TEntryMeta>;
-
     this.handle.change((doc) => {
-      doc.entries[rootId] = entry;
-      doc.order.push(rootId);
+      doc.entries[ref.loomId] = entry;
+      doc.order.push(ref.loomId);
     });
-
+    this.emit({ type: "entry-added", indexId: this.id, entry });
     return cloneJson(entry);
   }
 
-  async updateRoot(
-    rootId: LoomRootId,
+  async updateLoom(
+    loomId: LoomId,
     patch: LoomIndexEntryPatch<TEntryMeta>,
   ): Promise<LoomIndexEntry<TEntryMeta>> {
     this.assertOpen();
     assertJsonEncodable(patch, "index entry patch");
-    const existing = this.doc().entries[rootId];
-    if (!existing) throw new LoomError("UNKNOWN_ROOT", `Index does not contain root: ${rootId}`);
-
+    const existing = this.doc().entries[loomId];
+    if (!existing) throw new LoomError("UNKNOWN_LOOM", `Index does not contain loom: ${loomId}`);
     const updated = omitUndefined({
       ...existing,
-      ...cloneJson(patch),
+      ...patch,
+      meta: patch.meta === undefined ? existing.meta : cloneJson(patch.meta),
       updatedAt: patch.updatedAt ?? this.now(),
     }) as LoomIndexEntry<TEntryMeta>;
     this.handle.change((doc) => {
-      doc.entries[rootId] = updated;
+      doc.entries[loomId] = updated;
     });
     const output = cloneJson(updated);
     this.emit({ type: "entry-updated", indexId: this.id, entry: output });
     return output;
   }
 
-  async removeRoot(rootId: LoomRootId): Promise<void> {
+  async removeLoom(loomId: LoomId): Promise<void> {
     this.assertOpen();
-    if (!this.doc().entries[rootId]) return;
+    if (!this.doc().entries[loomId]) return;
     this.handle.change((doc) => {
-      delete doc.entries[rootId];
-      const index = doc.order.indexOf(rootId);
+      delete doc.entries[loomId];
+      const index = doc.order.indexOf(loomId);
       if (index >= 0) doc.order.splice(index, 1);
     });
+    this.emit({ type: "entry-removed", indexId: this.id, loomId });
   }
 
   subscribe(listener: LoomIndexListener<TEntryMeta, TIndexMeta>): () => void {
@@ -248,21 +247,24 @@ class AutomergeLoomIndex<TEntryMeta, TIndexMeta>
 
 function validateSnapshot(snapshot: LoomIndexSnapshot<unknown, unknown>): void {
   assertJsonEncodable(snapshot, "index snapshot");
-  const seen = new Set<LoomRootId>();
+  const seen = new Set<LoomId>();
   for (const entry of snapshot.entries) {
-    if (seen.has(entry.rootId)) {
-      throw new LoomError("DUPLICATE_NODE_ID", `Duplicate index root: ${entry.rootId}`);
+    if (!entry?.ref || entry.ref.kind !== "loom" || typeof entry.ref.loomId !== "string") {
+      throw new LoomError("INVALID_SNAPSHOT", "Every index entry needs a loom reference");
     }
-    seen.add(entry.rootId);
+    if (seen.has(entry.ref.loomId)) {
+      throw duplicateLoomId(entry.ref.loomId);
+    }
+    seen.add(entry.ref.loomId);
   }
 }
 
 function assertJsonEncodable(value: unknown, label: string): void {
+  if (value === undefined) return;
   try {
     JSON.stringify(value);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new TypeError(`${label} must be JSON-encodable: ${reason}`);
+  } catch {
+    throw new LoomError("INVALID_SNAPSHOT", `${label} must be JSON-encodable`);
   }
 }
 

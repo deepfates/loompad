@@ -1,15 +1,13 @@
-import type { LoomRootId } from "../../core/src/index";
-
-export type LoomIndexId = string;
+import type { IndexId, LoomId, LoomReference } from "../../core/src/index";
 
 export interface LoomIndexInfo<TIndexMeta = unknown> {
-  id: LoomIndexId;
+  id: IndexId;
   meta?: TIndexMeta;
   createdAt: number;
 }
 
 export interface LoomIndexEntry<TEntryMeta = unknown> {
-  rootId: LoomRootId;
+  ref: Extract<LoomReference, { kind: "loom" }>;
   title?: string;
   kind?: string;
   meta?: TEntryMeta;
@@ -18,7 +16,7 @@ export interface LoomIndexEntry<TEntryMeta = unknown> {
 }
 
 export type LoomIndexEntryInput<TEntryMeta = unknown> = Partial<
-  Omit<LoomIndexEntry<TEntryMeta>, "rootId" | "addedAt">
+  Omit<LoomIndexEntry<TEntryMeta>, "ref" | "addedAt">
 >;
 
 export type LoomIndexEntryPatch<TEntryMeta = unknown> = Partial<
@@ -31,35 +29,35 @@ export interface LoomIndexSnapshot<TEntryMeta = unknown, TIndexMeta = unknown> {
 }
 
 export type LoomIndexEvent<TEntryMeta, TIndexMeta> =
-  | { type: "entry-added"; indexId: LoomIndexId; entry: LoomIndexEntry<TEntryMeta> }
-  | { type: "entry-updated"; indexId: LoomIndexId; entry: LoomIndexEntry<TEntryMeta> }
-  | { type: "entry-removed"; indexId: LoomIndexId; rootId: LoomRootId }
+  | { type: "entry-added"; indexId: IndexId; entry: LoomIndexEntry<TEntryMeta> }
+  | { type: "entry-updated"; indexId: IndexId; entry: LoomIndexEntry<TEntryMeta> }
+  | { type: "entry-removed"; indexId: IndexId; loomId: LoomId }
   | { type: "index-updated"; index: LoomIndexInfo<TIndexMeta> }
-  | { type: "sync-state"; indexId: LoomIndexId; online: boolean; syncing: boolean };
+  | { type: "sync-state"; indexId: IndexId; online: boolean; syncing: boolean };
 
 export type LoomIndexListener<TEntryMeta, TIndexMeta> = (
   event: LoomIndexEvent<TEntryMeta, TIndexMeta>,
 ) => void;
 
 export interface LoomIndex<TEntryMeta = unknown, TIndexMeta = unknown> {
-  id: LoomIndexId;
+  id: IndexId;
 
   info(): Promise<LoomIndexInfo<TIndexMeta>>;
-  updateInfoMeta(meta: TIndexMeta): Promise<LoomIndexInfo<TIndexMeta>>;
+  updateMeta(meta: TIndexMeta): Promise<LoomIndexInfo<TIndexMeta>>;
 
   entries(): Promise<LoomIndexEntry<TEntryMeta>[]>;
-  get(rootId: LoomRootId): Promise<LoomIndexEntry<TEntryMeta> | null>;
-  has(rootId: LoomRootId): Promise<boolean>;
+  get(loomId: LoomId): Promise<LoomIndexEntry<TEntryMeta> | null>;
+  has(loomId: LoomId): Promise<boolean>;
 
-  addRoot(
-    rootId: LoomRootId,
+  addLoom(
+    ref: Extract<LoomReference, { kind: "loom" }>,
     entry?: LoomIndexEntryInput<TEntryMeta>,
   ): Promise<LoomIndexEntry<TEntryMeta>>;
-  updateRoot(
-    rootId: LoomRootId,
+  updateLoom(
+    loomId: LoomId,
     patch: LoomIndexEntryPatch<TEntryMeta>,
   ): Promise<LoomIndexEntry<TEntryMeta>>;
-  removeRoot(rootId: LoomRootId): Promise<void>;
+  removeLoom(loomId: LoomId): Promise<void>;
 
   subscribe(listener: LoomIndexListener<TEntryMeta, TIndexMeta>): () => void;
   export(): Promise<LoomIndexSnapshot<TEntryMeta, TIndexMeta>>;
@@ -67,9 +65,9 @@ export interface LoomIndex<TEntryMeta = unknown, TIndexMeta = unknown> {
 }
 
 export interface LoomIndexes<TEntryMeta = unknown, TIndexMeta = unknown> {
-  createIndex(meta?: TIndexMeta): Promise<LoomIndex<TEntryMeta, TIndexMeta>>;
-  openIndex(indexId: LoomIndexId): Promise<LoomIndex<TEntryMeta, TIndexMeta>>;
-  importIndex(
+  create(meta?: TIndexMeta): Promise<LoomIndex<TEntryMeta, TIndexMeta>>;
+  open(indexId: IndexId): Promise<LoomIndex<TEntryMeta, TIndexMeta>>;
+  import(
     snapshot: LoomIndexSnapshot<TEntryMeta, TIndexMeta>,
   ): Promise<LoomIndex<TEntryMeta, TIndexMeta>>;
 }

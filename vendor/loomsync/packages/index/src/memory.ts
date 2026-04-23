@@ -1,24 +1,23 @@
-import { LoomError } from "../../core/src/index";
-import type { LoomRootId } from "../../core/src/index";
+import { LoomError, duplicateLoomId, loomRef, unknownIndex } from "../../core/src/index";
+import type { IndexId, LoomId, LoomReference } from "../../core/src/index";
 import type {
+  CreateLoomIndexesOptions,
   LoomIndex,
   LoomIndexEntry,
   LoomIndexEntryInput,
   LoomIndexEntryPatch,
   LoomIndexes,
   LoomIndexEvent,
-  LoomIndexId,
   LoomIndexInfo,
   LoomIndexListener,
   LoomIndexSnapshot,
-  CreateLoomIndexesOptions,
   MemoryLoomIndexesOptions,
 } from "./types.js";
 
 type InternalIndex<TEntryMeta, TIndexMeta> = {
   info: LoomIndexInfo<TIndexMeta>;
-  entries: Map<LoomRootId, LoomIndexEntry<TEntryMeta>>;
-  order: LoomRootId[];
+  entries: Map<LoomId, LoomIndexEntry<TEntryMeta>>;
+  order: LoomId[];
   listeners: Set<LoomIndexListener<TEntryMeta, TIndexMeta>>;
 };
 
@@ -28,7 +27,7 @@ export function createMemoryLoomIndexes<
 >(options: MemoryLoomIndexesOptions = {}): LoomIndexes<TEntryMeta, TIndexMeta> {
   const createId = options.createId ?? (() => crypto.randomUUID());
   const now = options.now ?? (() => Date.now());
-  const indexes = new Map<LoomIndexId, InternalIndex<TEntryMeta, TIndexMeta>>();
+  const indexes = new Map<IndexId, InternalIndex<TEntryMeta, TIndexMeta>>();
 
   const createInternal = (meta?: TIndexMeta): InternalIndex<TEntryMeta, TIndexMeta> => {
     assertJsonEncodable(meta, "index meta");
@@ -45,26 +44,26 @@ export function createMemoryLoomIndexes<
   };
 
   return {
-    async createIndex(meta) {
+    async create(meta) {
       const index = createInternal(meta);
       indexes.set(index.info.id, index);
       return new MemoryLoomIndex(index.info.id, index, now);
     },
 
-    async openIndex(indexId) {
+    async open(indexId) {
       const index = indexes.get(indexId);
-      if (!index) throw new LoomError("UNKNOWN_ROOT", `Unknown index: ${indexId}`);
+      if (!index) throw unknownIndex(indexId);
       return new MemoryLoomIndex(indexId, index, now);
     },
 
-    async importIndex(snapshot) {
+    async import(snapshot) {
       validateSnapshot(snapshot);
       const index = createInternal(snapshot.index.meta);
       index.info.createdAt = snapshot.index.createdAt;
       for (const entry of snapshot.entries) {
         const cloned = cloneJson(entry);
-        index.entries.set(entry.rootId, cloned);
-        index.order.push(entry.rootId);
+        index.entries.set(cloned.ref.loomId, cloned);
+        index.order.push(cloned.ref.loomId);
       }
       indexes.set(index.info.id, index);
       return new MemoryLoomIndex(index.info.id, index, now);
@@ -87,7 +86,7 @@ class MemoryLoomIndex<TEntryMeta, TIndexMeta>
   private closed = false;
 
   constructor(
-    readonly id: LoomIndexId,
+    readonly id: IndexId,
     private readonly index: InternalIndex<TEntryMeta, TIndexMeta>,
     private readonly now: () => number,
   ) {}
@@ -97,7 +96,7 @@ class MemoryLoomIndex<TEntryMeta, TIndexMeta>
     return cloneJson(this.index.info);
   }
 
-  async updateInfoMeta(meta: TIndexMeta): Promise<LoomIndexInfo<TIndexMeta>> {
+  async updateMeta(meta: TIndexMeta): Promise<LoomIndexInfo<TIndexMeta>> {
     this.assertOpen();
     assertJsonEncodable(meta, "index meta");
     this.index.info = omitUndefined({ ...this.index.info, meta: cloneJson(meta) });
@@ -107,75 +106,74 @@ class MemoryLoomIndex<TEntryMeta, TIndexMeta>
 
   async entries(): Promise<LoomIndexEntry<TEntryMeta>[]> {
     this.assertOpen();
-    return this.index.order.map((rootId) => {
-      const entry = this.index.entries.get(rootId);
-      if (!entry) throw new LoomError("BROKEN_TOPOLOGY", `Index order references missing root: ${rootId}`);
+    return this.index.order.map((loomId) => {
+      const entry = this.index.entries.get(loomId);
+      if (!entry) throw new LoomError("BROKEN_TOPOLOGY", `Index order references missing loom: ${loomId}`);
       return cloneJson(entry);
     });
   }
 
-  async get(rootId: LoomRootId): Promise<LoomIndexEntry<TEntryMeta> | null> {
+  async get(loomId: LoomId): Promise<LoomIndexEntry<TEntryMeta> | null> {
     this.assertOpen();
-    const entry = this.index.entries.get(rootId);
+    const entry = this.index.entries.get(loomId);
     return entry ? cloneJson(entry) : null;
   }
 
-  async has(rootId: LoomRootId): Promise<boolean> {
+  async has(loomId: LoomId): Promise<boolean> {
     this.assertOpen();
-    return this.index.entries.has(rootId);
+    return this.index.entries.has(loomId);
   }
 
-  async addRoot(
-    rootId: LoomRootId,
+  async addLoom(
+    ref: Extract<LoomReference, { kind: "loom" }>,
     input: LoomIndexEntryInput<TEntryMeta> = {},
   ): Promise<LoomIndexEntry<TEntryMeta>> {
     this.assertOpen();
     assertJsonEncodable(input, "index entry");
-    if (this.index.entries.has(rootId)) {
-      throw new LoomError("DUPLICATE_NODE_ID", `Index already contains root: ${rootId}`);
+    if (this.index.entries.has(ref.loomId)) {
+      throw duplicateLoomId(ref.loomId);
     }
-
     const entry = omitUndefined({
-      rootId,
+      ref: loomRef(ref.loomId),
       title: input.title,
       kind: input.kind,
       meta: cloneJson(input.meta),
       addedAt: this.now(),
       updatedAt: input.updatedAt,
-    });
-    this.index.entries.set(rootId, entry);
-    this.index.order.push(rootId);
+    }) as LoomIndexEntry<TEntryMeta>;
+    this.index.entries.set(ref.loomId, entry);
+    this.index.order.push(ref.loomId);
     const output = cloneJson(entry);
     this.emit({ type: "entry-added", indexId: this.id, entry: output });
     return output;
   }
 
-  async updateRoot(
-    rootId: LoomRootId,
+  async updateLoom(
+    loomId: LoomId,
     patch: LoomIndexEntryPatch<TEntryMeta>,
   ): Promise<LoomIndexEntry<TEntryMeta>> {
     this.assertOpen();
     assertJsonEncodable(patch, "index entry patch");
-    const existing = this.index.entries.get(rootId);
-    if (!existing) throw new LoomError("UNKNOWN_ROOT", `Index does not contain root: ${rootId}`);
-
+    const existing = this.index.entries.get(loomId);
+    if (!existing) throw new LoomError("UNKNOWN_LOOM", `Index does not contain loom: ${loomId}`);
     const updated = omitUndefined({
       ...existing,
-      ...cloneJson(patch),
+      ...patch,
+      meta: patch.meta === undefined ? existing.meta : cloneJson(patch.meta),
       updatedAt: patch.updatedAt ?? this.now(),
-    });
-    this.index.entries.set(rootId, updated);
+    }) as LoomIndexEntry<TEntryMeta>;
+    this.index.entries.set(loomId, updated);
     const output = cloneJson(updated);
     this.emit({ type: "entry-updated", indexId: this.id, entry: output });
     return output;
   }
 
-  async removeRoot(rootId: LoomRootId): Promise<void> {
+  async removeLoom(loomId: LoomId): Promise<void> {
     this.assertOpen();
-    if (!this.index.entries.has(rootId)) return;
-    this.index.entries.delete(rootId);
-    this.index.order = this.index.order.filter((candidate) => candidate !== rootId);
-    this.emit({ type: "entry-removed", indexId: this.id, rootId });
+    if (!this.index.entries.has(loomId)) return;
+    this.index.entries.delete(loomId);
+    this.index.order = this.index.order.filter((candidate) => candidate !== loomId);
+    this.emit({ type: "entry-removed", indexId: this.id, loomId });
   }
 
   subscribe(listener: LoomIndexListener<TEntryMeta, TIndexMeta>): () => void {
@@ -196,7 +194,7 @@ class MemoryLoomIndex<TEntryMeta, TIndexMeta>
     this.closed = true;
   }
 
-  private assertOpen(): void {
+  private assertOpen() {
     if (this.closed) throw new LoomError("CLOSED_HANDLE", "This loom index handle is closed");
   }
 
@@ -216,35 +214,34 @@ function validateSnapshot(snapshot: LoomIndexSnapshot<unknown, unknown>): void {
     throw new LoomError("INVALID_SNAPSHOT", "Index snapshot entries must be an array");
   }
   assertJsonEncodable(snapshot, "index snapshot");
-
-  const seen = new Set<LoomRootId>();
+  const seen = new Set<LoomId>();
   for (const entry of snapshot.entries) {
-    if (!entry || typeof entry.rootId !== "string") {
-      throw new LoomError("INVALID_SNAPSHOT", "Every index entry needs a rootId");
+    if (!entry?.ref || entry.ref.kind !== "loom" || typeof entry.ref.loomId !== "string") {
+      throw new LoomError("INVALID_SNAPSHOT", "Every index entry needs a loom reference");
     }
-    if (seen.has(entry.rootId)) {
-      throw new LoomError("DUPLICATE_NODE_ID", `Duplicate index root: ${entry.rootId}`);
+    if (seen.has(entry.ref.loomId)) {
+      throw duplicateLoomId(entry.ref.loomId);
     }
-    seen.add(entry.rootId);
+    seen.add(entry.ref.loomId);
   }
-}
-
-function assertJsonEncodable(value: unknown, label: string): void {
-  try {
-    JSON.stringify(value);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new TypeError(`${label} must be JSON-encodable: ${reason}`);
-  }
-}
-
-function cloneJson<T>(value: T): T {
-  if (value === undefined) return value;
-  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function omitUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
   ) as T;
+}
+
+function assertJsonEncodable(value: unknown, label: string): void {
+  if (value === undefined) return;
+  try {
+    JSON.stringify(value);
+  } catch {
+    throw new LoomError("INVALID_SNAPSHOT", `${label} must be JSON-encodable`);
+  }
+}
+
+function cloneJson<T>(value: T): T {
+  if (value === undefined) return value;
+  return JSON.parse(JSON.stringify(value)) as T;
 }

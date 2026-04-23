@@ -1,17 +1,17 @@
+import type { LoomReference } from "../../core/src/index";
 import type {
   LoomIndex,
   LoomIndexEntry,
   LoomIndexEntryInput,
 } from "./types.js";
-import type { LoomRootId } from "../../core/src/index";
 
-export async function upsertRoot<TEntryMeta, TIndexMeta>(
+export async function upsertLoom<TEntryMeta, TIndexMeta>(
   index: LoomIndex<TEntryMeta, TIndexMeta>,
-  rootId: LoomRootId,
+  ref: Extract<LoomReference, { kind: "loom" }>,
   entry: LoomIndexEntryInput<TEntryMeta> = {},
 ): Promise<LoomIndexEntry<TEntryMeta>> {
-  if (await index.has(rootId)) {
-    return index.updateRoot(rootId, entry);
+  if (await index.has(ref.loomId)) {
+    return index.updateLoom(ref.loomId, entry);
   }
-  return index.addRoot(rootId, entry);
+  return index.addLoom(ref, entry);
 }

@@ -1,15 +1,15 @@
 # LoomSync
 
-LoomSync is a TypeScript workspace for local-first branching worlds.
+LoomSync is a TypeScript workspace for local-first addressable looms.
 
 ## Packages
 
-- `@loomsync/core`: one append-only rooted branching world.
-- `@loomsync/index`: an index document that links to many worlds.
-- `@loomsync/text`: helpers for text payload worlds.
+- `@loomsync/core`: append-only looms, turns, threads, and references.
+- `@loomsync/index`: an index document that links to many looms.
+- `@loomsync/text`: helpers for text payload looms.
 
-The current implementation includes in-memory backends and shared interfaces. The
-Automerge-backed backend is the next implementation target.
+The implementation includes in-memory and Automerge-backed looms and indexes,
+with browser persistence and sync helpers for local-first apps.
 
 ## Browser Bundling
 
@@ -27,17 +27,17 @@ export default defineConfig({
 Packages expose subpaths so apps can import only the surface they need:
 
 ```ts
-import { createAutomergeLoomWorlds } from "@loomsync/core/automerge";
-import type { LoomWorld } from "@loomsync/core/types";
+import { createAutomergeLooms } from "@loomsync/core/automerge";
+import type { Loom } from "@loomsync/core/types";
 ```
 
-If a browser app needs both worlds and indexes on one shared Automerge repo,
-`@loomsync/index/browser` provides a turnkey runtime helper:
+If a browser app needs looms, indexes, references, and one shared Automerge repo,
+`@loomsync/index/browser` provides a turnkey client:
 
 ```ts
-import { createBrowserAutomergeLoomRuntime } from "@loomsync/index/browser";
+import { createBrowserLoomClient } from "@loomsync/index/browser";
 
-const runtime = createBrowserAutomergeLoomRuntime({
+const client = createBrowserLoomClient({
   browser: {
     indexedDb: { database: "my-app", store: "documents" },
     broadcastChannel: { channelName: "my-app" },
@@ -45,8 +45,11 @@ const runtime = createBrowserAutomergeLoomRuntime({
   },
 });
 
-const worlds = runtime.worlds;
-const indexes = runtime.indexes;
+const info = await client.looms.create({ title: "Story 1" });
+const loom = await client.looms.open(info.id);
+const first = await loom.appendTurn(null, { text: "Once" });
+const ref = client.references.thread(info.id, first.id);
+const url = client.references.toUrl(ref, window.location);
 ```
 
 ## Development

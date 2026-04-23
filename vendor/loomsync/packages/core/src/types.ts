@@ -1,97 +1,104 @@
-export type LoomRootId = string;
-export type LoomNodeId = string;
+export type LoomId = string;
+export type TurnId = string;
+export type IndexId = string;
 
-export interface LoomRoot<TRootMeta = unknown> {
-  id: LoomRootId;
-  meta?: TRootMeta;
+export interface LoomInfo<TMeta = unknown> {
+  id: LoomId;
+  meta?: TMeta;
   createdAt: number;
 }
 
-export interface LoomNode<TPayload = unknown, TNodeMeta = unknown> {
-  id: LoomNodeId;
-  rootId: LoomRootId;
-  parentId: LoomNodeId | null;
+export interface Turn<TPayload = unknown, TMeta = unknown> {
+  id: TurnId;
+  loomId: LoomId;
+  parentId: TurnId | null;
   payload: TPayload;
-  meta?: TNodeMeta;
+  meta?: TMeta;
   createdAt: number;
 }
 
 export interface LoomSnapshot<
   TPayload = unknown,
-  TRootMeta = unknown,
-  TNodeMeta = unknown,
+  TLoomMeta = unknown,
+  TTurnMeta = unknown,
 > {
-  root: LoomRoot<TRootMeta>;
-  nodes: LoomNode<TPayload, TNodeMeta>[];
+  loom: LoomInfo<TLoomMeta>;
+  turns: Turn<TPayload, TTurnMeta>[];
 }
 
-export type LoomWorldEvent<TPayload, TRootMeta, TNodeMeta> =
+export type LoomReference =
+  | { v: 1; kind: "loom"; loomId: LoomId }
+  | { v: 1; kind: "turn"; loomId: LoomId; turnId: TurnId }
+  | { v: 1; kind: "thread"; loomId: LoomId; turnId: TurnId }
+  | { v: 1; kind: "index"; indexId: IndexId };
+
+export type LoomEvent<TPayload, TLoomMeta, TTurnMeta> =
   | {
-      type: "node-added";
-      rootId: LoomRootId;
-      node: LoomNode<TPayload, TNodeMeta>;
+      type: "turn-added";
+      loomId: LoomId;
+      turn: Turn<TPayload, TTurnMeta>;
     }
   | {
-      type: "root-updated";
-      root: LoomRoot<TRootMeta>;
+      type: "loom-updated";
+      loom: LoomInfo<TLoomMeta>;
     }
   | {
       type: "sync-state";
-      rootId: LoomRootId;
+      loomId: LoomId;
       online: boolean;
       syncing: boolean;
     };
 
-export type LoomWorldListener<TPayload, TRootMeta, TNodeMeta> = (
-  event: LoomWorldEvent<TPayload, TRootMeta, TNodeMeta>,
+export type LoomListener<TPayload, TLoomMeta, TTurnMeta> = (
+  event: LoomEvent<TPayload, TLoomMeta, TTurnMeta>,
 ) => void;
 
-export interface LoomWorld<
+export interface Loom<
   TPayload = unknown,
-  TRootMeta = unknown,
-  TNodeMeta = unknown,
+  TLoomMeta = unknown,
+  TTurnMeta = unknown,
 > {
-  id: LoomRootId;
+  id: LoomId;
 
-  root(): Promise<LoomRoot<TRootMeta>>;
-  updateRootMeta(meta: TRootMeta): Promise<LoomRoot<TRootMeta>>;
+  info(): Promise<LoomInfo<TLoomMeta>>;
+  updateMeta(meta: TLoomMeta): Promise<LoomInfo<TLoomMeta>>;
 
-  appendAfter(
-    parentId: LoomNodeId | null,
+  appendTurn(
+    parentId: TurnId | null,
     payload: TPayload,
-    meta?: TNodeMeta,
-  ): Promise<LoomNode<TPayload, TNodeMeta>>;
+    meta?: TTurnMeta,
+  ): Promise<Turn<TPayload, TTurnMeta>>;
 
-  getNode(nodeId: LoomNodeId): Promise<LoomNode<TPayload, TNodeMeta> | null>;
-  hasNode(nodeId: LoomNodeId): Promise<boolean>;
+  getTurn(turnId: TurnId): Promise<Turn<TPayload, TTurnMeta> | null>;
+  hasTurn(turnId: TurnId): Promise<boolean>;
 
-  childrenOf(parentId: LoomNodeId | null): Promise<LoomNode<TPayload, TNodeMeta>[]>;
-  pathTo(nodeId: LoomNodeId): Promise<LoomNode<TPayload, TNodeMeta>[]>;
-  leaves(): Promise<LoomNode<TPayload, TNodeMeta>[]>;
+  childrenOf(parentId: TurnId | null): Promise<Turn<TPayload, TTurnMeta>[]>;
+  threadTo(turnId: TurnId): Promise<Turn<TPayload, TTurnMeta>[]>;
+  leaves(): Promise<Turn<TPayload, TTurnMeta>[]>;
 
-  subscribe(listener: LoomWorldListener<TPayload, TRootMeta, TNodeMeta>): () => void;
-  export(): Promise<LoomSnapshot<TPayload, TRootMeta, TNodeMeta>>;
+  subscribe(listener: LoomListener<TPayload, TLoomMeta, TTurnMeta>): () => void;
+  export(): Promise<LoomSnapshot<TPayload, TLoomMeta, TTurnMeta>>;
   close(): void;
 }
 
-export interface LoomWorlds<
+export interface Looms<
   TPayload = unknown,
-  TRootMeta = unknown,
-  TNodeMeta = unknown,
+  TLoomMeta = unknown,
+  TTurnMeta = unknown,
 > {
-  createRoot(meta?: TRootMeta): Promise<LoomRoot<TRootMeta>>;
-  getRoot(rootId: LoomRootId): Promise<LoomRoot<TRootMeta> | null>;
-  openRoot(rootId: LoomRootId): Promise<LoomWorld<TPayload, TRootMeta, TNodeMeta>>;
-  importRoot(
-    snapshot: LoomSnapshot<TPayload, TRootMeta, TNodeMeta>,
-  ): Promise<LoomRoot<TRootMeta>>;
+  create(meta?: TLoomMeta): Promise<LoomInfo<TLoomMeta>>;
+  get(loomId: LoomId): Promise<LoomInfo<TLoomMeta> | null>;
+  open(loomId: LoomId): Promise<Loom<TPayload, TLoomMeta, TTurnMeta>>;
+  import(
+    snapshot: LoomSnapshot<TPayload, TLoomMeta, TTurnMeta>,
+  ): Promise<LoomInfo<TLoomMeta>>;
 }
 
-export interface MemoryLoomWorldsOptions {
+export interface MemoryLoomsOptions {
   createId?: () => string;
   now?: () => number;
 }
 
-export interface CreateLoomWorldsOptions extends MemoryLoomWorldsOptions {
+export interface CreateLoomsOptions extends MemoryLoomsOptions {
   backend?: "memory";
 }

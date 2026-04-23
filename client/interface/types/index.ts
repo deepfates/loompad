@@ -51,6 +51,7 @@ export interface TreeListProps {
   onDelete?: (key: string) => void;
   onNew?: () => void;
   onShareStory?: (key: string) => void;
+  onShareThread?: (key: string) => void;
   onShareIndex?: () => void;
   onExportJson?: (key: string) => void;
   onExportThread?: (key: string) => void;

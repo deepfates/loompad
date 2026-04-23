@@ -1,7 +1,7 @@
 {
   "name": "@loomsync/text",
-  "version": "0.1.0",
-  "description": "Text helpers for LoomSync branching worlds.",
+  "version": "0.2.0",
+  "description": "Text helpers for LoomSync looms.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,

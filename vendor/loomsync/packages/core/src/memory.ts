@@ -2,229 +2,227 @@ import {
   brokenTopology,
   closedHandle,
   cycleDetected,
-  duplicateNodeId,
+  duplicateTurnId,
   invalidSnapshot,
   missingParent,
-  unknownRoot,
+  unknownLoom,
 } from "./errors.js";
 import { assertJsonEncodable, cloneJson } from "./json.js";
 import type {
-  LoomNode,
-  LoomNodeId,
-  LoomRoot,
-  LoomRootId,
+  CreateLoomsOptions,
+  Loom,
+  LoomEvent,
+  LoomId,
+  LoomInfo,
+  LoomListener,
+  Looms,
   LoomSnapshot,
-  LoomWorld,
-  LoomWorldEvent,
-  LoomWorldListener,
-  LoomWorlds,
-  CreateLoomWorldsOptions,
-  MemoryLoomWorldsOptions,
+  MemoryLoomsOptions,
+  Turn,
+  TurnId,
 } from "./types.js";
 
 const ROOT_CHILDREN_KEY = "__root__";
 
-type InternalDoc<TPayload, TRootMeta, TNodeMeta> = {
-  root: LoomRoot<TRootMeta>;
-  nodes: Map<LoomNodeId, LoomNode<TPayload, TNodeMeta>>;
-  children: Map<string, LoomNodeId[]>;
-  listeners: Set<LoomWorldListener<TPayload, TRootMeta, TNodeMeta>>;
+type InternalDoc<TPayload, TLoomMeta, TTurnMeta> = {
+  loom: LoomInfo<TLoomMeta>;
+  turns: Map<TurnId, Turn<TPayload, TTurnMeta>>;
+  children: Map<string, TurnId[]>;
+  listeners: Set<LoomListener<TPayload, TLoomMeta, TTurnMeta>>;
 };
 
-export function createMemoryLoomWorlds<
+export function createMemoryLooms<
   TPayload = unknown,
-  TRootMeta = unknown,
-  TNodeMeta = unknown,
->(options: MemoryLoomWorldsOptions = {}): LoomWorlds<TPayload, TRootMeta, TNodeMeta> {
+  TLoomMeta = unknown,
+  TTurnMeta = unknown,
+>(options: MemoryLoomsOptions = {}): Looms<TPayload, TLoomMeta, TTurnMeta> {
   const createId = options.createId ?? (() => crypto.randomUUID());
   const now = options.now ?? (() => Date.now());
-  const docs = new Map<LoomRootId, InternalDoc<TPayload, TRootMeta, TNodeMeta>>();
+  const docs = new Map<LoomId, InternalDoc<TPayload, TLoomMeta, TTurnMeta>>();
 
-  const createDoc = (meta?: TRootMeta): InternalDoc<TPayload, TRootMeta, TNodeMeta> => {
-    assertJsonEncodable(meta, "root meta");
+  const createDoc = (meta?: TLoomMeta): InternalDoc<TPayload, TLoomMeta, TTurnMeta> => {
+    assertJsonEncodable(meta, "loom meta");
     const id = `memory:${createId()}`;
-    const root = omitUndefined({
+    const loom = omitUndefined({
       id,
       meta: cloneJson(meta),
       createdAt: now(),
     });
     return {
-      root,
-      nodes: new Map(),
+      loom,
+      turns: new Map(),
       children: new Map([[ROOT_CHILDREN_KEY, []]]),
       listeners: new Set(),
     };
   };
 
   return {
-    async createRoot(meta) {
+    async create(meta) {
       const doc = createDoc(meta);
-      docs.set(doc.root.id, doc);
-      return cloneJson(doc.root);
+      docs.set(doc.loom.id, doc);
+      return cloneJson(doc.loom);
     },
 
-    async getRoot(rootId) {
-      const doc = docs.get(rootId);
-      return doc ? cloneJson(doc.root) : null;
+    async get(loomId) {
+      const doc = docs.get(loomId);
+      return doc ? cloneJson(doc.loom) : null;
     },
 
-    async openRoot(rootId) {
-      const doc = docs.get(rootId);
-      if (!doc) throw unknownRoot(rootId);
-      return new MemoryLoomWorld(rootId, doc, createId, now);
+    async open(loomId) {
+      const doc = docs.get(loomId);
+      if (!doc) throw unknownLoom(loomId);
+      return new MemoryLoom(loomId, doc, createId, now);
     },
 
-    async importRoot(snapshot) {
+    async import(snapshot) {
       validateSnapshot(snapshot);
-      const doc = createDoc(snapshot.root.meta);
-      doc.root.createdAt = snapshot.root.createdAt;
+      const doc = createDoc(snapshot.loom.meta);
+      doc.loom.createdAt = snapshot.loom.createdAt;
 
-      for (const imported of snapshot.nodes) {
-        const node = omitUndefined({
+      for (const imported of snapshot.turns) {
+        const turn = omitUndefined({
           ...cloneJson(imported),
-          rootId: doc.root.id,
+          loomId: doc.loom.id,
         });
-        doc.nodes.set(node.id, node);
-        const parentKey = parentKeyOf(node.parentId);
+        doc.turns.set(turn.id, turn);
+        const parentKey = parentKeyOf(turn.parentId);
         const siblings = doc.children.get(parentKey) ?? [];
-        siblings.push(node.id);
+        siblings.push(turn.id);
         doc.children.set(parentKey, siblings);
-        if (!doc.children.has(node.id)) doc.children.set(node.id, []);
+        if (!doc.children.has(turn.id)) doc.children.set(turn.id, []);
       }
 
-      docs.set(doc.root.id, doc);
-      return cloneJson(doc.root);
+      docs.set(doc.loom.id, doc);
+      return cloneJson(doc.loom);
     },
   };
 }
 
-export function createLoomWorlds<
+export function createLooms<
   TPayload = unknown,
-  TRootMeta = unknown,
-  TNodeMeta = unknown,
+  TLoomMeta = unknown,
+  TTurnMeta = unknown,
 >(
-  options: CreateLoomWorldsOptions = {},
-): LoomWorlds<TPayload, TRootMeta, TNodeMeta> {
+  options: CreateLoomsOptions = {},
+): Looms<TPayload, TLoomMeta, TTurnMeta> {
   if (options.backend && options.backend !== "memory") {
     throw new Error(`Unsupported LoomSync backend: ${options.backend}`);
   }
-  return createMemoryLoomWorlds<TPayload, TRootMeta, TNodeMeta>(options);
+  return createMemoryLooms<TPayload, TLoomMeta, TTurnMeta>(options);
 }
 
-class MemoryLoomWorld<TPayload, TRootMeta, TNodeMeta>
-  implements LoomWorld<TPayload, TRootMeta, TNodeMeta>
+class MemoryLoom<TPayload, TLoomMeta, TTurnMeta>
+  implements Loom<TPayload, TLoomMeta, TTurnMeta>
 {
   private closed = false;
 
   constructor(
-    readonly id: LoomRootId,
-    private readonly doc: InternalDoc<TPayload, TRootMeta, TNodeMeta>,
+    readonly id: LoomId,
+    private readonly doc: InternalDoc<TPayload, TLoomMeta, TTurnMeta>,
     private readonly createId: () => string,
     private readonly now: () => number,
   ) {}
 
-  async root(): Promise<LoomRoot<TRootMeta>> {
+  async info(): Promise<LoomInfo<TLoomMeta>> {
     this.assertOpen();
-    return cloneJson(this.doc.root);
+    return cloneJson(this.doc.loom);
   }
 
-  async updateRootMeta(meta: TRootMeta): Promise<LoomRoot<TRootMeta>> {
+  async updateMeta(meta: TLoomMeta): Promise<LoomInfo<TLoomMeta>> {
     this.assertOpen();
-    assertJsonEncodable(meta, "root meta");
-    this.doc.root = omitUndefined({
-      ...this.doc.root,
+    assertJsonEncodable(meta, "loom meta");
+    this.doc.loom = omitUndefined({
+      ...this.doc.loom,
       meta: cloneJson(meta),
     });
-    this.emit({ type: "root-updated", root: cloneJson(this.doc.root) });
-    return cloneJson(this.doc.root);
+    this.emit({ type: "loom-updated", loom: cloneJson(this.doc.loom) });
+    return cloneJson(this.doc.loom);
   }
 
-  async appendAfter(
-    parentId: LoomNodeId | null,
+  async appendTurn(
+    parentId: TurnId | null,
     payload: TPayload,
-    meta?: TNodeMeta,
-  ): Promise<LoomNode<TPayload, TNodeMeta>> {
+    meta?: TTurnMeta,
+  ): Promise<Turn<TPayload, TTurnMeta>> {
     this.assertOpen();
-    assertJsonEncodable(payload, "node payload");
-    assertJsonEncodable(meta, "node meta");
-    if (parentId !== null && !this.doc.nodes.has(parentId)) throw missingParent(parentId);
+    assertJsonEncodable(payload, "turn payload");
+    assertJsonEncodable(meta, "turn meta");
+    if (parentId !== null && !this.doc.turns.has(parentId)) throw missingParent(parentId);
 
-    const nodeId = this.createId();
-    if (nodeId === ROOT_CHILDREN_KEY) throw duplicateNodeId(nodeId);
-    if (this.doc.nodes.has(nodeId)) throw duplicateNodeId(nodeId);
+    const turnId = this.createId();
+    if (turnId === ROOT_CHILDREN_KEY) throw duplicateTurnId(turnId);
+    if (this.doc.turns.has(turnId)) throw duplicateTurnId(turnId);
 
-    const node = omitUndefined({
-      id: nodeId,
-      rootId: this.id,
+    const turn = omitUndefined({
+      id: turnId,
+      loomId: this.id,
       parentId,
       payload: cloneJson(payload),
       meta: cloneJson(meta),
       createdAt: this.now(),
     });
 
-    this.doc.nodes.set(node.id, node);
-    if (!this.doc.children.has(node.id)) this.doc.children.set(node.id, []);
+    this.doc.turns.set(turn.id, turn);
+    if (!this.doc.children.has(turn.id)) this.doc.children.set(turn.id, []);
     const key = parentKeyOf(parentId);
     const siblings = this.doc.children.get(key) ?? [];
-    siblings.push(node.id);
+    siblings.push(turn.id);
     this.doc.children.set(key, siblings);
 
-    const output = cloneJson(node);
-    this.emit({ type: "node-added", rootId: this.id, node: output });
+    const output = cloneJson(turn);
+    this.emit({ type: "turn-added", loomId: this.id, turn: output });
     return output;
   }
 
-  async getNode(nodeId: LoomNodeId): Promise<LoomNode<TPayload, TNodeMeta> | null> {
+  async getTurn(turnId: TurnId): Promise<Turn<TPayload, TTurnMeta> | null> {
     this.assertOpen();
-    const node = this.doc.nodes.get(nodeId);
-    return node ? cloneJson(node) : null;
+    const turn = this.doc.turns.get(turnId);
+    return turn ? cloneJson(turn) : null;
   }
 
-  async hasNode(nodeId: LoomNodeId): Promise<boolean> {
+  async hasTurn(turnId: TurnId): Promise<boolean> {
     this.assertOpen();
-    return this.doc.nodes.has(nodeId);
+    return this.doc.turns.has(turnId);
   }
 
-  async childrenOf(parentId: LoomNodeId | null): Promise<LoomNode<TPayload, TNodeMeta>[]> {
+  async childrenOf(parentId: TurnId | null): Promise<Turn<TPayload, TTurnMeta>[]> {
     this.assertOpen();
-    if (parentId !== null && !this.doc.nodes.has(parentId)) throw missingParent(parentId);
+    if (parentId !== null && !this.doc.turns.has(parentId)) throw missingParent(parentId);
     return (this.doc.children.get(parentKeyOf(parentId)) ?? []).map((id) => {
-      const node = this.doc.nodes.get(id);
-      if (!node) throw brokenTopology(`Child list references missing node: ${id}`);
-      return cloneJson(node);
+      const turn = this.doc.turns.get(id);
+      if (!turn) throw brokenTopology(`Child list references missing turn: ${id}`);
+      return cloneJson(turn);
     });
   }
 
-  async pathTo(nodeId: LoomNodeId): Promise<LoomNode<TPayload, TNodeMeta>[]> {
+  async threadTo(turnId: TurnId): Promise<Turn<TPayload, TTurnMeta>[]> {
     this.assertOpen();
-    const path: LoomNode<TPayload, TNodeMeta>[] = [];
-    const seen = new Set<LoomNodeId>();
-    let currentId: LoomNodeId | null = nodeId;
+    const thread: Turn<TPayload, TTurnMeta>[] = [];
+    const seen = new Set<TurnId>();
+    let currentId: TurnId | null = turnId;
 
     while (currentId !== null) {
       if (seen.has(currentId)) throw cycleDetected(currentId);
       seen.add(currentId);
 
-      const node = this.doc.nodes.get(currentId);
-      if (!node) throw brokenTopology(`Path references missing node: ${currentId}`);
-      path.push(node);
-      currentId = node.parentId;
+      const turn = this.doc.turns.get(currentId);
+      if (!turn) throw brokenTopology(`Thread references missing turn: ${currentId}`);
+      thread.push(turn);
+      currentId = turn.parentId;
     }
 
-    return cloneJson(path.reverse());
+    return cloneJson(thread.reverse());
   }
 
-  async leaves(): Promise<LoomNode<TPayload, TNodeMeta>[]> {
+  async leaves(): Promise<Turn<TPayload, TTurnMeta>[]> {
     this.assertOpen();
-    const leaves: LoomNode<TPayload, TNodeMeta>[] = [];
-    const visit = (parentId: LoomNodeId | null) => {
-      const childIds = this.doc.children.get(parentKeyOf(parentId)) ?? [];
-      for (const childId of childIds) {
-        const grandchildren = this.doc.children.get(childId) ?? [];
-        const node = this.doc.nodes.get(childId);
-        if (!node) throw brokenTopology(`Child list references missing node: ${childId}`);
-        if (grandchildren.length === 0) {
-          leaves.push(node);
+    const leaves: Turn<TPayload, TTurnMeta>[] = [];
+    const visit = (parentId: TurnId | null) => {
+      for (const childId of this.doc.children.get(parentKeyOf(parentId)) ?? []) {
+        const turn = this.doc.turns.get(childId);
+        if (!turn) throw brokenTopology(`Child list references missing turn: ${childId}`);
+        if ((this.doc.children.get(childId) ?? []).length === 0) {
+          leaves.push(turn);
         } else {
           visit(childId);
         }
@@ -234,7 +232,7 @@ class MemoryLoomWorld<TPayload, TRootMeta, TNodeMeta>
     return cloneJson(leaves);
   }
 
-  subscribe(listener: LoomWorldListener<TPayload, TRootMeta, TNodeMeta>): () => void {
+  subscribe(listener: LoomListener<TPayload, TLoomMeta, TTurnMeta>): () => void {
     this.assertOpen();
     this.doc.listeners.add(listener);
     return () => {
@@ -242,71 +240,72 @@ class MemoryLoomWorld<TPayload, TRootMeta, TNodeMeta>
     };
   }
 
-  async export(): Promise<LoomSnapshot<TPayload, TRootMeta, TNodeMeta>> {
+  async export(): Promise<LoomSnapshot<TPayload, TLoomMeta, TTurnMeta>> {
     this.assertOpen();
-    const nodes: LoomNode<TPayload, TNodeMeta>[] = [];
-    const visit = (parentId: LoomNodeId | null) => {
+    const turns: Turn<TPayload, TTurnMeta>[] = [];
+    const visit = (parentId: TurnId | null) => {
       for (const childId of this.doc.children.get(parentKeyOf(parentId)) ?? []) {
-        const node = this.doc.nodes.get(childId);
-        if (!node) throw brokenTopology(`Child list references missing node: ${childId}`);
-        nodes.push(node);
+        const turn = this.doc.turns.get(childId);
+        if (!turn) throw brokenTopology(`Child list references missing turn: ${childId}`);
+        turns.push(turn);
         visit(childId);
       }
     };
     visit(null);
-    return cloneJson({ root: this.doc.root, nodes });
+    return cloneJson({ loom: this.doc.loom, turns });
   }
 
   close(): void {
     this.closed = true;
+    this.doc.listeners.delete(this.emit);
   }
 
   private assertOpen() {
     if (this.closed) throw closedHandle();
   }
 
-  private emit(event: LoomWorldEvent<TPayload, TRootMeta, TNodeMeta>) {
+  private emit(event: LoomEvent<TPayload, TLoomMeta, TTurnMeta>) {
     for (const listener of this.doc.listeners) listener(event);
   }
 }
 
 function validateSnapshot(snapshot: LoomSnapshot<unknown, unknown, unknown>): void {
-  if (!snapshot || typeof snapshot !== "object") throw invalidSnapshot("Snapshot must be an object");
-  if (!snapshot.root || typeof snapshot.root.id !== "string") {
-    throw invalidSnapshot("Snapshot root must include a string id");
+  if (!snapshot || typeof snapshot !== "object") {
+    throw invalidSnapshot("Snapshot must be an object");
   }
-  if (!Array.isArray(snapshot.nodes)) throw invalidSnapshot("Snapshot nodes must be an array");
-  assertJsonEncodable(snapshot, "snapshot");
+  if (!snapshot.loom || typeof snapshot.loom.id !== "string") {
+    throw invalidSnapshot("Snapshot needs a loom id");
+  }
+  if (!Array.isArray(snapshot.turns)) throw invalidSnapshot("Snapshot turns must be an array");
+  assertJsonEncodable(snapshot, "loom snapshot");
 
-  const ids = new Set<LoomNodeId>();
-  for (const node of snapshot.nodes) {
-    if (!node || typeof node.id !== "string") throw invalidSnapshot("Every node needs a string id");
-    if (node.id === ROOT_CHILDREN_KEY) throw invalidSnapshot(`${ROOT_CHILDREN_KEY} is reserved`);
-    if (ids.has(node.id)) throw duplicateNodeId(node.id);
-    if (node.rootId !== snapshot.root.id) {
-      throw invalidSnapshot(`Node ${node.id} belongs to ${node.rootId}, expected ${snapshot.root.id}`);
+  const ids = new Set<TurnId>();
+  for (const turn of snapshot.turns) {
+    if (!turn || typeof turn.id !== "string") throw invalidSnapshot("Every turn needs a string id");
+    if (turn.id === ROOT_CHILDREN_KEY) throw invalidSnapshot(`${ROOT_CHILDREN_KEY} is reserved`);
+    if (ids.has(turn.id)) throw duplicateTurnId(turn.id);
+    if (turn.loomId !== snapshot.loom.id) {
+      throw invalidSnapshot(`Turn ${turn.id} belongs to ${turn.loomId}, expected ${snapshot.loom.id}`);
     }
-    ids.add(node.id);
+    ids.add(turn.id);
   }
-
-  for (const node of snapshot.nodes) {
-    if (node.parentId !== null && !ids.has(node.parentId)) throw missingParent(node.parentId);
+  for (const turn of snapshot.turns) {
+    if (turn.parentId !== null && !ids.has(turn.parentId)) throw missingParent(turn.parentId);
   }
-
-  for (const node of snapshot.nodes) {
-    const seen = new Set<LoomNodeId>();
-    let current: LoomNodeId | null = node.id;
+  for (const turn of snapshot.turns) {
+    const seen = new Set<TurnId>();
+    let current: TurnId | null = turn.id;
     while (current !== null) {
       if (seen.has(current)) throw cycleDetected(current);
       seen.add(current);
-      const currentNode = snapshot.nodes.find((candidate) => candidate.id === current);
-      if (!currentNode) throw brokenTopology(`Missing node while validating path: ${current}`);
-      current = currentNode.parentId;
+      const currentTurn = snapshot.turns.find((candidate) => candidate.id === current);
+      if (!currentTurn) throw brokenTopology(`Missing turn while validating thread: ${current}`);
+      current = currentTurn.parentId;
     }
   }
 }
 
-function parentKeyOf(parentId: LoomNodeId | null): string {
+function parentKeyOf(parentId: TurnId | null): string {
   return parentId ?? ROOT_CHILDREN_KEY;
 }
 

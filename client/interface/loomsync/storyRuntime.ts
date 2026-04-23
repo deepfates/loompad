@@ -1,47 +1,42 @@
 import {
-  createRootShareUrl,
-  getRootIdFromUrl,
-  openRootWithRetry,
-  tryOpenRootFromUrl,
-} from "../../../vendor/loomsync/packages/core/src/links";
-import type {
-  LoomWorld,
-  LoomWorlds,
-} from "../../../vendor/loomsync/packages/core/src/types";
-import { createBrowserAutomergeLoomRuntime } from "../../../vendor/loomsync/packages/index/src/browser";
-import { upsertRoot } from "../../../vendor/loomsync/packages/index/src/entries";
-import {
-  createIndexShareUrl,
-  getIndexIdFromUrl,
-  openIndexWithRetry,
-  tryOpenIndexFromUrl,
-} from "../../../vendor/loomsync/packages/index/src/links";
+  referenceFromUrl,
+  referenceToUrl,
+  type Looms,
+  type TurnId,
+} from "../../../vendor/loomsync/packages/core/src/index";
+import { createBrowserLoomClient } from "../../../vendor/loomsync/packages/index/src/browser";
+import { upsertLoom } from "../../../vendor/loomsync/packages/index/src/entries";
 import type { LoomIndex } from "../../../vendor/loomsync/packages/index/src/types";
 import type { TextPayload } from "../../../vendor/loomsync/packages/text/src/types";
+import type { StoryNode } from "../types";
+import type { StoryEntryMeta, StoryLoom, StoryLoomMeta } from "./storyTypes";
 
-export type StoryRootMeta = { title: string; rootText: string };
-export type StoryEntryMeta = { title: string; rootText: string };
-export type StoryWorld = LoomWorld<TextPayload, StoryRootMeta>;
+export type { StoryEntryMeta, StoryLoom, StoryLoomMeta } from "./storyTypes";
 export type StoryIndex = LoomIndex<StoryEntryMeta, { app: "loompad" }>;
-type StoryRuntime = ReturnType<
-  typeof createBrowserAutomergeLoomRuntime<
+export type StoryReferenceImport =
+  | { kind: "index"; indexId: string }
+  | { kind: "loom" | "turn" | "thread"; loomId: string; turnId?: TurnId };
+
+type StoryClient = ReturnType<
+  typeof createBrowserLoomClient<
     TextPayload,
-    StoryRootMeta,
+    StoryLoomMeta,
     never,
     StoryEntryMeta,
     { app: "loompad" }
   >
 >;
 
-let runtime: StoryRuntime | null = null;
+let client: StoryClient | null = null;
 let indexPromise: Promise<StoryIndex> | null = null;
 
-const INDEX_STORAGE_KEY = "loompad-loomsync-index-id";
+const INDEX_STORAGE_KEY = "loompad-loomsync-v2-index-id";
+const STORAGE_NAMESPACE = "loompad-loomsync-v2";
 
-function getStoryRuntime() {
-  runtime ??= createBrowserAutomergeLoomRuntime<
+function getStoryClient() {
+  client ??= createBrowserLoomClient<
     TextPayload,
-    StoryRootMeta,
+    StoryLoomMeta,
     never,
     StoryEntryMeta,
     { app: "loompad" }
@@ -50,16 +45,16 @@ function getStoryRuntime() {
       typeof window === "undefined"
         ? undefined
         : {
-            indexedDb: { database: "loompad-loomsync", store: "documents" },
-            broadcastChannel: { channelName: "loompad-loomsync" },
+            indexedDb: { database: STORAGE_NAMESPACE, store: "documents" },
+            broadcastChannel: { channelName: STORAGE_NAMESPACE },
             syncPath: "/loomsync",
           },
   });
-  return runtime;
+  return client;
 }
 
-export function getStoryWorlds(): LoomWorlds<TextPayload, StoryRootMeta> {
-  return getStoryRuntime().worlds;
+export function getStoryLooms(): Looms<TextPayload, StoryLoomMeta> {
+  return getStoryClient().looms;
 }
 
 export async function getStoryIndex(): Promise<StoryIndex> {
@@ -69,13 +64,11 @@ export async function getStoryIndex(): Promise<StoryIndex> {
         ? null
         : window.localStorage.getItem(INDEX_STORAGE_KEY);
     if (storedId) {
-      const opened = await openIndexWithRetry(getStoryRuntime().indexes, storedId).catch(
-        () => null,
-      );
+      const opened = await openIndexWithRetry(storedId).catch(() => null);
       if (opened) return opened;
       window.localStorage.removeItem(INDEX_STORAGE_KEY);
     }
-    const index = await getStoryRuntime().indexes.createIndex({ app: "loompad" });
+    const index = await getStoryClient().indexes.create({ app: "loompad" });
     if (typeof window !== "undefined") {
       window.localStorage.setItem(INDEX_STORAGE_KEY, index.id);
     }
@@ -84,84 +77,131 @@ export async function getStoryIndex(): Promise<StoryIndex> {
   return indexPromise;
 }
 
-export function getStoryIndexIdFromLocation(location: Location = window.location) {
-  return getIndexIdFromUrl(location);
-}
-
 export function createStoryIndexShareUrl(
   indexId: string,
   location: Location = window.location,
 ) {
-  return createIndexShareUrl(indexId, location);
-}
-
-export async function importStoryIndexFromUrl(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  const result = await tryOpenIndexFromUrl(
-    getStoryRuntime().indexes,
-    window.location,
-  );
-  if (!result) return null;
-  window.localStorage.setItem(INDEX_STORAGE_KEY, result.indexId);
-  indexPromise = Promise.resolve(result.index);
-  return result.indexId;
-}
-
-export async function createStoryWorld(title: string, rootText: string) {
-  const storyWorlds = getStoryWorlds();
-  const root = await storyWorlds.createRoot({ title, rootText });
-  const world = await storyWorlds.openRoot(root.id);
-  const index = await getStoryIndex();
-  await upsertRoot(index, root.id, {
-    title,
-    kind: "story",
-    meta: { title, rootText },
-  });
-  return { root, world };
-}
-
-export function getStoryRootIdFromLocation(location: Location = window.location) {
-  return getRootIdFromUrl(location);
+  return referenceToUrl(getStoryClient().references.index(indexId), location);
 }
 
 export function createStoryShareUrl(
-  rootId: string,
+  loomId: string,
   location: Location = window.location,
 ) {
-  return createRootShareUrl(rootId, location);
+  return referenceToUrl(getStoryClient().references.loom(loomId), location);
 }
 
-export async function addStoryRootToIndex(
-  rootId: string,
+export function createStoryThreadShareUrl(
+  loomId: string,
+  turnId: string,
+  location: Location = window.location,
+) {
+  return referenceToUrl(getStoryClient().references.thread(loomId, turnId), location);
+}
+
+export function getStoryReferenceFromLocation(location: Location = window.location) {
+  return referenceFromUrl(location);
+}
+
+export async function importStoryReferenceFromUrl(): Promise<StoryReferenceImport | null> {
+  if (typeof window === "undefined") return null;
+  const ref = getStoryReferenceFromLocation(window.location);
+  if (!ref) return null;
+  const opened = await openReferenceWithRetry(ref);
+
+  if (opened.kind === "index") {
+    window.localStorage.setItem(INDEX_STORAGE_KEY, opened.index.id);
+    indexPromise = Promise.resolve(opened.index);
+    return { kind: "index", indexId: opened.index.id };
+  }
+
+  const info = await opened.loom.info();
+  await addStoryLoomToIndex(info.id, {
+    title: info.meta?.title ?? "Shared Story",
+    rootText: info.meta?.rootText ?? "",
+  });
+  return {
+    kind: opened.kind,
+    loomId: info.id,
+    turnId: opened.kind === "loom" ? undefined : opened.ref.turnId,
+  };
+}
+
+export async function createStoryLoom(title: string, rootText: string) {
+  const storyLooms = getStoryLooms();
+  const info = await storyLooms.create({ title, rootText });
+  const loom = await storyLooms.open(info.id);
+  await addStoryLoomToIndex(info.id, { title, rootText });
+  return { info, loom };
+}
+
+export async function addStoryLoomToIndex(
+  loomId: string,
   meta: StoryEntryMeta,
 ): Promise<void> {
-  await upsertRoot(await getStoryIndex(), rootId, {
+  await upsertLoom(await getStoryIndex(), getStoryClient().references.loom(loomId), {
     title: meta.title,
     kind: "story",
     meta,
   });
 }
 
-export async function importStoryRootFromUrl(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  const result = await tryOpenRootFromUrl(getStoryWorlds(), window.location);
-  if (!result) return null;
-  const root = await result.world.root();
-  await addStoryRootToIndex(result.rootId, {
-    title: root.meta?.title ?? "Shared Story",
-    rootText: root.meta?.rootText ?? "",
-  });
-  return result.rootId;
-}
-
 export async function listStoryEntries() {
   return (await getStoryIndex()).entries();
 }
 
-export async function openStoryWorld(rootId: string): Promise<StoryWorld> {
-  return openRootWithRetry(getStoryWorlds(), rootId);
+export async function openStoryLoom(loomId: string): Promise<StoryLoom> {
+  return openLoomWithRetry(loomId);
 }
 
-export async function removeStory(rootId: string): Promise<void> {
-  await (await getStoryIndex()).removeRoot(rootId);
+export async function removeStory(loomId: string): Promise<void> {
+  await (await getStoryIndex()).removeLoom(loomId);
+}
+
+export function getTurnIdForThreadLink(path: StoryNode[]): string | null {
+  const target = path.at(-1);
+  return target && target.id !== "root" ? target.id : null;
+}
+
+async function openLoomWithRetry(loomId: string): Promise<StoryLoom> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      return await getStoryClient().looms.open(loomId);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 7) await delay(250);
+    }
+  }
+  throw lastError;
+}
+
+async function openIndexWithRetry(indexId: string): Promise<StoryIndex> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      return await getStoryClient().indexes.open(indexId);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 7) await delay(250);
+    }
+  }
+  throw lastError;
+}
+
+async function openReferenceWithRetry(ref: NonNullable<ReturnType<typeof referenceFromUrl>>) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      return await getStoryClient().openReference(ref);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 7) await delay(250);
+    }
+  }
+  throw lastError;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

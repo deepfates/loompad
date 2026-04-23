@@ -1,7 +1,10 @@
 export type LoomErrorCode =
-  | "UNKNOWN_ROOT"
+  | "UNKNOWN_LOOM"
+  | "UNKNOWN_INDEX"
   | "MISSING_PARENT"
-  | "DUPLICATE_NODE_ID"
+  | "DUPLICATE_TURN_ID"
+  | "DUPLICATE_LOOM_ID"
+  | "INVALID_REFERENCE"
   | "INVALID_SNAPSHOT"
   | "CYCLE_DETECTED"
   | "BROKEN_TOPOLOGY"
@@ -17,24 +20,36 @@ export class LoomError extends Error {
   }
 }
 
-export function unknownRoot(rootId: string): LoomError {
-  return new LoomError("UNKNOWN_ROOT", `Unknown root: ${rootId}`);
+export function unknownLoom(loomId: string): LoomError {
+  return new LoomError("UNKNOWN_LOOM", `Unknown loom: ${loomId}`);
+}
+
+export function unknownIndex(indexId: string): LoomError {
+  return new LoomError("UNKNOWN_INDEX", `Unknown index: ${indexId}`);
 }
 
 export function missingParent(parentId: string): LoomError {
-  return new LoomError("MISSING_PARENT", `Missing parent node: ${parentId}`);
+  return new LoomError("MISSING_PARENT", `Missing parent turn: ${parentId}`);
 }
 
-export function duplicateNodeId(nodeId: string): LoomError {
-  return new LoomError("DUPLICATE_NODE_ID", `Duplicate node ID: ${nodeId}`);
+export function duplicateTurnId(turnId: string): LoomError {
+  return new LoomError("DUPLICATE_TURN_ID", `Duplicate turn ID: ${turnId}`);
+}
+
+export function duplicateLoomId(loomId: string): LoomError {
+  return new LoomError("DUPLICATE_LOOM_ID", `Duplicate loom ID: ${loomId}`);
+}
+
+export function invalidReference(message: string): LoomError {
+  return new LoomError("INVALID_REFERENCE", message);
 }
 
 export function invalidSnapshot(message: string): LoomError {
   return new LoomError("INVALID_SNAPSHOT", message);
 }
 
-export function cycleDetected(nodeId: string): LoomError {
-  return new LoomError("CYCLE_DETECTED", `Cycle detected at node: ${nodeId}`);
+export function cycleDetected(turnId: string): LoomError {
+  return new LoomError("CYCLE_DETECTED", `Cycle detected at turn: ${turnId}`);
 }
 
 export function brokenTopology(message: string): LoomError {
@@ -42,5 +57,5 @@ export function brokenTopology(message: string): LoomError {
 }
 
 export function closedHandle(): LoomError {
-  return new LoomError("CLOSED_HANDLE", "This loom world handle is closed");
+  return new LoomError("CLOSED_HANDLE", "This loom handle is closed");
 }

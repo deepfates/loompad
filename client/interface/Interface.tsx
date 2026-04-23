@@ -54,11 +54,14 @@ import {
 import {
   downloadStoryThreadText,
   downloadStoryTreeJson,
+  getStoryPrimaryPath,
 } from "./utils/storyExport";
 import {
   createStoryIndexShareUrl,
   createStoryShareUrl,
+  createStoryThreadShareUrl,
   getStoryIndex,
+  getTurnIdForThreadLink,
 } from "./loomsync/storyRuntime";
 
 const DEFAULT_PARAMS = {
@@ -342,6 +345,20 @@ export const GamepadInterface = () => {
       await copyText(createStoryShareUrl(key));
     },
     [copyText]
+  );
+
+  const handleShareThread = useCallback(
+    async (key: string) => {
+      const tree = trees[key];
+      if (!tree) return;
+      const path =
+        key === currentTreeKey ? getCurrentPath() : getStoryPrimaryPath(tree);
+      const turnId = getTurnIdForThreadLink(path);
+      await copyText(
+        turnId ? createStoryThreadShareUrl(key, turnId) : createStoryShareUrl(key)
+      );
+    },
+    [copyText, currentTreeKey, getCurrentPath, trees]
   );
 
   const handleShareIndex = useCallback(async () => {
@@ -947,9 +964,10 @@ export const GamepadInterface = () => {
       // Row 0 is Sort, row 1 is "+ New Story", rows 2+ are the stories.
       const baseOffset = 2;
       const totalItems = orderedKeys.length + baseOffset;
-      const columnTypes: Array<"story" | "share" | "json" | "thread"> = [
+      const columnTypes: Array<"story" | "share" | "thread-link" | "json" | "thread"> = [
         "story",
         "share",
+        "thread-link",
         "json",
         "thread",
       ];
@@ -1012,6 +1030,8 @@ export const GamepadInterface = () => {
             setSelectedTreeColumn(0);
           } else if (columnTypes[selectedTreeColumn] === "share") {
             void handleShareStory(treeKey);
+          } else if (columnTypes[selectedTreeColumn] === "thread-link") {
+            void handleShareThread(treeKey);
           } else if (columnTypes[selectedTreeColumn] === "json") {
             handleExportTree(treeKey);
           } else if (columnTypes[selectedTreeColumn] === "thread") {
@@ -1659,6 +1679,9 @@ export const GamepadInterface = () => {
                     }}
                     onShareStory={(key) => {
                       void handleShareStory(key);
+                    }}
+                    onShareThread={(key) => {
+                      void handleShareThread(key);
                     }}
                     onShareIndex={() => {
                       void handleShareIndex();

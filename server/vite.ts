@@ -63,6 +63,7 @@ export async function createServer() {
           exclude: ["@automerge/automerge"],
         },
         hmr: {
+          server: http_server,
           clientPort: 443,
           protocol: "wss",
         },

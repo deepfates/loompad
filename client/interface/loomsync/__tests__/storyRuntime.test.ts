@@ -2,46 +2,48 @@ import { describe, expect, it } from "bun:test";
 import {
   createStoryIndexShareUrl,
   createStoryShareUrl,
-  getStoryIndexIdFromLocation,
-  getStoryRootIdFromLocation,
+  createStoryThreadShareUrl,
+  getStoryReferenceFromLocation,
 } from "../storyRuntime";
 
-describe("story runtime links", () => {
-  it("creates story share URLs without carrying index parameters", () => {
-    const location = new URL("https://loompad.test/?index=index-1&theme=dark");
+describe("story runtime references", () => {
+  it("creates loom reference URLs without carrying stale parameters", () => {
+    const location = new URL("https://loompad.test/?old=1#stale");
 
-    const url = new URL(createStoryShareUrl("root-1", location));
+    const url = new URL(createStoryShareUrl("loom-1", location));
 
-    expect(url.searchParams.get("story")).toBe("root-1");
-    expect(url.searchParams.get("index")).toBe("index-1");
-    expect(url.searchParams.get("theme")).toBe("dark");
+    expect([...url.searchParams.keys()]).toEqual(["ref"]);
+    expect(url.hash).toBe("");
+    expect(getStoryReferenceFromLocation(url)).toEqual({
+      v: 1,
+      kind: "loom",
+      loomId: "loom-1",
+    });
   });
 
-  it("creates story index share URLs without carrying story parameters", () => {
-    const location = new URL(
-      "https://loompad.test/?story=root-1&root=legacy&theme=dark",
-    );
+  it("creates index reference URLs", () => {
+    const location = new URL("https://loompad.test/?draft=old");
 
     const url = new URL(createStoryIndexShareUrl("index-1", location));
 
-    expect(url.searchParams.get("index")).toBe("index-1");
-    expect(url.searchParams.get("story")).toBeNull();
-    expect(url.searchParams.get("root")).toBeNull();
-    expect(url.searchParams.get("theme")).toBe("dark");
+    expect([...url.searchParams.keys()]).toEqual(["ref"]);
+    expect(getStoryReferenceFromLocation(url)).toEqual({
+      v: 1,
+      kind: "index",
+      indexId: "index-1",
+    });
   });
 
-  it("reads modern and legacy share parameters", () => {
-    expect(
-      getStoryRootIdFromLocation(new URL("https://loompad.test/?story=root-1")),
-    ).toBe("root-1");
-    expect(
-      getStoryRootIdFromLocation(new URL("https://loompad.test/?root=root-2")),
-    ).toBe("root-2");
-    expect(
-      getStoryIndexIdFromLocation(new URL("https://loompad.test/?index=i-1")),
-    ).toBe("i-1");
-    expect(
-      getStoryIndexIdFromLocation(new URL("https://loompad.test/?worlds=i-2")),
-    ).toBe("i-2");
+  it("creates thread reference URLs", () => {
+    const location = new URL("https://loompad.test/");
+
+    const url = new URL(createStoryThreadShareUrl("loom-1", "turn-1", location));
+
+    expect(getStoryReferenceFromLocation(url)).toEqual({
+      v: 1,
+      kind: "thread",
+      loomId: "loom-1",
+      turnId: "turn-1",
+    });
   });
 });

@@ -1,56 +1,53 @@
 import type {
-  LoomNode,
-  LoomRoot,
+  Loom,
+  LoomInfo,
+  Looms,
   LoomSnapshot,
-  LoomWorld,
-  LoomWorlds,
+  Turn,
 } from "../../../vendor/loomsync/packages/core/src/types";
 import type { TextPayload } from "../../../vendor/loomsync/packages/text/src/types";
 import type { StoryNode } from "../types";
+import type { StoryLoom, StoryLoomMeta } from "./storyTypes";
 
-export type LoompadStoryRootMeta = {
-  title: string;
-  rootText: string;
-};
-
-export type LoompadStoryWorld = LoomWorld<TextPayload, LoompadStoryRootMeta>;
+export type LoompadStoryLoomMeta = StoryLoomMeta;
+export type LoompadStoryLoom = StoryLoom;
 
 export async function importStoryTree(
-  worlds: LoomWorlds<TextPayload, LoompadStoryRootMeta>,
+  looms: Looms<TextPayload, LoompadStoryLoomMeta>,
   title: string,
   tree: { root: StoryNode },
 ): Promise<{
-  root: LoomRoot<LoompadStoryRootMeta>;
-  world: LoompadStoryWorld;
+  info: LoomInfo<LoompadStoryLoomMeta>;
+  loom: LoompadStoryLoom;
 }> {
-  const root = await worlds.createRoot({ title, rootText: tree.root.text });
-  const importedRoot = await worlds.importRoot(storyTreeToSnapshot(tree, root));
-  const world = await worlds.openRoot(importedRoot.id);
-  return { root: importedRoot, world };
+  const info = await looms.create({ title, rootText: tree.root.text });
+  const importedInfo = await looms.import(storyTreeToSnapshot(tree, info));
+  const loom = await looms.open(importedInfo.id);
+  return { info: importedInfo, loom };
 }
 
 export function storyTreeToSnapshot(
   tree: { root: StoryNode },
-  root: LoomRoot<LoompadStoryRootMeta>,
-): LoomSnapshot<TextPayload, LoompadStoryRootMeta> {
-  const nodes: LoomNode<TextPayload>[] = [];
+  info: LoomInfo<LoompadStoryLoomMeta>,
+): LoomSnapshot<TextPayload, LoompadStoryLoomMeta> {
+  const turns: Turn<TextPayload>[] = [];
   const visit = (node: StoryNode, parentId: string | null) => {
-    nodes.push({
+    turns.push({
       id: node.id,
-      rootId: root.id,
+      loomId: info.id,
       parentId,
       payload: { text: node.text },
-      createdAt: root.createdAt,
+      createdAt: info.createdAt,
     });
     for (const child of node.continuations ?? []) visit(child, node.id);
   };
 
   for (const child of tree.root.continuations ?? []) visit(child, null);
-  return { root, nodes };
+  return { loom: info, turns };
 }
 
 export async function materializeStoryTree(
-  world: LoompadStoryWorld,
+  loom: LoompadStoryLoom,
   rootText: string,
 ): Promise<{ root: StoryNode }> {
   const rootNode: StoryNode = {
@@ -60,7 +57,7 @@ export async function materializeStoryTree(
   };
 
   const appendChildren = async (parent: StoryNode, parentId: string | null) => {
-    const children = await world.childrenOf(parentId);
+    const children = await loom.childrenOf(parentId);
     parent.continuations = children.map((child) => ({
       id: child.id,
       text: child.payload.text,
@@ -76,31 +73,31 @@ export async function materializeStoryTree(
 }
 
 export async function appendStoryNodeChain(
-  world: LoompadStoryWorld,
+  loom: LoompadStoryLoom,
   parentId: string | null,
   node: StoryNode,
-): Promise<LoomNode<TextPayload>> {
-  const appended = await world.appendAfter(parentId, { text: node.text });
+): Promise<Turn<TextPayload>> {
+  const appended = await loom.appendTurn(parentId, { text: node.text });
   for (const child of node.continuations ?? []) {
-    await appendStoryNodeChain(world, appended.id, child);
+    await appendStoryNodeChain(loom, appended.id, child);
   }
   return appended;
 }
 
 export async function appendStoryNodeRevision(
-  world: LoompadStoryWorld,
+  loom: LoompadStoryLoom,
   parentId: string | null,
   revision: StoryNode,
-): Promise<LoomNode<TextPayload>> {
-  return appendStoryNodeChain(world, parentId, revision);
+): Promise<Turn<TextPayload>> {
+  return appendStoryNodeChain(loom, parentId, revision);
 }
 
 export async function appendStoryContinuations(
-  world: LoompadStoryWorld,
+  loom: LoompadStoryLoom,
   parentId: string | null,
   continuations: StoryNode[],
 ): Promise<void> {
   for (const continuation of continuations) {
-    await appendStoryNodeChain(world, parentId, continuation);
+    await appendStoryNodeChain(loom, parentId, continuation);
   }
 }

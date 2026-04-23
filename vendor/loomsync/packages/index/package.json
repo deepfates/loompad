@@ -1,7 +1,7 @@
 {
   "name": "@loomsync/index",
-  "version": "0.1.0",
-  "description": "Index APIs for linked LoomSync roots.",
+  "version": "0.2.0",
+  "description": "Index APIs for linked LoomSync looms.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -27,11 +27,6 @@
       "types": "./dist/entries.d.ts",
       "import": "./dist/entries.js",
       "default": "./dist/entries.js"
-    },
-    "./links": {
-      "types": "./dist/links.d.ts",
-      "import": "./dist/links.js",
-      "default": "./dist/links.js"
     },
     "./memory": {
       "types": "./dist/memory.d.ts",
