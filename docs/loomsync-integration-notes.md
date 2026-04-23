@@ -16,9 +16,19 @@ LoomSync library. It is not intended to be merge-ready as-is.
   Preferred child selection now lives in session state via
   `storySessionState.ts`.
 - Story creation/listing now goes through a LoomSync index document.
-- Browser runtime uses IndexedDB + BroadcastChannel through Automerge Repo.
+- Browser runtime uses IndexedDB + BroadcastChannel + same-origin WebSocket
+  sync through Automerge Repo.
+- The app server hosts an Automerge WebSocket relay at `/loomsync` with
+  file-backed server storage under `.data/loomsync` by default. Deployments can
+  override this with `LOOMSYNC_STORAGE_DIR`.
+- Individual story roots can be opened with `?story=<rootId>`, and full story
+  indexes can be opened with `?index=<indexId>`.
+- The Stories menu exposes copy-link actions for one story and for the whole
+  story set.
 - Generation writes append generated continuations to the current LoomSync
   world, then rematerializes the nested tree as a derived UI view.
+- Open story/index handles subscribe to Automerge changes and rematerialize the
+  visible tree when remote nodes arrive.
 
 ## Verification Commands
 
@@ -26,9 +36,10 @@ LoomSync library. It is not intended to be merge-ready as-is.
 bun test
 bun run lint
 bun run build
+bun run test:e2e
 ```
 
-All three currently pass on this branch.
+All four currently pass on this branch.
 
 ## Design Boundary
 
@@ -61,10 +72,8 @@ Local session state:
 
 ## Remaining Cutover Work
 
-- Add share/open-by-root-url flows.
 - Replace edit-menu tree rewrites with append-only edit records or a deliberate
   root metadata/story replacement policy.
 - Persist and display human-readable story titles from index entries instead of
   showing root IDs as menu keys.
-- Add cross-tab/browser sync tests around the IndexedDB + BroadcastChannel
-  runtime.
+- Add explicit UX for sync/connection status and copied-link feedback.

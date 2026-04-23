@@ -49,6 +49,11 @@ import {
   downloadStoryThreadText,
   downloadStoryTreeJson,
 } from "./utils/storyExport";
+import {
+  createStoryIndexShareUrl,
+  createStoryShareUrl,
+  getStoryIndex,
+} from "./loomsync/storyRuntime";
 
 const DEFAULT_PARAMS = {
   temperature: 0.7,
@@ -279,6 +284,28 @@ export const GamepadInterface = () => {
     },
     [trees]
   );
+
+  const copyText = useCallback(async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    window.prompt("Copy link", text);
+  }, []);
+
+  const handleShareStory = useCallback(
+    (key: string) => {
+      void copyText(createStoryShareUrl(key));
+    },
+    [copyText],
+  );
+
+  const handleShareIndex = useCallback(() => {
+    void (async () => {
+      const index = await getStoryIndex();
+      await copyText(createStoryIndexShareUrl(index.id));
+    })();
+  }, [copyText]);
 
   const handleStoryHighlight = useCallback(
     (index: number, column: number) => {
@@ -794,6 +821,8 @@ export const GamepadInterface = () => {
           },
           onExportTreeJson: handleExportTree,
           onExportTreeThread: handleExportThread,
+          onShareTree: handleShareStory,
+          onShareIndex: handleShareIndex,
           currentThemeMode: themeMode,
           currentLightTheme: lightTheme,
           currentDarkTheme: darkTheme,
@@ -850,6 +879,8 @@ export const GamepadInterface = () => {
           },
           onExportTreeJson: handleExportTree,
           onExportTreeThread: handleExportThread,
+          onShareTree: handleShareStory,
+          onShareIndex: handleShareIndex,
         });
         // Allow START to back out from Trees to Map
         if (activeMenu === "start" && key === "Escape") {
@@ -928,6 +959,8 @@ export const GamepadInterface = () => {
       availableFonts,
       handleExportTree,
       handleExportThread,
+      handleShareStory,
+      handleShareIndex,
     ]
   );
 
@@ -1226,6 +1259,8 @@ export const GamepadInterface = () => {
                   }}
                   onExportJson={handleExportTree}
                   onExportThread={handleExportThread}
+                  onShareStory={handleShareStory}
+                  onShareIndex={handleShareIndex}
                   onHighlight={handleStoryHighlight}
                 />
               </MenuScreen>

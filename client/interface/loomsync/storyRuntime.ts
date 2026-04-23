@@ -29,12 +29,20 @@ let indexPromise: Promise<LoomIndex<StoryEntryMeta, { app: "loompad" }>> | null 
   null;
 
 const INDEX_STORAGE_KEY = "loompad-loomsync-index-id";
+const SYNC_PATH = "/loomsync";
+
+function defaultWebSocketUrl() {
+  if (typeof window === "undefined") return null;
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}${SYNC_PATH}`;
+}
 
 function createRepo() {
   if (typeof window === "undefined") return new Repo();
   return createBrowserAutomergeRepo({
     indexedDb: { database: "loompad-loomsync", store: "documents" },
     broadcastChannel: { channelName: "loompad-loomsync" },
+    websocket: { url: defaultWebSocketUrl() ?? "" },
   });
 }
 
@@ -74,6 +82,38 @@ export async function getStoryIndex(): Promise<
     return index;
   })();
   return indexPromise;
+}
+
+export function getStoryIndexIdFromLocation(location: Location = window.location) {
+  const params = new URLSearchParams(location.search);
+  const fromQuery = params.get("index") ?? params.get("worlds");
+  if (fromQuery) return fromQuery;
+  const hash = location.hash.replace(/^#/, "");
+  if (!hash) return null;
+  const hashParams = new URLSearchParams(hash.includes("=") ? hash : "");
+  return hashParams.get("index") ?? hashParams.get("worlds");
+}
+
+export function createStoryIndexShareUrl(
+  indexId: string,
+  location: Location = window.location,
+) {
+  const url = new URL(location.href);
+  url.searchParams.delete("story");
+  url.searchParams.delete("root");
+  url.searchParams.set("index", indexId);
+  url.hash = "";
+  return url.toString();
+}
+
+export async function importStoryIndexFromUrl(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  const indexId = getStoryIndexIdFromLocation(window.location);
+  if (!indexId) return null;
+  window.localStorage.setItem(INDEX_STORAGE_KEY, indexId);
+  indexPromise = null;
+  await getStoryIndex();
+  return indexId;
 }
 
 export async function createStoryWorld(title: string, rootText: string) {

@@ -14,6 +14,8 @@ import {
 } from "../loomsync/storyAdapter";
 import {
   createStoryWorld,
+  getStoryIndex,
+  importStoryIndexFromUrl,
   importStoryRootFromUrl,
   listStoryEntries,
   openStoryWorld,
@@ -62,6 +64,19 @@ export function useStoryTree(params: StoryParams) {
   const { generateContinuation, chooseContinuation, error } =
     useStoryGeneration();
 
+  const openStoryWorldAfterSync = useCallback(async (rootId: string) => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      try {
+        return await openStoryWorld(rootId);
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+    throw lastError;
+  }, []);
+
   const refreshTreeFromWorld = useCallback(
     async (key: string, world: StoryWorld) => {
       const root = await world.root();
@@ -76,48 +91,83 @@ export function useStoryTree(params: StoryParams) {
     [currentTreeKey],
   );
 
+  const loadStoriesFromIndex = useCallback(async () => {
+    const entries = await listStoryEntries();
+
+    if (!entries.length) {
+      const { root, world } = await createStoryWorld(
+        "Story 1",
+        INITIAL_STORY.root.text,
+      );
+      const tree = await materializeStoryTree(world, INITIAL_STORY.root.text);
+      setWorldsByKey({ [root.id]: world });
+      setTrees({ [root.id]: tree });
+      setCurrentTreeKey(root.id);
+      setStoryTree(tree);
+      return;
+    }
+
+    const nextTrees: Record<string, { root: StoryNode }> = {};
+    const nextWorlds: Record<string, StoryWorld> = {};
+    for (const entry of entries) {
+      const world = await openStoryWorldAfterSync(entry.rootId);
+      nextWorlds[entry.rootId] = world;
+      nextTrees[entry.rootId] = await materializeStoryTree(
+        world,
+        entry.meta?.rootText ?? INITIAL_STORY.root.text,
+      );
+    }
+    const firstKey = entries[0]?.rootId ?? Object.keys(nextTrees)[0];
+    setWorldsByKey(nextWorlds);
+    setTrees(nextTrees);
+    setCurrentTreeKey((prev) => {
+      const nextKey = nextTrees[prev] ? prev : firstKey;
+      setStoryTree(nextTrees[nextKey] ?? nextTrees[firstKey] ?? INITIAL_STORY);
+      return nextKey;
+    });
+  }, [openStoryWorldAfterSync]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      await importStoryIndexFromUrl();
       await importStoryRootFromUrl();
-      const entries = await listStoryEntries();
       if (cancelled) return;
-
-      if (!entries.length) {
-        const { root, world } = await createStoryWorld(
-          "Story 1",
-          INITIAL_STORY.root.text,
-        );
-        if (cancelled) return;
-        setWorldsByKey({ [root.id]: world });
-        const tree = await materializeStoryTree(world, INITIAL_STORY.root.text);
-        setTrees({ [root.id]: tree });
-        setCurrentTreeKey(root.id);
-        setStoryTree(tree);
-        return;
-      }
-
-      const nextTrees: Record<string, { root: StoryNode }> = {};
-      const nextWorlds: Record<string, StoryWorld> = {};
-      for (const entry of entries) {
-        const world = await openStoryWorld(entry.rootId);
-        nextWorlds[entry.rootId] = world;
-        nextTrees[entry.rootId] = await materializeStoryTree(
-          world,
-          entry.meta?.rootText ?? INITIAL_STORY.root.text,
-        );
-      }
-      if (cancelled) return;
-      const firstKey = entries[0]?.rootId ?? Object.keys(nextTrees)[0];
-      setWorldsByKey(nextWorlds);
-      setTrees(nextTrees);
-      setCurrentTreeKey(firstKey);
-      setStoryTree(nextTrees[firstKey] ?? INITIAL_STORY);
+      await loadStoriesFromIndex();
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadStoriesFromIndex]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    void (async () => {
+      const index = await getStoryIndex();
+      if (cancelled) return;
+      unsubscribe = index.subscribe(() => {
+        void loadStoriesFromIndex();
+      });
+    })();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [loadStoriesFromIndex]);
+
+  useEffect(() => {
+    const unsubs = Object.entries(worldsByKey).map(([key, world]) =>
+      world.subscribe((event) => {
+        if (event.type === "node-added" || event.type === "root-updated") {
+          void refreshTreeFromWorld(key, world);
+        }
+      }),
+    );
+    return () => {
+      for (const unsub of unsubs) unsub();
+    };
+  }, [worldsByKey, refreshTreeFromWorld]);
 
   // Helper to check if a specific node is generating
   const isGeneratingAt = useCallback(

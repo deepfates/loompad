@@ -12,6 +12,7 @@ import wasm from "vite-plugin-wasm";
 import args from "server/args";
 import { setup_routes } from "server/apis/http";
 import { getMainProps } from "server/main_props";
+import { attachLoomSyncServer } from "server/loomsync";
 
 const port: number = args.port;
 const mode: "development" | "production" = args.mode;
@@ -40,6 +41,7 @@ export async function createServer() {
   const app = express();
 
   const http_server = http.createServer(app);
+  attachLoomSyncServer(http_server);
   setup_routes(app);
 
   let vite;

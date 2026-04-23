@@ -28,6 +28,8 @@ interface MenuCallbacks {
   onDeleteTree?: (key: string) => void;
   onExportTreeJson?: (key: string) => void;
   onExportTreeThread?: (key: string) => void;
+  onShareTree?: (key: string) => void;
+  onShareIndex?: () => void;
   // Settings menu (themes)
   currentThemeMode?: ThemeMode;
   currentLightTheme?: ThemeClass;
@@ -388,7 +390,10 @@ export function useMenuSystem(defaultParams: MenuParams) {
       } else if (activeMenu === "start") {
         const orderedKeys = orderKeysReverseChronological(trees);
         const totalItems = orderedKeys.length + 1; // +1 for New Story
-        const columnTypes: Array<"story" | "json" | "thread"> = ["story"];
+        const columnTypes: Array<"story" | "share" | "json" | "thread"> = ["story"];
+        if (callbacks.onShareTree) {
+          columnTypes.push("share");
+        }
         if (callbacks.onExportTreeJson) {
           columnTypes.push("json");
         }
@@ -397,7 +402,7 @@ export function useMenuSystem(defaultParams: MenuParams) {
         }
 
         const getMaxColumnForIndex = (index: number) => {
-          if (index === 0) return 0;
+          if (index === 0) return callbacks.onShareIndex ? 1 : 0;
           return columnTypes.length - 1;
         };
 
@@ -451,7 +456,11 @@ export function useMenuSystem(defaultParams: MenuParams) {
             break;
           case "Enter": // A button
             if (selectedTreeIndex === 0) {
-              callbacks.onNewTree?.();
+              if (selectedTreeColumn === 0) {
+                callbacks.onNewTree?.();
+              } else {
+                callbacks.onShareIndex?.();
+              }
             } else if (selectedTreeColumn === 0) {
               const treeKey = orderedKeys[selectedTreeIndex - 1];
               touchStoryActive(treeKey);
@@ -459,7 +468,9 @@ export function useMenuSystem(defaultParams: MenuParams) {
             } else {
               const treeKey = orderedKeys[selectedTreeIndex - 1];
               const columnType = columnTypes[selectedTreeColumn];
-              if (columnType === "json") {
+              if (columnType === "share") {
+                callbacks.onShareTree?.(treeKey);
+              } else if (columnType === "json") {
                 callbacks.onExportTreeJson?.(treeKey);
               } else if (columnType === "thread") {
                 callbacks.onExportTreeThread?.(treeKey);
