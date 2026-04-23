@@ -112,7 +112,7 @@
   --theme-button-foreground: rgba(4, 67, 23, 1);
   --theme-button-background: rgba(2, 45, 13, 1);
   --theme-focused-foreground: rgba(198, 198, 198, 1);
-  --theme-focused-foreground-subdued: rgba(168, 168, 168, 1);
+  --theme-focused-foreground-subdued: rgba(198, 198, 198, 0.5);
   --theme-overlay: rgba(0, 0, 0, 0.4);
   --theme-muted: rgba(111, 220, 140, 1);
 }
@@ -130,7 +130,7 @@
   --theme-button-foreground: rgba(255, 150, 50, 1);
   --theme-button-background: rgba(40, 10, 10, 1);
   --theme-focused-foreground: rgba(150, 255, 150, 1);
-  --theme-focused-foreground-subdued: rgba(200, 150, 255, 1);
+  --theme-focused-foreground-subdued: rgba(150, 255, 150, 0.5);
   --theme-overlay: rgba(0, 0, 0, 0.4);
   --theme-muted: rgba(255, 150, 50, 0.7);
 }
@@ -148,7 +148,7 @@
   --theme-button-foreground: rgba(255, 0, 255, 1);
   --theme-button-background: rgba(50, 0, 100, 1);
   --theme-focused-foreground: rgba(255, 255, 255, 1);
-  --theme-focused-foreground-subdued: rgba(255, 150, 0, 1);
+  --theme-focused-foreground-subdued: rgba(255, 255, 255, 0.5);
   --theme-overlay: rgba(0, 0, 0, 0.4);
   --theme-muted: rgba(255, 71, 184, 1);
 }
@@ -166,7 +166,7 @@
   --theme-button-foreground: rgba(0, 150, 255, 1);
   --theme-button-background: rgba(230, 230, 230, 1);
   --theme-focused-foreground: rgba(0, 100, 200, 1);
-  --theme-focused-foreground-subdued: rgba(255, 125, 0, 0.5);
+  --theme-focused-foreground-subdued: rgba(0, 100, 200, 0.5);
   --theme-overlay: rgba(150, 150, 150, 0.4);
   --theme-muted: rgba(150, 150, 150, 1);
 }
@@ -569,7 +569,7 @@ html, body {
 
 .menu-item.selected {
   background: var(--theme-focused-foreground-subdued);
-  color: var(--theme-background);
+  color: var(--theme-text);
 }
 
 .menu-item.selected .menu-item-preview {
@@ -772,7 +772,7 @@ html, body {
 
 .drawer-tab--selected {
   background: var(--theme-focused-foreground-subdued);
-  color: var(--theme-background);
+  color: var(--theme-text);
 }
 
 .drawer-body {
