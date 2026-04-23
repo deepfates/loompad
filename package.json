@@ -12,6 +12,10 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@automerge/automerge-repo": "^2.5.5",
+    "@automerge/automerge-repo-network-broadcastchannel": "^2.5.5",
+    "@automerge/automerge-repo-network-websocket": "^2.5.5",
+    "@automerge/automerge-repo-storage-indexeddb": "^2.5.5",
     "@ax-llm/ax": "^14.0.39",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/d3-flextree": "^2.1.4",
@@ -25,6 +29,7 @@
     "d3-flextree": "^2.1.2",
     "d3-hierarchy": "^3.1.2",
     "express": "^4.19.2",
+    "isomorphic-ws": "^5.0.0",
     "nocache": "^4.0.0",
     "nodemon": "^3.1.0",
     "openai": "^4.77.0",
@@ -33,6 +38,7 @@
     "srcl": "github:deepfates/srcl",
     "styled-components": "^6.1.8",
     "tailwindcss": "^4.1.17",
+    "uuid": "^14.0.0",
     "wouter": "^3.3.5",
     "yargs": "^17.7.2"
   },
