@@ -63,7 +63,18 @@
 
 /* Theme palettes extracted from SRCL — 14 themes across light/dark tones */
 
+/* Per-theme focus treatment:
+ *   --theme-focus-bg / --theme-focus-fg control how every text surface
+ *   that means "this is what you'd activate" (loom cursor, menu row,
+ *   drawer tab) draws focus.  Light themes get a pale background
+ *   highlight behind normal text.  Dark themes keep the bg and shift
+ *   the text itself to the primary color instead — reads better than a
+ *   low-contrast pale fill on a dark canvas.
+ */
+
 .theme-light {
+  --theme-focus-bg: var(--theme-focused-foreground-subdued);
+  --theme-focus-fg: var(--theme-text);
   --theme-background: rgba(255, 255, 255, 1);
   --theme-background-modal: rgba(224, 224, 224, 1);
   --theme-background-modal-footer: rgba(168, 168, 168, 1);
@@ -82,6 +93,8 @@
 }
 
 .theme-blue {
+  --theme-focus-bg: var(--theme-focused-foreground-subdued);
+  --theme-focus-fg: var(--theme-text);
   --theme-background: rgba(0, 45, 156, 1);
   --theme-background-modal: rgba(0, 67, 206, 1);
   --theme-background-modal-footer: rgba(0, 29, 108, 1);
@@ -100,6 +113,8 @@
 }
 
 .theme-black-green {
+  --theme-focus-bg: transparent;
+  --theme-focus-fg: var(--theme-focused-foreground);
   --theme-background: rgba(0, 0, 0, 1);
   --theme-background-modal: rgba(38, 38, 38, 1);
   --theme-background-modal-footer: rgba(57, 57, 57, 1);
@@ -118,6 +133,8 @@
 }
 
 .theme-nerv {
+  --theme-focus-bg: transparent;
+  --theme-focus-fg: var(--theme-focused-foreground);
   --theme-background: rgba(0, 0, 0, 1);
   --theme-background-modal: rgba(40, 10, 10, 1);
   --theme-background-modal-footer: rgba(25, 5, 5, 1);
@@ -136,6 +153,8 @@
 }
 
 .theme-outrun {
+  --theme-focus-bg: transparent;
+  --theme-focus-fg: var(--theme-focused-foreground);
   --theme-background: rgba(15, 0, 30, 1);
   --theme-background-modal: rgba(50, 0, 100, 1);
   --theme-background-modal-footer: rgba(30, 0, 60, 1);
@@ -154,6 +173,8 @@
 }
 
 .theme-aperture {
+  --theme-focus-bg: var(--theme-focused-foreground-subdued);
+  --theme-focus-fg: var(--theme-text);
   --theme-background: rgba(255, 255, 255, 1);
   --theme-background-modal: rgba(230, 230, 230, 1);
   --theme-background-modal-footer: rgba(150, 150, 150, 1);
@@ -269,19 +290,22 @@ html, body {
 }
 
 /* Cursor span — the selected continuation at currentDepth+1.
-   Uses the same token and weight as every other "this is what you'd
-   activate" surface in the app (menu rows, drawer tab cursor, map
-   selected): the subdued primary.  One hue, one value, across every
-   surface — so switching from story text to menus to map doesn't feel
-   like crossing into a different color system. */
+   Routed through --theme-focus-bg / --theme-focus-fg so light themes
+   get a pale highlight fill behind normal text, and dark themes shift
+   the text itself to the primary accent (no background wash).  One
+   focus language, two modes of expression. */
 .story-text .story-node.cursor-node {
-  background: var(--theme-focused-foreground-subdued);
-  color: var(--theme-text);
+  background: var(--theme-focus-bg);
+  color: var(--theme-focus-fg);
   font-weight: 600;
-  padding: 0 0.25ch;
-  border-radius: 0.125ch;
+  padding: 0.15em 0.4ch;
+  border-radius: 0.5em;
+  /* Each wrapped fragment carries its own pill so ends stay rounded;
+     the slight horizontal overlap plus generous vertical padding makes
+     multiple lines read as one blobby highlight that hugs the text. */
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+  margin: 0 -0.1em;
 }
 
 .story-text::-webkit-scrollbar { width: 6px; }
@@ -570,8 +594,8 @@ html, body {
 }
 
 .menu-item.selected {
-  background: var(--theme-focused-foreground-subdued);
-  color: var(--theme-text);
+  background: var(--theme-focus-bg);
+  color: var(--theme-focus-fg);
 }
 
 .menu-item.selected .menu-item-preview {
@@ -773,8 +797,8 @@ html, body {
 }
 
 .drawer-tab--selected {
-  background: var(--theme-focused-foreground-subdued);
-  color: var(--theme-text);
+  background: var(--theme-focus-bg);
+  color: var(--theme-focus-fg);
 }
 
 .drawer-body {
