@@ -1307,21 +1307,23 @@ export const GamepadInterface = () => {
   // True only when the loom view is the visible, unobstructed surface.
   const onLoom = screen === null && projection === "loom";
 
-  // Scroll to current depth when navigation changes
+  // Scroll to current depth when navigation changes.  Center on the
+  // cursor span (path[currentDepth + 1]) so the user's eye lands on the
+  // highlighted text at the middle of the viewport, with context
+  // flowing in above and preview flowing in below.  Falls back to
+  // path[currentDepth] for the rare case of no next continuation.
   useEffect(() => {
     if (onLoom) {
       const path = getCurrentPath();
-      const current = path[currentDepth];
-      if (current) {
+      const target = path[currentDepth + 1] ?? path[currentDepth];
+      if (target) {
         queueScroll({
-          nodeId: current.id,
+          nodeId: target.id,
           align: "center",
           reason: "nav-up-down",
           // Higher than nav-left-right so that when both effects fire
           // during a depth change (ArrowDown mutates both currentDepth
-          // and selectedOptions), the current-depth center wins over
-          // the sibling top-align.  Pure left-right changes still get
-          // the center effect anyway — it lands on the same parent.
+          // and selectedOptions), the center wins over the top-align.
           priority: 150,
         });
       }
@@ -1402,6 +1404,21 @@ export const GamepadInterface = () => {
             spanClasses.push("opacity-50");
           }
 
+          // On the cursor span only, peel off trailing whitespace/newlines
+          // so the pill hugs the last word rather than extending past
+          // the paragraph.  The stripped whitespace still renders
+          // inline so the next span's text starts correctly.
+          if (isNextDepth) {
+            const match = segment.text.match(/^([\s\S]*?)(\s*)$/);
+            const body = match?.[1] ?? segment.text;
+            const tail = match?.[2] ?? "";
+            return (
+              <span key={segment.id} data-node-id={segment.id}>
+                <span className={spanClasses.join(" ")}>{body}</span>
+                {tail}
+              </span>
+            );
+          }
           return (
             <span
               key={segment.id}
