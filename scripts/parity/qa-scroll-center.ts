@@ -86,17 +86,36 @@ async function main() {
   await page.goto(URL, { waitUntil: "networkidle" });
   await page.waitForTimeout(600);
 
-  for (let i = 0; i < 5; i++) {
-    await page.keyboard.press("ArrowDown", { delay: 30 });
-    await page.waitForTimeout(500);
-    await inspect(page, `after ArrowDown ${i + 1}`);
-    await page.screenshot({ path: path.join(OUT, `after-down-${i + 1}.png`) });
-  }
+  // Get to depth 3 first (leave a cursor around n3/n4)
   for (let i = 0; i < 3; i++) {
-    await page.keyboard.press("ArrowUp", { delay: 30 });
-    await page.waitForTimeout(500);
-    await inspect(page, `after ArrowUp ${i + 1}`);
+    await page.keyboard.press("ArrowDown", { delay: 30 });
+    await page.waitForTimeout(400);
   }
+  await inspect(page, "baseline (depth 3)");
+
+  // Manually scroll to the top (simulate user scrolling up to re-read)
+  await page.evaluate(() => {
+    const c = document.querySelector(".story-text") as HTMLElement;
+    c.scrollTop = 0;
+  });
+  await page.waitForTimeout(300);
+  await inspect(page, "after manual scroll to 0");
+  // Press ArrowUp — the question is whether the viewport snaps back
+  // to center on the new (shallower) cursor, or just offsets from 0.
+  await page.keyboard.press("ArrowUp", { delay: 30 });
+  await page.waitForTimeout(500);
+  await inspect(page, "after ArrowUp from manual-top");
+
+  // Now scroll way past cursor in the other direction.
+  await page.evaluate(() => {
+    const c = document.querySelector(".story-text") as HTMLElement;
+    c.scrollTop = c.scrollHeight;
+  });
+  await page.waitForTimeout(300);
+  await inspect(page, "after manual scroll to bottom");
+  await page.keyboard.press("ArrowDown", { delay: 30 });
+  await page.waitForTimeout(500);
+  await inspect(page, "after ArrowDown from manual-bottom");
 
   await browser.close();
 }

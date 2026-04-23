@@ -169,16 +169,21 @@ export function useScrollSync({
         return;
       }
 
-      // Short distance: standard smooth
+      // Short distance: smooth.  This is the common case (one arrow
+       // step moves the cursor to an adjacent node, a modest delta) and
+       // smooth reads as continuous motion.
       if (distance < SMALL_THRESHOLD) {
         container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
         setProgrammaticWindow();
         return;
       }
 
-
-      // Mid-range distance: a single smooth scroll feels right
-      container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+      // Long distance: instant.  Happens when the user has manually
+      // scrolled far from the cursor and then navigates — smooth-
+      // scrolling a whole screen height feels like drifting, not
+      // "snap back to where I am."  Setting scrollTop directly puts
+      // the cursor at the computed target in one frame.
+      container.scrollTop = Math.max(0, targetTop);
       setProgrammaticWindow();
     },
     [containerRef, padding, cancel, setProgrammaticWindow],
