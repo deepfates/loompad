@@ -47,7 +47,7 @@ describe("LoomSync story adapter", () => {
     expect(tree.root.continuations?.[0]?.continuations?.[0]?.text).toBe(" more");
   });
 
-  it("represents edits as sibling revision branches without mutating the original node", async () => {
+  it("represents edits as sibling revision branches without copying descendants", async () => {
     const worlds = createAutomergeLoomWorlds<{ text: string }, { title: string; rootText: string }>();
     const root = await worlds.createRoot({ title: "Story", rootText: "Root" });
     const world = await worlds.openRoot(root.id);
@@ -65,11 +65,6 @@ describe("LoomSync story adapter", () => {
     await appendStoryNodeRevision(
       world,
       null,
-      {
-        id: original!.id,
-        text: "Original",
-        continuations: [{ id: "child", text: " child" }],
-      },
       { id: "revision", text: "Revision", continuations: [] },
     );
 
@@ -79,6 +74,6 @@ describe("LoomSync story adapter", () => {
       "Revision",
     ]);
     expect(tree.root.continuations?.[0]?.continuations?.[0]?.text).toBe(" child");
-    expect(tree.root.continuations?.[1]?.continuations?.[0]?.text).toBe(" child");
+    expect(tree.root.continuations?.[1]?.continuations).toEqual([]);
   });
 });

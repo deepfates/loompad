@@ -527,7 +527,6 @@ export function useStoryTree(params: StoryParams) {
       const appended = await appendStoryNodeRevision(
         world,
         parentId ?? null,
-        currentNode,
         revision,
       );
       const updatedTree = await refreshTreeFromWorld(currentTreeKey, world);

@@ -91,19 +91,9 @@ export async function appendStoryNodeChain(
 export async function appendStoryNodeRevision(
   world: LoompadStoryWorld,
   parentId: string | null,
-  currentNode: StoryNode,
   revision: StoryNode,
 ): Promise<LoomNode<TextPayload>> {
-  const revisionTree = JSON.parse(JSON.stringify(revision)) as StoryNode;
-  let chainEnd = revisionTree;
-  while (chainEnd.continuations?.length) {
-    chainEnd = chainEnd.continuations[0];
-  }
-  chainEnd.continuations = JSON.parse(
-    JSON.stringify(currentNode.continuations ?? []),
-  ) as StoryNode[];
-
-  return appendStoryNodeChain(world, parentId, revisionTree);
+  return appendStoryNodeChain(world, parentId, revision);
 }
 
 export async function appendStoryContinuations(
