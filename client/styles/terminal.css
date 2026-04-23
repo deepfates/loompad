@@ -411,6 +411,7 @@ html, body {
 .mode-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1.5ch;
   padding: 0.75ch 1.25ch;
   border-bottom: 1px solid var(--theme-border);
@@ -425,38 +426,40 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Hint line takes the remainder, scrolls horizontally when overflowed
-   (touch-draggable on mobile), and fades at the trailing edge so the
-   clipped state reads as "there's more over here" instead of a hard
-   cutoff.  Scrollbar hidden since the content is non-essential glyph
-   legend — the buttons themselves are still reachable. */
-.mode-bar-hint {
-  flex: 1;
+/* Hint frame: capped-width wrapper that holds the scrollable hint
+   text plus a "›" indicator.  No fade — the caret is an explicit
+   "there's more this way" cue that appears only when the hint
+   overflows. */
+.mode-bar-hint-frame {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
   min-width: 0;
-  white-space: nowrap;
-  opacity: 0.7;
-  text-align: right;
+  max-width: 60ch;
+}
+
+.mode-bar-hint {
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 2ch,
-    #000 calc(100% - 2ch),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 2ch,
-    #000 calc(100% - 2ch),
-    transparent 100%
-  );
+  white-space: nowrap;
+  opacity: 0.7;
 }
 
 .mode-bar-hint::-webkit-scrollbar { display: none; }
+
+.mode-bar-scroll-hint {
+  flex-shrink: 0;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.mode-bar-scroll-hint.is-visible {
+  opacity: 0.8;
+}
 
 /* ===== BUTTONS ===== */
 .gamepad-btn {

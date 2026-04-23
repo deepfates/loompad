@@ -1457,30 +1457,30 @@ export const GamepadInterface = () => {
             let hint = "";
             if (screen === "edit") {
               title = "EDIT";
-              hint = "START SAVE • SELECT CANCEL";
+              hint = "START: SAVE • SELECT: CANCEL";
             } else if (inModelEditor) {
               title = "EDIT MODEL";
-              hint = "↵ EDIT FIELD • ⌫ BACK • START SAVE";
+              hint = "↵: EDIT FIELD • ⌫: BACK • START: SAVE";
             } else if (screen === "drawer") {
               if (cursorOnTabs) {
                 title = "TABS";
-                hint = "◄► TAB • ↓ ROWS • START CLOSE";
+                hint = "◄►: TAB • ↓: ROWS • START: CLOSE";
               } else if (drawerTab === "settings") {
                 title = "SETTINGS";
-                hint = "↵ CYCLE • ⌫ BACK • START CLOSE";
+                hint = "↵: CYCLE • ⌫: BACK • START: CLOSE";
               } else if (drawerTab === "stories") {
                 title = "STORIES";
-                hint = "↵ OPEN • ⌫ DELETE • START CLOSE";
+                hint = "↵: OPEN • ⌫: DELETE • START: CLOSE";
               } else if (drawerTab === "models") {
                 title = "MODELS";
-                hint = "↵ EDIT • ⌫ DELETE • START CLOSE";
+                hint = "↵: EDIT • ⌫: DELETE • START: CLOSE";
               }
             } else if (projection === "map") {
               title = "MAP";
-              hint = "↵ GENERATE • ⌫ EDIT • START LOOM • SELECT CONFIG";
+              hint = "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG";
             } else {
               title = "LOOM";
-              hint = "↵ GENERATE • ⌫ EDIT • START MAP • SELECT CONFIG";
+              hint = "↵: GENERATE • ⌫: EDIT • START: MAP • SELECT: CONFIG";
             }
             return <ModeBar title={title} hint={hint} />;
           })()}
