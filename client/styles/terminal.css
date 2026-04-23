@@ -63,18 +63,29 @@
 
 /* Theme palettes extracted from SRCL — 14 themes across light/dark tones */
 
-/* Per-theme focus treatment:
- *   --theme-focus-bg / --theme-focus-fg control how every text surface
- *   that means "this is what you'd activate" (loom cursor, menu row,
- *   drawer tab) draws focus.  Light themes get a pale background
- *   highlight behind normal text.  Dark themes keep the bg and shift
- *   the text itself to the primary color instead — reads better than a
- *   low-contrast pale fill on a dark canvas.
+/* Per-theme focus treatment.  Two paired token sets because the
+ * same "this is what you'd activate" intent wants different visual
+ * weight depending on the surface:
+ *
+ *   --theme-focus-bg / --theme-focus-fg
+ *     Inline-text focus (loom cursor span).  Light themes get a pale
+ *     fill; dark themes leave the bg alone and shift the text color
+ *     to the primary accent — reads better than a washed-out bg on a
+ *     dark canvas.
+ *
+ *   --theme-row-bg / --theme-row-fg
+ *     Full-width surface focus (menu row, drawer tab cursor).  Light
+ *     themes mirror the inline treatment — pale fill + normal text —
+ *     which feels right there.  Dark themes INVERT: solid primary
+ *     fill plus background text, so the selected row pops against
+ *     the quieter unselected rows instead of drowning in them.
  */
 
 .theme-light {
   --theme-focus-bg: var(--theme-focused-foreground-subdued);
   --theme-focus-fg: var(--theme-text);
+  --theme-row-bg: var(--theme-focused-foreground-subdued);
+  --theme-row-fg: var(--theme-text);
   --theme-background: rgba(255, 255, 255, 1);
   --theme-background-modal: rgba(224, 224, 224, 1);
   --theme-background-modal-footer: rgba(168, 168, 168, 1);
@@ -95,6 +106,8 @@
 .theme-blue {
   --theme-focus-bg: var(--theme-focused-foreground-subdued);
   --theme-focus-fg: var(--theme-text);
+  --theme-row-bg: var(--theme-focused-foreground-subdued);
+  --theme-row-fg: var(--theme-text);
   --theme-background: rgba(0, 45, 156, 1);
   --theme-background-modal: rgba(0, 67, 206, 1);
   --theme-background-modal-footer: rgba(0, 29, 108, 1);
@@ -115,6 +128,8 @@
 .theme-black-green {
   --theme-focus-bg: transparent;
   --theme-focus-fg: var(--theme-focused-foreground);
+  --theme-row-bg: var(--theme-focused-foreground);
+  --theme-row-fg: var(--theme-background);
   --theme-background: rgba(0, 0, 0, 1);
   --theme-background-modal: rgba(38, 38, 38, 1);
   --theme-background-modal-footer: rgba(57, 57, 57, 1);
@@ -135,6 +150,8 @@
 .theme-nerv {
   --theme-focus-bg: transparent;
   --theme-focus-fg: var(--theme-focused-foreground);
+  --theme-row-bg: var(--theme-focused-foreground);
+  --theme-row-fg: var(--theme-background);
   --theme-background: rgba(0, 0, 0, 1);
   --theme-background-modal: rgba(40, 10, 10, 1);
   --theme-background-modal-footer: rgba(25, 5, 5, 1);
@@ -155,6 +172,8 @@
 .theme-outrun {
   --theme-focus-bg: transparent;
   --theme-focus-fg: var(--theme-focused-foreground);
+  --theme-row-bg: var(--theme-focused-foreground);
+  --theme-row-fg: var(--theme-background);
   --theme-background: rgba(15, 0, 30, 1);
   --theme-background-modal: rgba(50, 0, 100, 1);
   --theme-background-modal-footer: rgba(30, 0, 60, 1);
@@ -175,6 +194,8 @@
 .theme-aperture {
   --theme-focus-bg: var(--theme-focused-foreground-subdued);
   --theme-focus-fg: var(--theme-text);
+  --theme-row-bg: var(--theme-focused-foreground-subdued);
+  --theme-row-fg: var(--theme-text);
   --theme-background: rgba(255, 255, 255, 1);
   --theme-background-modal: rgba(230, 230, 230, 1);
   --theme-background-modal-footer: rgba(150, 150, 150, 1);
@@ -642,8 +663,8 @@ html, body {
 }
 
 .menu-item.selected {
-  background: var(--theme-focus-bg);
-  color: var(--theme-focus-fg);
+  background: var(--theme-row-bg);
+  color: var(--theme-row-fg);
 }
 
 .menu-item.selected .menu-item-preview {
@@ -845,8 +866,8 @@ html, body {
 }
 
 .drawer-tab--selected {
-  background: var(--theme-focus-bg);
-  color: var(--theme-focus-fg);
+  background: var(--theme-row-bg);
+  color: var(--theme-row-fg);
 }
 
 .drawer-body {
