@@ -129,8 +129,11 @@ export function useScrollSync({
       // If the element is taller than the viewport (even with breathing
       // room for padding), snap it to the top — centering would push the
       // top off-screen.  Otherwise honor the caller's requested align.
+      // Use getBoundingClientRect so multi-line inline spans report
+      // their true wrapped height, not first-line-box height.
+      const rectHeight = el.getBoundingClientRect().height;
       const fitsInViewport =
-        el.offsetHeight + padding * 2 <= container.clientHeight;
+        rectHeight + padding * 2 <= container.clientHeight;
       const effectiveAlign: AlignMode = fitsInViewport ? align : "top";
 
       // Compute target scrollTop

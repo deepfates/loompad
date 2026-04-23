@@ -1317,7 +1317,12 @@ export const GamepadInterface = () => {
           nodeId: current.id,
           align: "center",
           reason: "nav-up-down",
-          priority: 100,
+          // Higher than nav-left-right so that when both effects fire
+          // during a depth change (ArrowDown mutates both currentDepth
+          // and selectedOptions), the current-depth center wins over
+          // the sibling top-align.  Pure left-right changes still get
+          // the center effect anyway — it lands on the same parent.
+          priority: 150,
         });
       }
     }
