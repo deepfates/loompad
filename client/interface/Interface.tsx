@@ -93,8 +93,6 @@ export const GamepadInterface = () => {
     setLightTheme,
     darkTheme,
     setDarkTheme,
-    resolvedTheme,
-    resolvedTone,
     font,
     setFont,
     availableFonts,
@@ -1265,7 +1263,6 @@ export const GamepadInterface = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<"portrait" | "landscape">("portrait");
-  const isLightTheme = resolvedTone === "light";
 
   useEffect(() => {
     const checkLayout = () => {
@@ -1374,24 +1371,26 @@ export const GamepadInterface = () => {
           const isNextDepth = index === currentDepth + 1;
           const isLoading = isGeneratingAt(segment.id);
 
+          // Four coloration tiers, graded by distance from the cursor so the
+          // eye lands on the highlighted continuation first but the whole
+          // thread stays readable:
+          //
+          //   cursor-node  (D+1) — primary fill on inverted text; matches the
+          //                        minimap's "selected" node exactly.  Styled
+          //                        by .cursor-node in terminal.css.
+          //   parent       (D)   — fullest normal text.
+          //   ancestors    (<D)  — slightly less intense.
+          //   descendants  (>D+1)— dimmest tier; will change if you regenerate
+          //                        or move siblings.
           const spanClasses = ["story-node"];
           if (isNextDepth) {
-            spanClasses.push(
-              "cursor-node",
-              "font-semibold",
-              "py-[0.125ch]",
-              "rounded-[0.125ch]"
-            );
-            // Use special color if we're in light mode, else use theme-button-foreground
-            if (isLightTheme) {
-              spanClasses.push("bg-theme-focused-subdued", "text-theme-bg");
-            } else {
-              spanClasses.push("text-theme-focused");
-            }
+            spanClasses.push("cursor-node");
           } else if (isCurrentDepth) {
-            spanClasses.push("font-semibold", "text-theme-text");
+            spanClasses.push("text-theme-text");
+          } else if (index < currentDepth) {
+            spanClasses.push("text-theme-text", "opacity-80");
           } else {
-            spanClasses.push("text-theme-bg-modal-footer");
+            spanClasses.push("text-theme-text", "opacity-55");
           }
           if (isLoading) {
             spanClasses.push("opacity-50");
