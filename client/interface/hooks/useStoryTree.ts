@@ -1,10 +1,28 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { StoryNode, InFlight, GeneratingInfo } from "../types";
 import { useStoryGeneration } from "./useStoryGeneration";
-import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import { touchStoryUpdated } from "../utils/storyMeta";
+import {
+  getPreferredChildIndex,
+  setPreferredChildIndex,
+} from "../loomsync/storySessionState";
+import {
+  appendStoryContinuations,
+  appendStoryNodeRevision,
+  materializeStoryTree,
+} from "../loomsync/storyAdapter";
+import {
+  createStoryWorld,
+  getStoryIndex,
+  importStoryIndexFromUrl,
+  importStoryRootFromUrl,
+  listStoryEntries,
+  openStoryWorld,
+  removeStory,
+  type StoryWorld,
+} from "../loomsync/storyRuntime";
 
 export const INITIAL_STORY = {
   root: {
@@ -30,7 +48,9 @@ interface StoryParams {
 }
 
 export function useStoryTree(params: StoryParams) {
-  const [trees, setTrees] = useLocalStorage(DEFAULT_TREES);
+  const [trees, setTrees] = useState(DEFAULT_TREES);
+  const [worldsByKey, setWorldsByKey] = useState<Record<string, StoryWorld>>({});
+  const [storyTitles, setStoryTitles] = useState<Record<string, string>>({});
   const [currentTreeKey, setCurrentTreeKey] = useState(
     () => Object.keys(trees)[0],
   );
@@ -45,6 +65,107 @@ export function useStoryTree(params: StoryParams) {
 
   const { generateContinuation, chooseContinuation, error } =
     useStoryGeneration();
+
+  const refreshTreeFromWorld = useCallback(
+    async (key: string, world: StoryWorld) => {
+      const root = await world.root();
+      const tree = await materializeStoryTree(
+        world,
+        root.meta?.rootText ?? INITIAL_STORY.root.text,
+      );
+      setTrees((prev) => ({ ...prev, [key]: tree }));
+      if (key === currentTreeKey) setStoryTree(tree);
+      return tree;
+    },
+    [currentTreeKey],
+  );
+
+  const loadStoriesFromIndex = useCallback(async () => {
+    const entries = await listStoryEntries();
+
+    if (!entries.length) {
+      const { root, world } = await createStoryWorld(
+        "Story 1",
+        INITIAL_STORY.root.text,
+      );
+      const tree = await materializeStoryTree(world, INITIAL_STORY.root.text);
+      setWorldsByKey({ [root.id]: world });
+      setTrees({ [root.id]: tree });
+      setStoryTitles({ [root.id]: root.meta?.title ?? "Story 1" });
+      setCurrentTreeKey(root.id);
+      setStoryTree(tree);
+      return;
+    }
+
+    const nextTrees: Record<string, { root: StoryNode }> = {};
+    const nextWorlds: Record<string, StoryWorld> = {};
+    const nextTitles: Record<string, string> = {};
+    for (const entry of entries) {
+      const world = await openStoryWorld(entry.rootId);
+      const root = await world.root();
+      nextWorlds[entry.rootId] = world;
+      nextTitles[entry.rootId] =
+        entry.title ?? entry.meta?.title ?? root.meta?.title ?? entry.rootId;
+      nextTrees[entry.rootId] = await materializeStoryTree(
+        world,
+        root.meta?.rootText ?? INITIAL_STORY.root.text,
+      );
+    }
+    const firstKey = entries[0]?.rootId ?? Object.keys(nextTrees)[0];
+    setWorldsByKey(nextWorlds);
+    setTrees(nextTrees);
+    setStoryTitles(nextTitles);
+    setCurrentTreeKey((prev) => {
+      const nextKey = nextTrees[prev] ? prev : firstKey;
+      setStoryTree(nextTrees[nextKey] ?? nextTrees[firstKey] ?? INITIAL_STORY);
+      return nextKey;
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await importStoryIndexFromUrl().catch((error) => {
+        console.warn("Failed to import shared story index from URL:", error);
+      });
+      await importStoryRootFromUrl().catch((error) => {
+        console.warn("Failed to import shared story from URL:", error);
+      });
+      if (!cancelled) await loadStoriesFromIndex();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadStoriesFromIndex]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    void (async () => {
+      const index = await getStoryIndex();
+      if (cancelled) return;
+      unsubscribe = index.subscribe(() => {
+        void loadStoriesFromIndex();
+      });
+    })();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [loadStoriesFromIndex]);
+
+  useEffect(() => {
+    const unsubs = Object.entries(worldsByKey).map(([key, world]) =>
+      world.subscribe((event) => {
+        if (event.type === "node-added" || event.type === "root-updated") {
+          void refreshTreeFromWorld(key, world);
+        }
+      }),
+    );
+    return () => {
+      for (const unsub of unsubs) unsub();
+    };
+  }, [worldsByKey, refreshTreeFromWorld]);
 
   // Helper to check if a specific node is generating
   const isGeneratingAt = useCallback(
@@ -66,16 +187,14 @@ export function useStoryTree(params: StoryParams) {
   // Helper to get the last selected index for a node
   const getLastSelectedIndex = useCallback(
     (node: StoryNode, defaultIndex: number) => {
-      if (
-        typeof node.lastSelectedIndex === "number" &&
-        node.continuations &&
-        node.lastSelectedIndex < node.continuations.length
-      ) {
-        return node.lastSelectedIndex;
-      }
-      return defaultIndex;
+      return getPreferredChildIndex(
+        currentTreeKey,
+        node.id,
+        node.continuations?.length ?? 0,
+        defaultIndex,
+      );
     },
-    [],
+    [currentTreeKey],
   );
 
   const getOptionsAtDepth = useCallback(
@@ -123,8 +242,7 @@ export function useStoryTree(params: StoryParams) {
   // Helper to update the lastSelectedIndex in the tree
   const updateLastSelectedIndex = useCallback(
     (path: StoryNode[], depth: number, index: number) => {
-      const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
-      let current = newTree.root;
+      let current = storyTree.root;
 
       // Navigate to the node at the specified depth using the path directly
       for (let i = 1; i <= depth; i++) {
@@ -138,16 +256,9 @@ export function useStoryTree(params: StoryParams) {
         current = current.continuations![continuationIndex];
       }
 
-      // Update the lastSelectedIndex
-      current.lastSelectedIndex = index;
-
-      setStoryTree(newTree);
-      setTrees((prev) => ({
-        ...prev,
-        [currentTreeKey]: newTree,
-      }));
+      setPreferredChildIndex(currentTreeKey, current.id, index);
     },
-    [storyTree, currentTreeKey, setTrees],
+    [storyTree, currentTreeKey],
   );
 
   const generateContinuations = useCallback(
@@ -171,56 +282,12 @@ export function useStoryTree(params: StoryParams) {
     [getCurrentPath, currentDepth, params, generateContinuation],
   );
 
-  const addContinuations = useCallback(
-    (
-      baseTree: { root: StoryNode },
-      path: StoryNode[],
-      newContinuations: StoryNode[],
-      isNewChildren: boolean,
-    ) => {
-      const newTree = JSON.parse(JSON.stringify(baseTree)) as typeof baseTree;
-      let current = newTree.root;
-
-      // Navigate to the target node using path IDs to ensure we find the right node
-      for (let i = 1; i < path.length; i++) {
-        const pathNode = path[i];
-        const continuationIndex =
-          current.continuations?.findIndex((node) => node.id === pathNode.id) ??
-          -1;
-        if (continuationIndex === -1) {
-          console.error("Failed to find node in path:", {
-            pathNode,
-            currentContinuations: current.continuations,
-          });
-          return newTree;
-        }
-        current = current.continuations![continuationIndex];
-      }
-
-      // Initialize or append continuations
-      if (!current.continuations) {
-        current.continuations = newContinuations;
-      } else {
-        current.continuations = [...current.continuations, ...newContinuations];
-      }
-
-      // Set lastSelectedIndex for the current node
-      if (isNewChildren) {
-        current.lastSelectedIndex = 0;
-      } else {
-        current.lastSelectedIndex = (current.continuations?.length ?? 1) - 1;
-      }
-
-      return newTree;
-    },
-    [],
-  );
-
   const autoExpandChildren = useCallback(
     async (
+      world: StoryWorld,
       baseTree: { root: StoryNode },
       parentPath: StoryNode[],
-      generatedChildren: StoryNode[],
+      generatedChildCount: number,
       depth: number,
       params: StoryParams,
     ) => {
@@ -228,7 +295,7 @@ export function useStoryTree(params: StoryParams) {
         return baseTree;
       }
 
-      if (!generatedChildren.length) {
+      if (generatedChildCount <= 0) {
         return baseTree;
       }
 
@@ -265,7 +332,7 @@ export function useStoryTree(params: StoryParams) {
       let workingTree = baseTree;
       let currentDepth = depth;
       let currentPathIds = parentPath.map((node) => node.id);
-      let currentChildIds = generatedChildren.map((node) => node.id);
+      let currentChildIds: string[] = [];
 
       while (iterationsRemaining > 0) {
         if (
@@ -279,6 +346,12 @@ export function useStoryTree(params: StoryParams) {
 
         const parentNode = pathNodes[pathNodes.length - 1];
         if (!parentNode?.continuations?.length) break;
+
+        if (!currentChildIds.length) {
+          currentChildIds = parentNode.continuations
+            .slice(-generatedChildCount)
+            .map((node) => node.id);
+        }
 
         const candidateNodes = currentChildIds
           .map((id) =>
@@ -307,8 +380,15 @@ export function useStoryTree(params: StoryParams) {
         const selectedNode = candidateNodes[choiceIndex];
         if (!selectedNode) break;
 
-        // Remember the model's preference so navigation follows the auto-expanded path
-        parentNode.lastSelectedIndex = choiceIndex;
+        const selectedSiblingIndex =
+          parentNode.continuations?.findIndex(
+            (node) => node.id === selectedNode.id,
+          ) ?? choiceIndex;
+        setPreferredChildIndex(
+          currentTreeKey,
+          parentNode.id,
+          selectedSiblingIndex < 0 ? choiceIndex : selectedSiblingIndex,
+        );
 
         // Align the user's explicit selection state with the model's choice so
         // subsequent navigation (e.g. pressing ArrowDown) follows the
@@ -320,7 +400,8 @@ export function useStoryTree(params: StoryParams) {
             const fillCount = currentDepth - next.length + 1;
             next.push(...Array(fillCount).fill(0));
           }
-          next[currentDepth] = choiceIndex;
+          next[currentDepth] =
+            selectedSiblingIndex < 0 ? choiceIndex : selectedSiblingIndex;
           return next.slice(0, currentDepth + 1);
         });
 
@@ -389,21 +470,25 @@ export function useStoryTree(params: StoryParams) {
           });
         }
 
-        workingTree = addContinuations(
-          workingTree,
-          leafPath,
+        await appendStoryContinuations(
+          world,
+          targetNode.id === "root" ? null : targetNode.id,
           autoChildren,
-          true,
         );
+        workingTree = await refreshTreeFromWorld(currentTreeKey, world);
 
-        setStoryTree(workingTree);
-        setTrees((prev) => ({
-          ...prev,
-          [currentTreeKey]: workingTree,
-        }));
+        const refreshedTargetPath = resolvePath(
+          workingTree,
+          leafPath.map((node) => node.id),
+        );
+        const refreshedTarget =
+          refreshedTargetPath?.[refreshedTargetPath.length - 1];
+        if (!refreshedTarget?.continuations?.length) break;
 
         currentPathIds = leafPath.map((node) => node.id);
-        currentChildIds = autoChildren.map((child) => child.id);
+        currentChildIds = refreshedTarget.continuations
+          .slice(-autoChildren.length)
+          .map((child) => child.id);
         currentDepth = targetDepth;
         iterationsRemaining -= 1;
       }
@@ -413,13 +498,78 @@ export function useStoryTree(params: StoryParams) {
     [
       chooseContinuation,
       generateContinuation,
-      addContinuations,
       setSelectedOptions,
       setInFlight,
       setGeneratingInfo,
-      setStoryTree,
-      setTrees,
       currentTreeKey,
+      refreshTreeFromWorld,
+    ],
+  );
+
+  const saveCurrentNodeRevision = useCallback(
+    async (revision: StoryNode) => {
+      const world = worldsByKey[currentTreeKey];
+      if (!world) throw new Error(`Missing story world: ${currentTreeKey}`);
+
+      const currentPath = getCurrentPath();
+      const currentNode = currentPath[currentDepth];
+      if (!currentNode) return;
+
+      if (currentNode.id === "root") {
+        const root = await world.root();
+        await world.updateRootMeta({
+          ...(root.meta ?? {
+            title: currentTreeKey,
+            rootText: INITIAL_STORY.root.text,
+          }),
+          rootText: revision.text,
+        });
+        await refreshTreeFromWorld(currentTreeKey, world);
+        return;
+      }
+
+      const parentNode = currentPath[currentDepth - 1];
+      const parentId = parentNode?.id === "root" ? null : parentNode?.id;
+      const appended = await appendStoryNodeRevision(
+        world,
+        parentId ?? null,
+        revision,
+      );
+      const updatedTree = await refreshTreeFromWorld(currentTreeKey, world);
+
+      const updatedParent =
+        parentId === null
+          ? updatedTree.root
+          : (() => {
+              const findNode = (node: StoryNode): StoryNode | null => {
+                if (node.id === parentId) return node;
+                for (const child of node.continuations ?? []) {
+                  const found = findNode(child);
+                  if (found) return found;
+                }
+                return null;
+              };
+              return findNode(updatedTree.root);
+            })();
+      const selectedIndex =
+        updatedParent?.continuations?.findIndex(
+          (child) => child.id === appended.id,
+        ) ?? -1;
+      if (updatedParent && selectedIndex >= 0) {
+        setPreferredChildIndex(currentTreeKey, updatedParent.id, selectedIndex);
+        setSelectedOptions((prev) => {
+          const next = [...prev];
+          next[Math.max(0, currentDepth - 1)] = selectedIndex;
+          return next.slice(0, Math.max(1, currentDepth));
+        });
+      }
+    },
+    [
+      currentDepth,
+      currentTreeKey,
+      getCurrentPath,
+      refreshTreeFromWorld,
+      worldsByKey,
     ],
   );
 
@@ -512,20 +662,23 @@ export function useStoryTree(params: StoryParams) {
 
           try {
             const newContinuations = await generateContinuations(count);
+            const world = worldsByKey[currentTreeKey];
+            if (!world) throw new Error(`Missing story world: ${currentTreeKey}`);
+            await appendStoryContinuations(
+              world,
+              currentNode.id === "root" ? null : currentNode.id,
+              newContinuations,
+            );
 
             const parentPath = currentPath.slice(0, currentDepth + 1);
-            let updatedTree = addContinuations(
-              storyTree,
-              parentPath,
-              newContinuations,
-              !hasExistingContinuations,
-            );
+            let updatedTree = await refreshTreeFromWorld(currentTreeKey, world);
 
             if (!hasExistingContinuations && params.autoModeIterations > 0) {
               updatedTree = await autoExpandChildren(
+                world,
                 updatedTree,
                 parentPath,
-                newContinuations,
+                newContinuations.length,
                 currentDepth,
                 params,
               );
@@ -569,11 +722,10 @@ export function useStoryTree(params: StoryParams) {
       currentDepth,
       selectedOptions,
       generateContinuations,
-      addContinuations,
       autoExpandChildren,
-      storyTree,
       currentTreeKey,
-      setTrees,
+      worldsByKey,
+      refreshTreeFromWorld,
       getLastSelectedIndex,
       updateLastSelectedIndex,
       isGeneratingAt,
@@ -593,11 +745,46 @@ export function useStoryTree(params: StoryParams) {
     handleStoryNavigation,
     trees,
     currentTreeKey,
+    storyTitles,
     setCurrentTreeKey: (key: string) => {
       setCurrentTreeKey(key);
       setStoryTree(trees[key] || INITIAL_STORY);
       setCurrentDepth(0);
       setSelectedOptions([0]);
+    },
+    createTree: async () => {
+      const title = `Story ${Object.keys(trees).length + 1}`;
+      const { root, world } = await createStoryWorld(
+        title,
+        INITIAL_STORY.root.text,
+      );
+      setWorldsByKey((prev) => ({ ...prev, [root.id]: world }));
+      setStoryTitles((prev) => ({ ...prev, [root.id]: title }));
+      const tree = await materializeStoryTree(world, INITIAL_STORY.root.text);
+      setTrees((prev) => ({ ...prev, [root.id]: tree }));
+      setCurrentTreeKey(root.id);
+      setStoryTree(tree);
+      setCurrentDepth(0);
+      setSelectedOptions([0]);
+      return root.id;
+    },
+    deleteTree: async (key: string) => {
+      await removeStory(key);
+      setWorldsByKey((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setStoryTitles((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setTrees((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     },
     // Set selection state (currentDepth and selectedOptions) from a provided path.
     // Matches path IDs against current storyTree to compute indices.
@@ -620,7 +807,6 @@ export function useStoryTree(params: StoryParams) {
     },
     getCurrentPath,
     getOptionsAtDepth,
-    setTrees,
-    setStoryTree,
+    saveCurrentNodeRevision,
   };
 }

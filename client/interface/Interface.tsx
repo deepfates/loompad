@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { useMenuSystem } from "./hooks/useMenuSystem";
-import { useStoryTree, INITIAL_STORY } from "./hooks/useStoryTree";
+import { useStoryTree } from "./hooks/useStoryTree";
 import { useOfflineStatus } from "./hooks/useOfflineStatus";
 import { useScrollSync } from "./hooks/useScrollSync";
 import { useModels } from "./hooks/useModels";
@@ -39,7 +39,7 @@ import {
   scrollMenuItemElIntoView,
 } from "./utils/scrolling";
 
-import type { StoryNode, ModelSortOption, DrawerTab } from "./types";
+import type { ModelSortOption, DrawerTab } from "./types";
 import type { ModelId, ModelConfig } from "../../shared/models";
 import {
   orderKeysReverseChronological,
@@ -55,6 +55,11 @@ import {
   downloadStoryThreadText,
   downloadStoryTreeJson,
 } from "./utils/storyExport";
+import {
+  createStoryIndexShareUrl,
+  createStoryShareUrl,
+  getStoryIndex,
+} from "./loomsync/storyRuntime";
 
 const DEFAULT_PARAMS = {
   temperature: 1.0,
@@ -187,9 +192,11 @@ export const GamepadInterface = () => {
     setCurrentTreeKey,
     getCurrentPath,
     getOptionsAtDepth,
-    setTrees,
-    setStoryTree,
     setSelectionByPath,
+    storyTitles,
+    createTree,
+    deleteTree,
+    saveCurrentNodeRevision,
   } = useStoryTree(menuParams);
 
   // Compute reverse-chronologically ordered trees for menus
@@ -274,25 +281,17 @@ export const GamepadInterface = () => {
     padding: 8,
   });
 
-  const handleNewTree = useCallback(() => {
-    const newKey = `Story ${Object.keys(trees).length + 1}`;
-    setTrees((prev) => ({
-      ...prev,
-      [newKey]: INITIAL_STORY,
-    }));
+  const handleNewTree = useCallback(async () => {
+    const newKey = await createTree();
     touchStoryActive(newKey);
-    setCurrentTreeKey(newKey);
     closeDrawer();
-  }, [trees, setTrees, setCurrentTreeKey, closeDrawer]);
+    return newKey;
+  }, [createTree, closeDrawer]);
 
   const handleDeleteTree = useCallback(
-    (key: string) => {
+    async (key: string) => {
       if (window.confirm(`Are you sure you want to delete "${key}"?`)) {
-        setTrees((prev) => {
-          const newTrees = { ...prev };
-          delete newTrees[key];
-          return newTrees;
-        });
+        await deleteTree(key);
         {
           const meta = getStoryMeta();
           if (meta[key]) {
@@ -313,7 +312,7 @@ export const GamepadInterface = () => {
         }
       }
     },
-    [currentTreeKey, trees, setTrees, setCurrentTreeKey]
+    [currentTreeKey, deleteTree, trees, setCurrentTreeKey]
   );
 
   const handleExportTree = useCallback(
@@ -333,6 +332,22 @@ export const GamepadInterface = () => {
     },
     [trees]
   );
+
+  const copyText = useCallback(async (text: string) => {
+    await navigator.clipboard.writeText(text);
+  }, []);
+
+  const handleShareStory = useCallback(
+    async (key: string) => {
+      await copyText(createStoryShareUrl(key));
+    },
+    [copyText]
+  );
+
+  const handleShareIndex = useCallback(async () => {
+    const index = await getStoryIndex();
+    await copyText(createStoryIndexShareUrl(index.id));
+  }, [copyText]);
 
   const handleStoryHighlight = useCallback(
     (index: number, column: number) => {
@@ -932,13 +947,14 @@ export const GamepadInterface = () => {
       // Row 0 is Sort, row 1 is "+ New Story", rows 2+ are the stories.
       const baseOffset = 2;
       const totalItems = orderedKeys.length + baseOffset;
-      const columnTypes: Array<"story" | "json" | "thread"> = [
+      const columnTypes: Array<"story" | "share" | "json" | "thread"> = [
         "story",
+        "share",
         "json",
         "thread",
       ];
       const maxColumnFor = (index: number) =>
-        index < baseOffset ? 0 : columnTypes.length - 1;
+        index === 0 ? 1 : index < baseOffset ? 0 : columnTypes.length - 1;
       switch (key) {
         case "ArrowUp":
         case "ArrowDown": {
@@ -953,14 +969,20 @@ export const GamepadInterface = () => {
         }
         case "ArrowLeft":
           if (selectedTreeIndex === 0) {
-            cycleStorySort(-1);
+            if (selectedTreeColumn === 0) {
+              cycleStorySort(-1);
+            } else {
+              setSelectedTreeColumn((prev) => Math.max(0, prev - 1));
+            }
           } else {
             setSelectedTreeColumn((prev) => Math.max(0, prev - 1));
           }
           return;
         case "ArrowRight":
           if (selectedTreeIndex === 0) {
-            cycleStorySort(1);
+            setSelectedTreeColumn((prev) =>
+              Math.min(maxColumnFor(selectedTreeIndex), prev + 1)
+            );
           } else {
             setSelectedTreeColumn((prev) =>
               Math.min(maxColumnFor(selectedTreeIndex), prev + 1)
@@ -969,11 +991,15 @@ export const GamepadInterface = () => {
           return;
         case "Enter": {
           if (selectedTreeIndex === 0) {
-            cycleStorySort(1);
+            if (selectedTreeColumn === 1) {
+              void handleShareIndex();
+            } else {
+              cycleStorySort(1);
+            }
             return;
           }
           if (selectedTreeIndex === 1) {
-            handleNewTree();
+            void handleNewTree();
             setSelectedTreeColumn(0);
             return;
           }
@@ -984,6 +1010,8 @@ export const GamepadInterface = () => {
             setCurrentTreeKey(treeKey);
             closeDrawer();
             setSelectedTreeColumn(0);
+          } else if (columnTypes[selectedTreeColumn] === "share") {
+            void handleShareStory(treeKey);
           } else if (columnTypes[selectedTreeColumn] === "json") {
             handleExportTree(treeKey);
           } else if (columnTypes[selectedTreeColumn] === "thread") {
@@ -1009,6 +1037,8 @@ export const GamepadInterface = () => {
       handleDeleteTree,
       handleExportThread,
       handleExportTree,
+      handleShareIndex,
+      handleShareStory,
       handleNewTree,
       orderedKeys,
       scrollCurrentMenuItemIntoView,
@@ -1602,6 +1632,7 @@ export const GamepadInterface = () => {
                 <MenuScreen>
                   <TreeListMenu
                     trees={trees}
+                    storyTitles={storyTitles}
                     selectedIndex={cursorOnTabs ? -1 : selectedTreeIndex}
                     selectedColumn={selectedTreeColumn}
                     sortOrder={storySort}
@@ -1613,17 +1644,23 @@ export const GamepadInterface = () => {
                       setSelectedTreeColumn(0);
                     }}
                     onNew={() => {
-                      handleNewTree();
+                      void handleNewTree();
                       setSelectedTreeColumn(0);
                     }}
                     onDelete={(key) => {
-                      handleDeleteTree(key);
+                      void handleDeleteTree(key);
                       if (selectedTreeIndex > 0) {
                         setSelectedTreeIndex((prev) =>
                           Math.min(prev, Object.keys(trees).length - 1)
                         );
                         setSelectedTreeColumn(0);
                       }
+                    }}
+                    onShareStory={(key) => {
+                      void handleShareStory(key);
+                    }}
+                    onShareIndex={() => {
+                      void handleShareIndex();
                     }}
                     onExportJson={handleExportTree}
                     onExportThread={handleExportThread}
@@ -1662,55 +1699,16 @@ export const GamepadInterface = () => {
             <MenuScreen>
               <EditMenu
                 node={getCurrentPath()[currentDepth]}
-                onSave={(text) => {
-                  const newTree = JSON.parse(JSON.stringify(storyTree)) as {
-                    root: StoryNode;
+                onSave={async (text) => {
+                  const splitRevision = menuParams.textSplitting
+                    ? splitTextToNodes(text)
+                    : null;
+                  const revision = splitRevision ?? {
+                    id: crypto.randomUUID(),
+                    text,
+                    continuations: [],
                   };
-                  let current = newTree.root;
-
-                  for (let i = 1; i <= currentDepth; i++) {
-                    if (!current.continuations) break;
-                    current = current.continuations[selectedOptions[i - 1]];
-                  }
-
-                  // Conditionally split the edited text based on settings
-                  if (menuParams.textSplitting) {
-                    const nodeChain = splitTextToNodes(text);
-
-                    if (nodeChain) {
-                      // Replace current node with the head of the chain
-                      current.text = nodeChain.text;
-
-                      // Preserve existing continuations by attaching them to the end of the chain
-                      const existingContinuations = current.continuations || [];
-
-                      // Walk to the end of the new chain
-                      let chainEnd = nodeChain;
-                      while (
-                        chainEnd.continuations &&
-                        chainEnd.continuations.length > 0
-                      ) {
-                        chainEnd = chainEnd.continuations[0];
-                      }
-
-                      // Attach existing continuations to the end of the chain
-                      chainEnd.continuations = existingContinuations;
-
-                      // Replace the current node's continuations with the new chain
-                      current.continuations = nodeChain.continuations;
-                      if (nodeChain.lastSelectedIndex !== undefined) {
-                        current.lastSelectedIndex = nodeChain.lastSelectedIndex;
-                      }
-                    } else {
-                      // Fallback to simple text replacement if splitting fails
-                      current.text = text;
-                    }
-                  } else {
-                    // Simple text replacement when splitting is disabled
-                    current.text = text;
-                  }
-
-                  setStoryTree(newTree);
+                  await saveCurrentNodeRevision(revision);
                   // Mark story as updated for reverse-chronological order
                   touchStoryUpdated(currentTreeKey);
                   setScreen(null);

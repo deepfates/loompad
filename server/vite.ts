@@ -6,11 +6,13 @@ import http from "http";
 import { createServer as createViteServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/postcss";
+import wasm from "vite-plugin-wasm";
 
 // app specific imports
 import args from "server/args";
 import { setup_routes } from "server/apis/http";
 import { getMainProps } from "server/main_props";
+import { attachLoomSyncServer } from "server/loomsync";
 
 const port: number = args.port;
 const mode: "development" | "production" = args.mode;
@@ -39,6 +41,7 @@ export async function createServer() {
   const app = express();
 
   const http_server = http.createServer(app);
+  attachLoomSyncServer(http_server);
   setup_routes(app);
 
   let vite;
@@ -47,7 +50,7 @@ export async function createServer() {
       configFile: false, // Don't load config file - use inline config only
       root: path.resolve(__dirname, "../"),
       appType: "custom",
-      plugins: [react()],
+      plugins: [wasm(), react()],
       css: {
         postcss: {
           plugins: [tailwindcss()],
@@ -55,6 +58,10 @@ export async function createServer() {
       },
       server: {
         middlewareMode: true,
+        optimizeDeps: {
+          include: ["eventemitter3"],
+          exclude: ["@automerge/automerge"],
+        },
         hmr: {
           clientPort: 443,
           protocol: "wss",
