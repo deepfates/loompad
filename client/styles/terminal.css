@@ -269,15 +269,14 @@ html, body {
 }
 
 /* Cursor span — the selected continuation at currentDepth+1.
-   Uses the same tokens the minimap paints onto its "selected" node
-   so loom and map read the same across every theme: primary fill on
-   background-colored text.  No Tailwind utility: putting it here lets
-   us dodge the class-ordering gotcha where `text-theme-focused` and
-   `text-theme-text` have equal specificity and the win depends on
-   Tailwind's emit order. */
+   Uses the same token and weight as every other "this is what you'd
+   activate" surface in the app (menu rows, drawer tab cursor, map
+   selected): the subdued primary.  One hue, one value, across every
+   surface — so switching from story text to menus to map doesn't feel
+   like crossing into a different color system. */
 .story-text .story-node.cursor-node {
-  background: var(--theme-focused-foreground);
-  color: var(--theme-background);
+  background: var(--theme-focused-foreground-subdued);
+  color: var(--theme-text);
   font-weight: 600;
   padding: 0 0.25ch;
   border-radius: 0.125ch;
@@ -481,9 +480,12 @@ html, body {
   width: 100%;
   min-height: 0;
   flex: 1;
-  /* CSS variables for SVG theming */
+  /* CSS variables for SVG theming.  --primary-color is the "selected"
+     node fill — intentionally bound to the subdued primary so the map's
+     selected node reads the same value as every other focus highlight
+     in the app (menu rows, drawer tab, loom cursor). */
   --font-color: var(--theme-text);
-  --primary-color: var(--theme-focused-foreground);
+  --primary-color: var(--theme-focused-foreground-subdued);
   --secondary-color: var(--theme-border);
   --surface-color: var(--theme-background-modal);
   --background-color: var(--theme-background);
