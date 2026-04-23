@@ -92,6 +92,10 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["srcl"],
+    include: ["eventemitter3"],
+    exclude: [
+      "srcl",
+      "@automerge/automerge",
+    ],
   },
 });

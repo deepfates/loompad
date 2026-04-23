@@ -9,7 +9,8 @@
     "build": "vite build --outDir=dist/server --ssr server/ssr.tsx  --config config/vite.config.ts && vite build --outDir=dist/client --config config/vite.config.ts",
     "prod": "bun run.ts --mode=production",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test": "bun test"
+    "test": "bun test client server vendor",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@automerge/automerge-repo": "^2.5.5",
@@ -43,6 +44,7 @@
     "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@rollup/rollup-linux-x64-gnu": "^4.52.4",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",

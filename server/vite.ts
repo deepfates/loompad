@@ -6,6 +6,7 @@ import http from "http";
 import { createServer as createViteServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/postcss";
+import wasm from "vite-plugin-wasm";
 
 // app specific imports
 import args from "server/args";
@@ -47,7 +48,7 @@ export async function createServer() {
       configFile: false, // Don't load config file - use inline config only
       root: path.resolve(__dirname, "../"),
       appType: "custom",
-      plugins: [react()],
+      plugins: [wasm(), react()],
       css: {
         postcss: {
           plugins: [tailwindcss()],
@@ -67,7 +68,11 @@ export async function createServer() {
         },
       },
       optimizeDeps: {
-        exclude: ["srcl"],
+        include: ["eventemitter3"],
+        exclude: [
+          "srcl",
+          "@automerge/automerge",
+        ],
       },
       server: {
         middlewareMode: true,
