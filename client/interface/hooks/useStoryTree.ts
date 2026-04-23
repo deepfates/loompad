@@ -5,6 +5,10 @@ import { useLocalStorage } from "./useLocalStorage";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import { touchStoryUpdated } from "../utils/storyMeta";
+import {
+  getPreferredChildIndex,
+  setPreferredChildIndex,
+} from "../loomsync/storySessionState";
 
 export const INITIAL_STORY = {
   root: {
@@ -66,16 +70,14 @@ export function useStoryTree(params: StoryParams) {
   // Helper to get the last selected index for a node
   const getLastSelectedIndex = useCallback(
     (node: StoryNode, defaultIndex: number) => {
-      if (
-        typeof node.lastSelectedIndex === "number" &&
-        node.continuations &&
-        node.lastSelectedIndex < node.continuations.length
-      ) {
-        return node.lastSelectedIndex;
-      }
-      return defaultIndex;
+      return getPreferredChildIndex(
+        currentTreeKey,
+        node.id,
+        node.continuations?.length ?? 0,
+        defaultIndex,
+      );
     },
-    [],
+    [currentTreeKey],
   );
 
   const getOptionsAtDepth = useCallback(
@@ -123,8 +125,7 @@ export function useStoryTree(params: StoryParams) {
   // Helper to update the lastSelectedIndex in the tree
   const updateLastSelectedIndex = useCallback(
     (path: StoryNode[], depth: number, index: number) => {
-      const newTree = JSON.parse(JSON.stringify(storyTree)) as typeof storyTree;
-      let current = newTree.root;
+      let current = storyTree.root;
 
       // Navigate to the node at the specified depth using the path directly
       for (let i = 1; i <= depth; i++) {
@@ -138,14 +139,7 @@ export function useStoryTree(params: StoryParams) {
         current = current.continuations![continuationIndex];
       }
 
-      // Update the lastSelectedIndex
-      current.lastSelectedIndex = index;
-
-      setStoryTree(newTree);
-      setTrees((prev) => ({
-        ...prev,
-        [currentTreeKey]: newTree,
-      }));
+      setPreferredChildIndex(currentTreeKey, current.id, index);
     },
     [storyTree, currentTreeKey, setTrees],
   );
@@ -205,15 +199,15 @@ export function useStoryTree(params: StoryParams) {
       }
 
       // Set lastSelectedIndex for the current node
-      if (isNewChildren) {
-        current.lastSelectedIndex = 0;
-      } else {
-        current.lastSelectedIndex = (current.continuations?.length ?? 1) - 1;
-      }
+      setPreferredChildIndex(
+        currentTreeKey,
+        current.id,
+        isNewChildren ? 0 : (current.continuations?.length ?? 1) - 1,
+      );
 
       return newTree;
     },
-    [],
+    [currentTreeKey],
   );
 
   const autoExpandChildren = useCallback(
@@ -307,8 +301,9 @@ export function useStoryTree(params: StoryParams) {
         const selectedNode = candidateNodes[choiceIndex];
         if (!selectedNode) break;
 
-        // Remember the model's preference so navigation follows the auto-expanded path
-        parentNode.lastSelectedIndex = choiceIndex;
+        // Remember the model's preference locally so navigation follows the
+        // auto-expanded path without writing traversal state into the shared world.
+        setPreferredChildIndex(currentTreeKey, parentNode.id, choiceIndex);
 
         // Align the user's explicit selection state with the model's choice so
         // subsequent navigation (e.g. pressing ArrowDown) follows the

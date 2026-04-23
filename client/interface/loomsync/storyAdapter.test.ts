@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  appendStoryContinuations,
   createLoompadStoryWorlds,
   materializeStoryTree,
   storyTreeToSnapshot,
@@ -52,5 +53,25 @@ describe("LoomSync story adapter", () => {
     expect(
       materialized.root.continuations?.[0]?.continuations?.map((node) => node.text),
     ).toEqual(["B"]);
+  });
+
+  it("appends generated StoryNode chains into an Automerge-backed world", async () => {
+    const worlds = createLoompadStoryWorlds();
+    const root = await worlds.createRoot({ title: "Story 1" });
+    const world = await worlds.openRoot(root.id);
+
+    await appendStoryContinuations(world, null, [
+      {
+        id: "generated-a",
+        text: "A",
+        continuations: [{ id: "generated-b", text: "B", continuations: [] }],
+      },
+    ]);
+
+    const materialized = await materializeStoryTree(world, "Root prompt");
+    expect(materialized.root.continuations?.[0]?.text).toBe("A");
+    expect(materialized.root.continuations?.[0]?.continuations?.[0]?.text).toBe(
+      "B",
+    );
   });
 });
