@@ -151,12 +151,13 @@ export function getPrefersReducedMotion(): boolean {
  * Mode:
  * - 'top'     => align element top to viewport with padding
  * - 'nearest' => scroll just enough to bring into view with padding
+ * - 'center'  => center the element vertically in the viewport
  */
 export function getElementTargetTop(
   container: HTMLElement,
   el: HTMLElement,
   padding: number = 16,
-  mode: "nearest" | "top" = "nearest",
+  mode: "nearest" | "top" | "center" = "nearest",
 ): number | null {
   // Prefer offsetTop traversal for robust relative positioning
   const computeRelativeTop = (
@@ -191,6 +192,12 @@ export function getElementTargetTop(
 
   if (mode === "top") {
     return Math.max(0, elementTop - padding);
+  }
+
+  if (mode === "center") {
+    const elementHeight = elementBottom - elementTop;
+    const offset = Math.max(0, (containerHeight - elementHeight) / 2);
+    return Math.max(0, elementTop - offset);
   }
 
   const viewportTop = scrollTop + padding;

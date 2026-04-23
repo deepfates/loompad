@@ -1315,6 +1315,7 @@ export const GamepadInterface = () => {
       if (current) {
         queueScroll({
           nodeId: current.id,
+          align: "center",
           reason: "nav-up-down",
           priority: 100,
         });
