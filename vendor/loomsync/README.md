@@ -31,6 +31,24 @@ import { createAutomergeLoomWorlds } from "@loomsync/core/automerge";
 import type { LoomWorld } from "@loomsync/core/types";
 ```
 
+If a browser app needs both worlds and indexes on one shared Automerge repo,
+`@loomsync/index/browser` provides a turnkey runtime helper:
+
+```ts
+import { createBrowserAutomergeLoomRuntime } from "@loomsync/index/browser";
+
+const runtime = createBrowserAutomergeLoomRuntime({
+  browser: {
+    indexedDb: { database: "my-app", store: "documents" },
+    broadcastChannel: { channelName: "my-app" },
+    syncPath: "/loomsync",
+  },
+});
+
+const worlds = runtime.worlds;
+const indexes = runtime.indexes;
+```
+
 ## Development
 
 ```bash

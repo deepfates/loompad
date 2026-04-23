@@ -1,6 +1,3 @@
-import { Repo } from "@automerge/automerge-repo";
-import { createAutomergeLoomWorlds } from "../../../vendor/loomsync/packages/core/src/automerge";
-import { createBrowserAutomergeRepo } from "../../../vendor/loomsync/packages/core/src/browser";
 import {
   createRootShareUrl,
   getRootIdFromUrl,
@@ -11,7 +8,7 @@ import type {
   LoomWorld,
   LoomWorlds,
 } from "../../../vendor/loomsync/packages/core/src/types";
-import { createAutomergeLoomIndexes } from "../../../vendor/loomsync/packages/index/src/automerge";
+import { createBrowserAutomergeLoomRuntime } from "../../../vendor/loomsync/packages/index/src/browser";
 import { upsertRoot } from "../../../vendor/loomsync/packages/index/src/entries";
 import {
   createIndexShareUrl,
@@ -26,36 +23,43 @@ export type StoryRootMeta = { title: string; rootText: string };
 export type StoryEntryMeta = { title: string; rootText: string };
 export type StoryWorld = LoomWorld<TextPayload, StoryRootMeta>;
 export type StoryIndex = LoomIndex<StoryEntryMeta, { app: "loompad" }>;
+type StoryRuntime = ReturnType<
+  typeof createBrowserAutomergeLoomRuntime<
+    TextPayload,
+    StoryRootMeta,
+    never,
+    StoryEntryMeta,
+    { app: "loompad" }
+  >
+>;
 
-let worlds: LoomWorlds<TextPayload, StoryRootMeta> | null = null;
-let indexes: ReturnType<
-  typeof createAutomergeLoomIndexes<StoryEntryMeta, { app: "loompad" }>
-> | null = null;
+let runtime: StoryRuntime | null = null;
 let indexPromise: Promise<StoryIndex> | null = null;
 
 const INDEX_STORAGE_KEY = "loompad-loomsync-index-id";
 
-function createRepo() {
-  if (typeof window === "undefined") return new Repo();
-  return createBrowserAutomergeRepo({
-    indexedDb: { database: "loompad-loomsync", store: "documents" },
-    broadcastChannel: { channelName: "loompad-loomsync" },
-    syncPath: "/loomsync",
+function getStoryRuntime() {
+  runtime ??= createBrowserAutomergeLoomRuntime<
+    TextPayload,
+    StoryRootMeta,
+    never,
+    StoryEntryMeta,
+    { app: "loompad" }
+  >({
+    browser:
+      typeof window === "undefined"
+        ? undefined
+        : {
+            indexedDb: { database: "loompad-loomsync", store: "documents" },
+            broadcastChannel: { channelName: "loompad-loomsync" },
+            syncPath: "/loomsync",
+          },
   });
+  return runtime;
 }
-
-const repo = createRepo();
 
 export function getStoryWorlds(): LoomWorlds<TextPayload, StoryRootMeta> {
-  worlds ??= createAutomergeLoomWorlds<TextPayload, StoryRootMeta>({ repo });
-  return worlds;
-}
-
-function getStoryIndexes() {
-  indexes ??= createAutomergeLoomIndexes<StoryEntryMeta, { app: "loompad" }>({
-    repo,
-  });
-  return indexes;
+  return getStoryRuntime().worlds;
 }
 
 export async function getStoryIndex(): Promise<StoryIndex> {
@@ -65,13 +69,13 @@ export async function getStoryIndex(): Promise<StoryIndex> {
         ? null
         : window.localStorage.getItem(INDEX_STORAGE_KEY);
     if (storedId) {
-      const opened = await openIndexWithRetry(getStoryIndexes(), storedId).catch(
+      const opened = await openIndexWithRetry(getStoryRuntime().indexes, storedId).catch(
         () => null,
       );
       if (opened) return opened;
       window.localStorage.removeItem(INDEX_STORAGE_KEY);
     }
-    const index = await getStoryIndexes().createIndex({ app: "loompad" });
+    const index = await getStoryRuntime().indexes.createIndex({ app: "loompad" });
     if (typeof window !== "undefined") {
       window.localStorage.setItem(INDEX_STORAGE_KEY, index.id);
     }
@@ -94,7 +98,7 @@ export function createStoryIndexShareUrl(
 export async function importStoryIndexFromUrl(): Promise<string | null> {
   if (typeof window === "undefined") return null;
   const result = await tryOpenIndexFromUrl(
-    getStoryIndexes(),
+    getStoryRuntime().indexes,
     window.location,
   );
   if (!result) return null;
