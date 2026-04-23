@@ -1384,17 +1384,14 @@ export const GamepadInterface = () => {
             );
             // Use special color if we're in light mode, else use theme-button-foreground
             if (isLightTheme) {
-              spanClasses.push(
-                "bg-theme-focused-subdued",
-                "text-theme-background"
-              );
+              spanClasses.push("bg-theme-focused-subdued", "text-theme-bg");
             } else {
               spanClasses.push("text-theme-focused");
             }
           } else if (isCurrentDepth) {
             spanClasses.push("font-semibold", "text-theme-text");
           } else {
-            spanClasses.push("text-theme-background-modal-footer");
+            spanClasses.push("text-theme-bg-modal-footer");
           }
           if (isLoading) {
             spanClasses.push("opacity-50");
