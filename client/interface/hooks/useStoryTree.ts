@@ -93,10 +93,9 @@ export function useStoryTree(params: StoryParams) {
 
   const refreshTreeFromLoom = useCallback(
     async (key: string, loom: StoryLoom) => {
-      const root = await loom.info();
       const tree = await materializeStoryTree(
         loom,
-        root.meta?.rootText ?? INITIAL_STORY.root.text,
+        INITIAL_STORY.root.text,
       );
       setTrees((prev) => ({ ...prev, [key]: tree }));
       if (key === currentTreeKey) setStoryTree(tree);
@@ -134,7 +133,7 @@ export function useStoryTree(params: StoryParams) {
         entry.title ?? entry.meta?.title ?? info.meta?.title ?? loomId;
       nextTrees[loomId] = await materializeStoryTree(
         loom,
-        info.meta?.rootText ?? INITIAL_STORY.root.text,
+        INITIAL_STORY.root.text,
       );
     }
     const firstKey = entries[0]?.ref.loomId ?? Object.keys(nextTrees)[0];
@@ -515,7 +514,7 @@ export function useStoryTree(params: StoryParams) {
 
         await appendStoryContinuations(
           loom,
-          targetNode.id === "root" ? null : targetNode.id,
+          targetNode.id,
           autoChildren,
         );
         workingTree = await refreshTreeFromLoom(currentTreeKey, loom);
@@ -558,42 +557,34 @@ export function useStoryTree(params: StoryParams) {
       const currentNode = currentPath[currentDepth];
       if (!currentNode) return;
 
-      if (currentNode.id === "root") {
-        const root = await loom.info();
-        await loom.updateMeta({
-          ...(root.meta ?? {
-            title: currentTreeKey,
-            rootText: INITIAL_STORY.root.text,
-          }),
-          rootText: revision.text,
-        });
-        await refreshTreeFromLoom(currentTreeKey, loom);
-        return;
-      }
-
       const parentNode = currentPath[currentDepth - 1];
-      const parentId = parentNode?.id === "root" ? null : parentNode?.id;
+      const parentId = parentNode?.id ?? null;
       const appended = await appendStoryNodeRevision(
         loom,
         parentId ?? null,
         revision,
+        currentNode.id,
       );
       const updatedTree = await refreshTreeFromLoom(currentTreeKey, loom);
 
+      if (parentId === null) {
+        setCurrentDepth(0);
+        setSelectedOptions([0]);
+        return;
+      }
+
       const updatedParent =
-        parentId === null
-          ? updatedTree.root
-          : (() => {
-              const findNode = (node: StoryNode): StoryNode | null => {
-                if (node.id === parentId) return node;
-                for (const child of node.continuations ?? []) {
-                  const found = findNode(child);
-                  if (found) return found;
-                }
-                return null;
-              };
-              return findNode(updatedTree.root);
-            })();
+        (() => {
+          const findNode = (node: StoryNode): StoryNode | null => {
+            if (node.id === parentId) return node;
+            for (const child of node.continuations ?? []) {
+              const found = findNode(child);
+              if (found) return found;
+            }
+            return null;
+          };
+          return findNode(updatedTree.root);
+        })();
       const selectedIndex =
         updatedParent?.continuations?.findIndex(
           (child) => child.id === appended.id,
@@ -708,7 +699,7 @@ export function useStoryTree(params: StoryParams) {
             if (!loom) throw new Error(`Missing story loom: ${currentTreeKey}`);
             await appendStoryContinuations(
               loom,
-              currentNode.id === "root" ? null : currentNode.id,
+              currentNode.id,
               newContinuations,
             );
 

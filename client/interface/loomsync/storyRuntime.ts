@@ -9,7 +9,12 @@ import { upsertLoom } from "../../../vendor/loomsync/packages/index/src/entries"
 import type { LoomIndex } from "../../../vendor/loomsync/packages/index/src/types";
 import type { TextPayload } from "../../../vendor/loomsync/packages/text/src/types";
 import type { StoryNode } from "../types";
-import type { StoryEntryMeta, StoryLoom, StoryLoomMeta } from "./storyTypes";
+import type {
+  StoryEntryMeta,
+  StoryLoom,
+  StoryLoomMeta,
+  StoryTurnMeta,
+} from "./storyTypes";
 
 export type { StoryEntryMeta, StoryLoom, StoryLoomMeta } from "./storyTypes";
 export type StoryIndex = LoomIndex<StoryEntryMeta, { app: "loompad" }>;
@@ -21,7 +26,7 @@ type StoryClient = ReturnType<
   typeof createBrowserLoomClient<
     TextPayload,
     StoryLoomMeta,
-    never,
+    StoryTurnMeta,
     StoryEntryMeta,
     { app: "loompad" }
   >
@@ -37,7 +42,7 @@ function getStoryClient() {
   client ??= createBrowserLoomClient<
     TextPayload,
     StoryLoomMeta,
-    never,
+    StoryTurnMeta,
     StoryEntryMeta,
     { app: "loompad" }
   >({
@@ -53,7 +58,7 @@ function getStoryClient() {
   return client;
 }
 
-export function getStoryLooms(): Looms<TextPayload, StoryLoomMeta> {
+export function getStoryLooms(): Looms<TextPayload, StoryLoomMeta, StoryTurnMeta> {
   return getStoryClient().looms;
 }
 
@@ -141,7 +146,6 @@ export async function importStoryReferenceFromUrl(): Promise<StoryReferenceImpor
   const info = await opened.loom.info();
   await addStoryLoomToIndex(info.id, {
     title: info.meta?.title ?? "Shared Story",
-    rootText: info.meta?.rootText ?? "",
   });
   return {
     kind: opened.kind,
@@ -150,11 +154,12 @@ export async function importStoryReferenceFromUrl(): Promise<StoryReferenceImpor
   };
 }
 
-export async function createStoryLoom(title: string, rootText: string) {
+export async function createStoryLoom(title: string, seedText: string) {
   const storyLooms = getStoryLooms();
-  const info = await storyLooms.create({ title, rootText });
+  const info = await storyLooms.create({ title });
   const loom = await storyLooms.open(info.id);
-  await addStoryLoomToIndex(info.id, { title, rootText });
+  await loom.appendTurn(null, { text: seedText }, { role: "prose" });
+  await addStoryLoomToIndex(info.id, { title });
   return { info, loom };
 }
 
@@ -183,7 +188,7 @@ export async function removeStory(loomId: string): Promise<void> {
 
 export function getTurnIdForThreadLink(path: StoryNode[]): string | null {
   const target = path.at(-1);
-  return target && target.id !== "root" ? target.id : null;
+  return target?.id ?? null;
 }
 
 async function openLoomWithRetry(loomId: string): Promise<StoryLoom> {

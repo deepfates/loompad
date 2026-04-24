@@ -92,19 +92,20 @@ test("browser URL follows the current loom and thread focus", async ({
   );
 
   await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
-    kind: "loom",
+    kind: "thread",
   });
-  const loomRef = referenceFromPageUrl(page);
-  expect(loomRef?.loomId).toBeTruthy();
+  const rootThreadRef = referenceFromPageUrl(page);
+  expect(rootThreadRef?.loomId).toBeTruthy();
+  expect(rootThreadRef?.turnId).toBeTruthy();
 
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("URL focus 1.");
   await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
     kind: "thread",
-    loomId: loomRef?.loomId,
+    loomId: rootThreadRef?.loomId,
   });
   const firstThreadRef = referenceFromPageUrl(page);
-  expect(firstThreadRef?.turnId).toBeTruthy();
+  expect(firstThreadRef?.turnId).not.toBe(rootThreadRef?.turnId);
 
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("body")).toContainText("URL focus 2.");
