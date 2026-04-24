@@ -62,6 +62,7 @@ import {
   createStoryThreadShareUrl,
   getStoryIndex,
   getTurnIdForThreadLink,
+  replaceStoryFocusUrl,
 } from "./loomsync/storyRuntime";
 
 const DEFAULT_PARAMS = {
@@ -197,6 +198,7 @@ export const GamepadInterface = () => {
     getOptionsAtDepth,
     setSelectionByPath,
     storyTitles,
+    currentLoomReady,
     createTree,
     deleteTree,
     saveCurrentNodeRevision,
@@ -273,6 +275,12 @@ export const GamepadInterface = () => {
     return node;
   }, [storyTree, currentDepth, selectedOptions]);
 
+  useEffect(() => {
+    if (!currentLoomReady) return;
+    const turnId = getTurnIdForThreadLink(getCurrentPath());
+    replaceStoryFocusUrl(currentTreeKey, turnId);
+  }, [currentLoomReady, currentTreeKey, getCurrentPath]);
+
   const storyTextRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion =
     typeof window !== "undefined" &&
@@ -331,9 +339,11 @@ export const GamepadInterface = () => {
     (key: string) => {
       const tree = trees[key];
       if (!tree) return;
-      downloadStoryThreadText(key, tree);
+      const path =
+        key === currentTreeKey ? getCurrentPath() : getStoryPrimaryPath(tree);
+      downloadStoryThreadText(key, path);
     },
-    [trees]
+    [currentTreeKey, getCurrentPath, trees]
   );
 
   const copyText = useCallback(async (text: string) => {

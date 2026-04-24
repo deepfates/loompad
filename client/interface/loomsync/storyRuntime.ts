@@ -99,6 +99,29 @@ export function createStoryThreadShareUrl(
   return referenceToUrl(getStoryClient().references.thread(loomId, turnId), location);
 }
 
+export function createStoryFocusShareUrl(
+  loomId: string,
+  turnId: string | null,
+  location: Location = window.location,
+) {
+  return turnId
+    ? createStoryThreadShareUrl(loomId, turnId, location)
+    : createStoryShareUrl(loomId, location);
+}
+
+export function replaceStoryFocusUrl(
+  loomId: string,
+  turnId: string | null,
+  location: Location = window.location,
+) {
+  if (typeof window === "undefined") return;
+  const nextUrl = createStoryFocusShareUrl(loomId, turnId, location);
+  const currentUrl = window.location.href;
+  if (nextUrl !== currentUrl) {
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }
+}
+
 export function getStoryReferenceFromLocation(location: Location = window.location) {
   return referenceFromUrl(location);
 }

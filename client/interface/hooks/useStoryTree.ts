@@ -150,13 +150,19 @@ export function useStoryTree(params: StoryParams) {
           : firstKey;
       const nextTree = nextTrees[nextKey] ?? nextTrees[firstKey] ?? INITIAL_STORY;
       setStoryTree(nextTree);
+      let appliedFocus = false;
       if (focus?.kind !== "index" && focus?.turnId && nextTrees[nextKey]) {
         const path = findPathById(nextTree.root, focus.turnId);
         if (path) {
           const indices = threadToSelectionIndices(path);
           setCurrentDepth(Math.max(0, path.length - 1));
           setSelectedOptions(indices.length ? indices : [0]);
+          appliedFocus = true;
         }
+      }
+      if (!appliedFocus && nextKey !== prev) {
+        setCurrentDepth(0);
+        setSelectedOptions([0]);
       }
       return nextKey;
     });
@@ -265,7 +271,7 @@ export function useStoryTree(params: StoryParams) {
       currentNode = nextNode;
     }
 
-    // Then continue following lastSelectedIndex or first child until we hit a leaf
+    // Then continue following session-preferred children until we hit a leaf.
     while (currentNode.continuations?.length) {
       const index = getLastSelectedIndex(currentNode, 0);
       const nextNode = currentNode.continuations[index];
@@ -277,8 +283,7 @@ export function useStoryTree(params: StoryParams) {
     return path;
   }, [storyTree, selectedOptions, getLastSelectedIndex]);
 
-  // Helper to update the lastSelectedIndex in the tree
-  const updateLastSelectedIndex = useCallback(
+  const updatePreferredChildIndex = useCallback(
     (path: StoryNode[], depth: number, index: number) => {
       let current = storyTree.root;
 
@@ -631,7 +636,7 @@ export function useStoryTree(params: StoryParams) {
             setCurrentDepth((prev) => prev + 1);
             const nextOptions = getOptionsAtDepth(currentDepth + 1);
             if (nextOptions.length > 0) {
-              // Use lastSelectedIndex when moving down
+              // Use session-preferred child selection when moving down.
               const currentNode = currentPath[currentDepth];
               const nextNode =
                 currentNode.continuations?.[selectedOptions[currentDepth]];
@@ -641,7 +646,8 @@ export function useStoryTree(params: StoryParams) {
                   const newOptions = [...prev];
                   newOptions[currentDepth + 1] = lastIndex;
                   // Keep only the options up to the current depth + 1
-                  // This allows the getCurrentPath to follow lastSelectedIndex for the rest
+                  // This allows getCurrentPath to follow session preference
+                  // for the rest of the thread.
                   return newOptions.slice(0, currentDepth + 2);
                 });
               }
@@ -655,8 +661,7 @@ export function useStoryTree(params: StoryParams) {
               newOptions[currentDepth] = currentOption - 1;
               return newOptions.slice(0, currentDepth + 1);
             });
-            // Update lastSelectedIndex when switching continuations
-            updateLastSelectedIndex(
+            updatePreferredChildIndex(
               currentPath,
               currentDepth,
               currentOption - 1,
@@ -670,8 +675,7 @@ export function useStoryTree(params: StoryParams) {
               newOptions[currentDepth] = currentOption + 1;
               return newOptions.slice(0, currentDepth + 1);
             });
-            // Update lastSelectedIndex when switching continuations
-            updateLastSelectedIndex(
+            updatePreferredChildIndex(
               currentPath,
               currentDepth,
               currentOption + 1,
@@ -765,7 +769,7 @@ export function useStoryTree(params: StoryParams) {
       loomsByKey,
       refreshTreeFromLoom,
       getLastSelectedIndex,
-      updateLastSelectedIndex,
+      updatePreferredChildIndex,
       isGeneratingAt,
       params,
     ],
@@ -784,6 +788,7 @@ export function useStoryTree(params: StoryParams) {
     trees,
     currentTreeKey,
     storyTitles,
+    currentLoomReady: Boolean(loomsByKey[currentTreeKey]),
     setCurrentTreeKey: (key: string) => {
       setCurrentTreeKey(key);
       setStoryTree(trees[key] || INITIAL_STORY);

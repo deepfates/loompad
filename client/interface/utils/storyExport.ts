@@ -42,14 +42,7 @@ const resolvePrimaryPath = (root: StoryNode): StoryNode[] => {
       break;
     }
 
-    const preferredIndex =
-      typeof current.lastSelectedIndex === "number" &&
-      current.lastSelectedIndex >= 0 &&
-      current.lastSelectedIndex < continuations.length
-        ? current.lastSelectedIndex
-        : 0;
-
-    current = continuations[preferredIndex];
+    current = continuations[0];
   }
 
   return path;
@@ -73,10 +66,9 @@ export const downloadStoryTreeJson = (
 
 export const downloadStoryThreadText = (
   key: string,
-  tree: { root: StoryNode },
+  path: StoryNode[],
 ): void => {
-  const nodes = resolvePrimaryPath(tree.root);
-  const segments = nodes
+  const segments = path
     .map((node) => node.text?.trim())
     .filter((text): text is string => Boolean(text && text.length));
   const content = segments.join("\n\n");

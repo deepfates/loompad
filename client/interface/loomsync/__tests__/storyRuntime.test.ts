@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   createStoryIndexShareUrl,
+  createStoryFocusShareUrl,
   createStoryShareUrl,
   createStoryThreadShareUrl,
   getStoryReferenceFromLocation,
@@ -40,6 +41,26 @@ describe("story runtime references", () => {
     const url = new URL(createStoryThreadShareUrl("loom-1", "turn-1", location));
 
     expect(getStoryReferenceFromLocation(url)).toEqual({
+      v: 1,
+      kind: "thread",
+      loomId: "loom-1",
+      turnId: "turn-1",
+    });
+  });
+
+  it("creates focus URLs as loom or thread references", () => {
+    const location = new URL("https://loompad.test/");
+
+    expect(getStoryReferenceFromLocation(
+      new URL(createStoryFocusShareUrl("loom-1", null, location)),
+    )).toEqual({
+      v: 1,
+      kind: "loom",
+      loomId: "loom-1",
+    });
+    expect(getStoryReferenceFromLocation(
+      new URL(createStoryFocusShareUrl("loom-1", "turn-1", location)),
+    )).toEqual({
       v: 1,
       kind: "thread",
       loomId: "loom-1",

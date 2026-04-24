@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { expect, test, type Page } from "@playwright/test";
 
 async function mockGeneration(page: Page, prefix: string) {
@@ -36,6 +37,16 @@ async function readCapturedClipboard(page: Page) {
   return page.evaluate(() => window.__loompadClipboardText);
 }
 
+function referenceFromPageUrl(page: Page) {
+  const encoded = new URL(page.url()).searchParams.get("ref");
+  if (!encoded) return null;
+  return JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as {
+    kind: string;
+    loomId?: string;
+    turnId?: string;
+  };
+}
+
 declare global {
   interface Window {
     __loompadClipboardText: string;
@@ -65,6 +76,42 @@ test("same-browser tabs converge on generated story updates without refresh", as
 
   await expect(pageOne.locator("body")).toContainText("Same browser sync 1.");
   await expect(pageTwo.locator("body")).toContainText("Same browser sync 1.");
+  await context.close();
+});
+
+test("browser URL follows the current loom and thread focus", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await mockGeneration(page, "URL focus");
+
+  await page.goto("/");
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+
+  await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
+    kind: "loom",
+  });
+  const loomRef = referenceFromPageUrl(page);
+  expect(loomRef?.loomId).toBeTruthy();
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("URL focus 1.");
+  await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
+    kind: "thread",
+    loomId: loomRef?.loomId,
+  });
+  const firstThreadRef = referenceFromPageUrl(page);
+  expect(firstThreadRef?.turnId).toBeTruthy();
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("body")).toContainText("URL focus 2.");
+  await expect.poll(() => referenceFromPageUrl(page)?.turnId).not.toBe(
+    firstThreadRef?.turnId,
+  );
+
   await context.close();
 });
 
