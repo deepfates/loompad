@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTextGeneration } from "./useTextGeneration";
-import { splitTextToNodes } from "../utils/textSplitter";
+import { splitTextToDraft } from "../utils/textSplitter";
 import { joinSegments } from "../utils/join";
 import type { StoryNode } from "../types";
+import type { StoryDraft } from "../loomsync/storyTypes";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 
@@ -37,13 +38,13 @@ export function useStoryGeneration() {
   const { generate, error } = useTextGeneration();
   const [generatedText, setGeneratedText] = useState("");
 
-  const flattenNodeText = (node: StoryNode): string => {
+  const flattenDraftText = (draft: StoryDraft): string => {
     const segments: string[] = [];
-    let current: StoryNode | undefined = node;
-    const visited = new Set<string>();
+    let current: StoryDraft | undefined = draft;
+    const visited = new Set<StoryDraft>();
 
-    while (current && !visited.has(current.id)) {
-      visited.add(current.id);
+    while (current && !visited.has(current)) {
+      visited.add(current);
       segments.push(current.text);
       if (current.continuations?.length === 1) {
         current = current.continuations[0];
@@ -59,7 +60,7 @@ export function useStoryGeneration() {
     path: StoryNode[],
     depth: number,
     params: GenerationParams,
-  ): Promise<StoryNode> => {
+  ): Promise<StoryDraft> => {
     setGeneratedText("");
     let fullText = "";
 
@@ -87,17 +88,16 @@ export function useStoryGeneration() {
 
     // Conditionally split the generated text based on settings
     if (params.textSplitting) {
-      const nodeChain = splitTextToNodes(fullText);
+      const draft = splitTextToDraft(fullText);
 
       // If splitting succeeded, return the chain
-      if (nodeChain) {
-        return nodeChain;
+      if (draft) {
+        return draft;
       }
     }
 
-    // Fallback to single node (if splitting disabled or failed)
+    // Fallback to single draft (if splitting disabled or failed)
     return {
-      id: Math.random().toString(36).substring(2, 15),
       text: fullText,
       continuations: [],
     };
@@ -105,7 +105,7 @@ export function useStoryGeneration() {
 
   const chooseContinuation = async (
     path: StoryNode[],
-    candidates: StoryNode[],
+    candidates: StoryDraft[],
     params: GenerationParams,
   ): Promise<number | null> => {
     if (!candidates.length) {
@@ -114,7 +114,7 @@ export function useStoryGeneration() {
 
     const context = joinSegments(path.map((node) => node.text));
     const optionTexts = candidates.map(
-      (candidate) => flattenNodeText(candidate).trim() || "(empty)",
+      (candidate) => flattenDraftText(candidate).trim() || "(empty)",
     );
 
     try {

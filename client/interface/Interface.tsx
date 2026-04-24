@@ -32,7 +32,7 @@ import { EditMenu, EDIT_CONTROL_EVENT } from "./menus/EditMenu";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ModeBar from "./components/ModeBar";
 import { Drawer, DRAWER_TABS } from "./components/Drawer";
-import { splitTextToNodes } from "./utils/textSplitter";
+import { splitTextToDraft } from "./utils/textSplitter";
 import {
   scrollElementIntoViewIfNeeded,
   isAtBottom,
@@ -61,7 +61,6 @@ import {
   createStoryShareUrl,
   createStoryThreadShareUrl,
   getStoryIndex,
-  getTurnIdForThreadLink,
   replaceStoryFocusUrl,
 } from "./loomsync/storyRuntime";
 
@@ -183,7 +182,7 @@ export const GamepadInterface = () => {
 
   const {
     trees,
-    currentTreeKey,
+    currentLoomId,
     storyTree,
     currentDepth,
     selectedOptions,
@@ -193,14 +192,14 @@ export const GamepadInterface = () => {
     isAnyGenerating,
     error,
     handleStoryNavigation,
-    setCurrentTreeKey,
+    setCurrentLoomId,
     getCurrentPath,
     getOptionsAtDepth,
     setSelectionByPath,
     storyTitles,
     currentLoomReady,
-    createTree,
-    deleteTree,
+    createStory,
+    deleteStory,
     saveCurrentNodeRevision,
   } = useStoryTree(menuParams);
 
@@ -256,12 +255,12 @@ export const GamepadInterface = () => {
     const keys = Object.keys(trees);
     if (!keys.length) return;
     const preferred = getDefaultStoryKey(trees) ?? orderedKeys[0];
-    if (preferred && currentTreeKey !== preferred) {
-      setCurrentTreeKey(preferred);
+    if (preferred && currentLoomId !== preferred) {
+      setCurrentLoomId(preferred);
     }
     if (preferred) touchStoryActive(preferred);
     hasAppliedDefault.current = true;
-  }, [trees, orderedKeys, currentTreeKey, setCurrentTreeKey]);
+  }, [trees, orderedKeys, currentLoomId, setCurrentLoomId]);
 
   // Calculate current highlighted node for map
   const highlightedNode = useMemo(() => {
@@ -277,9 +276,9 @@ export const GamepadInterface = () => {
 
   useEffect(() => {
     if (!currentLoomReady) return;
-    const turnId = getTurnIdForThreadLink(getCurrentPath());
-    replaceStoryFocusUrl(currentTreeKey, turnId);
-  }, [currentLoomReady, currentTreeKey, getCurrentPath]);
+    const turnId = getCurrentPath().at(-1)?.id ?? null;
+    replaceStoryFocusUrl(currentLoomId, turnId);
+  }, [currentLoomReady, currentLoomId, getCurrentPath]);
 
   const storyTextRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion =
@@ -293,16 +292,16 @@ export const GamepadInterface = () => {
   });
 
   const handleNewTree = useCallback(async () => {
-    const newKey = await createTree();
+    const newKey = await createStory();
     touchStoryActive(newKey);
     closeDrawer();
     return newKey;
-  }, [createTree, closeDrawer]);
+  }, [createStory, closeDrawer]);
 
   const handleDeleteTree = useCallback(
     async (key: string) => {
       if (window.confirm(`Are you sure you want to delete "${key}"?`)) {
-        await deleteTree(key);
+        await deleteStory(key);
         {
           const meta = getStoryMeta();
           if (meta[key]) {
@@ -312,18 +311,18 @@ export const GamepadInterface = () => {
         }
 
         // If we deleted the current tree, switch to another one
-        if (key === currentTreeKey) {
+        if (key === currentLoomId) {
           const remaining = orderKeysReverseChronological(trees).filter(
             (k) => k !== key
           );
           if (remaining.length > 0) {
-            setCurrentTreeKey(remaining[0]);
+            setCurrentLoomId(remaining[0]);
             touchStoryActive(remaining[0]);
           }
         }
       }
     },
-    [currentTreeKey, deleteTree, trees, setCurrentTreeKey]
+    [currentLoomId, deleteStory, trees, setCurrentLoomId]
   );
 
   const handleExportTree = useCallback(
@@ -340,10 +339,10 @@ export const GamepadInterface = () => {
       const tree = trees[key];
       if (!tree) return;
       const path =
-        key === currentTreeKey ? getCurrentPath() : getStoryPrimaryPath(tree);
+        key === currentLoomId ? getCurrentPath() : getStoryPrimaryPath(tree);
       downloadStoryThreadText(key, path);
     },
-    [currentTreeKey, getCurrentPath, trees]
+    [currentLoomId, getCurrentPath, trees]
   );
 
   const copyText = useCallback(async (text: string) => {
@@ -362,13 +361,13 @@ export const GamepadInterface = () => {
       const tree = trees[key];
       if (!tree) return;
       const path =
-        key === currentTreeKey ? getCurrentPath() : getStoryPrimaryPath(tree);
-      const turnId = getTurnIdForThreadLink(path);
+        key === currentLoomId ? getCurrentPath() : getStoryPrimaryPath(tree);
+      const turnId = path.at(-1)?.id ?? null;
       await copyText(
         turnId ? createStoryThreadShareUrl(key, turnId) : createStoryShareUrl(key)
       );
     },
-    [copyText, currentTreeKey, getCurrentPath, trees]
+    [copyText, currentLoomId, getCurrentPath, trees]
   );
 
   const handleShareIndex = useCallback(async () => {
@@ -1035,7 +1034,7 @@ export const GamepadInterface = () => {
           if (!treeKey) return;
           if (selectedTreeColumn === 0) {
             touchStoryActive(treeKey);
-            setCurrentTreeKey(treeKey);
+            setCurrentLoomId(treeKey);
             closeDrawer();
             setSelectedTreeColumn(0);
           } else if (columnTypes[selectedTreeColumn] === "share") {
@@ -1074,7 +1073,7 @@ export const GamepadInterface = () => {
       scrollCurrentMenuItemIntoView,
       selectedTreeColumn,
       selectedTreeIndex,
-      setCurrentTreeKey,
+      setCurrentLoomId,
       setSelectedTreeColumn,
       setSelectedTreeIndex,
     ]
@@ -1274,7 +1273,7 @@ export const GamepadInterface = () => {
           // the map view.
           const currentIndex = Math.max(
             0,
-            orderedKeys.indexOf(currentTreeKey)
+            orderedKeys.indexOf(currentLoomId)
           );
           // +2: row 0 = Sort, row 1 = "+ New Story", rows 2+ = stories.
           setSelectedTreeIndex(currentIndex + 2);
@@ -1317,7 +1316,7 @@ export const GamepadInterface = () => {
     [
       closeDrawer,
       cursorOnTabs,
-      currentTreeKey,
+      currentLoomId,
       drawerTab,
       expandedModel,
       handleStoryNavigation,
@@ -1670,7 +1669,7 @@ export const GamepadInterface = () => {
                     onToggleSort={cycleStorySort}
                     onSelect={(key) => {
                       touchStoryActive(key);
-                      setCurrentTreeKey(key);
+                      setCurrentLoomId(key);
                       closeDrawer();
                       setSelectedTreeColumn(0);
                     }}
@@ -1735,16 +1734,15 @@ export const GamepadInterface = () => {
                 node={getCurrentPath()[currentDepth]}
                 onSave={async (text) => {
                   const splitRevision = menuParams.textSplitting
-                    ? splitTextToNodes(text)
+                    ? splitTextToDraft(text)
                     : null;
                   const revision = splitRevision ?? {
-                    id: crypto.randomUUID(),
                     text,
                     continuations: [],
                   };
                   await saveCurrentNodeRevision(revision);
                   // Mark story as updated for reverse-chronological order
-                  touchStoryUpdated(currentTreeKey);
+                  touchStoryUpdated(currentLoomId);
                   setScreen(null);
 
                   // Align to end of updated content after text splitting

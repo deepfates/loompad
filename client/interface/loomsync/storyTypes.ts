@@ -7,6 +7,11 @@ import type { TextPayload } from "../../../vendor/loomsync/packages/text/src/typ
 export type StoryLoomMeta = { title: string };
 export type StoryEntryMeta = { title: string };
 
+export interface StoryDraft {
+  text: string;
+  continuations?: StoryDraft[];
+}
+
 export type StoryTurnRole =
   | "prose"
   | "revision"

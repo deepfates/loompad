@@ -1,84 +1,72 @@
 import { describe, expect, it } from "bun:test";
 import { createMemoryLooms } from "../../../../vendor/loomsync/packages/core/src/memory";
 import type { TextPayload } from "../../../../vendor/loomsync/packages/text/src/types";
-import type { StoryNode } from "../../types";
 import {
-  appendStoryContinuations,
-  appendStoryNodeRevision,
-  materializeStoryTree,
-  storyTreeToSnapshot,
-  type LoompadStoryLoomMeta,
-} from "../storyAdapter";
-import type { StoryTurnMeta } from "../storyTypes";
+  appendStoryDrafts,
+  appendStoryRevision,
+  projectStoryTree,
+} from "../storyLoom";
+import type { StoryDraft, StoryLoomMeta, StoryTurnMeta } from "../storyTypes";
 
 function createLooms() {
   let nextId = 0;
-  return createMemoryLooms<TextPayload, LoompadStoryLoomMeta, StoryTurnMeta>({
+  return createMemoryLooms<TextPayload, StoryLoomMeta, StoryTurnMeta>({
     createId: () => `turn-${++nextId}`,
     now: () => 1000 + nextId,
   });
 }
 
-describe("Loompad story adapter", () => {
-  it("exports shared story content without session traversal state", () => {
-    const info = {
-      id: "loom-1",
-      meta: { title: "Draft" },
-      createdAt: 1000,
-    };
-    const tree = {
-      root: {
-        id: "root",
-        text: "Start",
-        lastSelectedIndex: 1,
-        continuations: [
-          { id: "a", text: "A", continuations: [], lastSelectedIndex: 2 },
-        ],
-      },
-    };
-
-    const snapshot = storyTreeToSnapshot(tree, info);
-
-    expect(snapshot.turns).toEqual([
-      {
-        id: "root",
-        loomId: "loom-1",
-        parentId: null,
-        payload: { text: "Start" },
-        meta: { role: "prose" },
-        createdAt: 1000,
-      },
-      {
-        id: "a",
-        loomId: "loom-1",
-        parentId: "root",
-        payload: { text: "A" },
-        meta: { role: "prose" },
-        createdAt: 1000,
-      },
-    ]);
-    expect(JSON.stringify(snapshot)).not.toContain("lastSelectedIndex");
-  });
-
-  it("appends and materializes a branching story in canonical child order", async () => {
+describe("Loompad story loom", () => {
+  it("appends story drafts as LoomSync turns with durable generated IDs", async () => {
     const looms = createLooms();
     const info = await looms.create({ title: "Story" });
     const loom = await looms.open(info.id);
-    const root = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
+    const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
 
-    await appendStoryContinuations(loom, root.id, [
-      { id: "legacy-a", text: "A" },
-      { id: "legacy-b", text: "B" },
+    await appendStoryDrafts(loom, seed.id, [
+      { text: "A" },
+      { text: "B" },
     ]);
 
-    const [first] = await loom.childrenOf(root.id);
-    await appendStoryContinuations(loom, first.id, [
-      { id: "legacy-c", text: "C" },
+    const children = await loom.childrenOf(seed.id);
+    expect(children.map((turn) => ({
+      id: turn.id,
+      parentId: turn.parentId,
+      payload: turn.payload,
+      meta: turn.meta,
+    }))).toEqual([
+      {
+        id: "turn-3",
+        parentId: seed.id,
+        payload: { text: "A" },
+        meta: { role: "prose" },
+      },
+      {
+        id: "turn-4",
+        parentId: seed.id,
+        payload: { text: "B" },
+        meta: { role: "prose" },
+      },
+    ]);
+  });
+
+  it("projects a branching loom in canonical child order", async () => {
+    const looms = createLooms();
+    const info = await looms.create({ title: "Story" });
+    const loom = await looms.open(info.id);
+    const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
+
+    await appendStoryDrafts(loom, seed.id, [
+      { text: "A" },
+      { text: "B" },
     ]);
 
-    expect(await materializeStoryTree(loom, "Start")).toEqual({
+    const [first] = await loom.childrenOf(seed.id);
+    await appendStoryDrafts(loom, first.id, [{ text: "C" }]);
+
+    expect(await projectStoryTree(loom, "Start")).toEqual({
       root: {
-        id: root.id,
+        id: seed.id,
         text: "Start",
         continuations: [
           {
@@ -107,28 +95,26 @@ describe("Loompad story adapter", () => {
     const info = await looms.create({ title: "Story" });
     const loom = await looms.open(info.id);
 
-    const root = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
-    const original = await loom.appendTurn(root.id, { text: "Original" });
+    const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
+    const original = await loom.appendTurn(seed.id, { text: "Original" });
     await loom.appendTurn(original.id, { text: "Original child" });
 
-    const revision: StoryNode = {
-      id: "ignored",
+    const revision: StoryDraft = {
       text: "Edited",
       continuations: [
         {
-          id: "ignored-child",
           text: "Split tail",
           continuations: [],
         },
       ],
     };
-    const appended = await appendStoryNodeRevision(
+    const appended = await appendStoryRevision(
       loom,
-      root.id,
+      seed.id,
       revision,
       original.id,
     );
-    const tree = await materializeStoryTree(loom, "Start");
+    const tree = await projectStoryTree(loom, "Start");
 
     expect(tree.root.text).toBe("Start");
     expect(tree.root.continuations?.map((node) => node.text)).toEqual([
@@ -158,10 +144,10 @@ describe("Loompad story adapter", () => {
     const original = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
     await loom.appendTurn(original.id, { text: "Original child" }, { role: "prose" });
 
-    const appended = await appendStoryNodeRevision(
+    const appended = await appendStoryRevision(
       loom,
       null,
-      { id: "ignored", text: "Edited root", continuations: [] },
+      { text: "Edited root", continuations: [] },
       original.id,
     );
 
@@ -171,7 +157,7 @@ describe("Loompad story adapter", () => {
       "Edited root",
     ]);
     expect(appended.meta).toEqual({ role: "revision", revises: original.id });
-    expect(await materializeStoryTree(loom, "Start")).toEqual({
+    expect(await projectStoryTree(loom, "Start")).toEqual({
       root: {
         id: appended.id,
         text: "Edited root",

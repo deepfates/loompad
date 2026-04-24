@@ -10,7 +10,6 @@ export interface StoryNode {
   id: string;
   text: string;
   continuations?: StoryNode[];
-  lastSelectedIndex?: number;
 }
 
 export interface MenuScreenProps {

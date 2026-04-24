@@ -5,14 +5,7 @@ import type { TurnId } from "../../core/src/index";
 // non-lineage relations should not be packed into this human-readable content.
 export type TextPayload = { text: string };
 
-export interface StoryNode {
-  id: string;
-  text: string;
-  continuations?: StoryNode[];
-  lastSelectedIndex?: number;
-}
-
-export interface StoryThreadTurn {
+export interface TextThreadTurn {
   id: TurnId;
   text: string;
 }

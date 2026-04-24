@@ -8,7 +8,6 @@ import { createBrowserLoomClient } from "../../../vendor/loomsync/packages/index
 import { upsertLoom } from "../../../vendor/loomsync/packages/index/src/entries";
 import type { LoomIndex } from "../../../vendor/loomsync/packages/index/src/types";
 import type { TextPayload } from "../../../vendor/loomsync/packages/text/src/types";
-import type { StoryNode } from "../types";
 import type {
   StoryEntryMeta,
   StoryLoom,
@@ -184,11 +183,6 @@ export async function openStoryLoom(loomId: string): Promise<StoryLoom> {
 
 export async function removeStory(loomId: string): Promise<void> {
   await (await getStoryIndex()).removeLoom(loomId);
-}
-
-export function getTurnIdForThreadLink(path: StoryNode[]): string | null {
-  const target = path.at(-1);
-  return target?.id ?? null;
 }
 
 async function openLoomWithRetry(loomId: string): Promise<StoryLoom> {
