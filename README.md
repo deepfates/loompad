@@ -67,23 +67,6 @@ bun run build
 bun run prod
 ```
 
-## API security config
-
-LoomPad now supports optional API hardening via environment variables:
-
-- `LOOMPAD_API_AUTH_TOKEN`: if set, `/api/generate`, `/api/judge`, and model mutations require auth via `Authorization: Bearer <token>` or `x-api-key: <token>`.
-- `CORS_ALLOWED_ORIGINS`: comma-separated allowlist for CORS origins.
-- `LOOMPAD_RATE_LIMIT_WINDOW_MS`: rate limit window size (default `60000`).
-- `LOOMPAD_RATE_LIMIT_MAX_REQUESTS`: max requests per window per IP/scope (default `30`).
-
-Example:
-
-```bash
-LOOMPAD_API_AUTH_TOKEN=change-me
-CORS_ALLOWED_ORIGINS=https://loompad.lol,https://app.example.com
-LOOMPAD_RATE_LIMIT_WINDOW_MS=60000
-LOOMPAD_RATE_LIMIT_MAX_REQUESTS=30
-```
 
 ## Project layout
 
