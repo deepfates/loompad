@@ -34,8 +34,8 @@ type StoryClient = ReturnType<
 let client: StoryClient | null = null;
 let indexPromise: Promise<StoryIndex> | null = null;
 
-const INDEX_STORAGE_KEY = "loompad-loomsync-v2-index-id";
-const STORAGE_NAMESPACE = "loompad-loomsync-v2";
+const INDEX_STORAGE_KEY = "loompad-loomsync-v3-index-id";
+const STORAGE_NAMESPACE = "loompad-loomsync-v3";
 
 function getStoryClient() {
   client ??= createBrowserLoomClient<

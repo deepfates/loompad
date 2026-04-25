@@ -1,4 +1,4 @@
-const STORAGE_KEY = "loompad-loomsync-story-session";
+const STORAGE_KEY = "loompad-loomsync-v3-story-session";
 
 type StorySessionState = Record<string, Record<string, number>>;
 

@@ -16,7 +16,7 @@ export default defineConfig({
   webServer: {
     command: `PORT=${port} bun run dev`,
     url: baseURL,
-    reuseExistingServer: true,
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "true",
     timeout: 30_000,
   },
   projects: [

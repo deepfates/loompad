@@ -79,6 +79,42 @@ test("same-browser tabs converge on generated story updates without refresh", as
   await context.close();
 });
 
+test("stale v2 local-first storage does not block the current v3 app", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "loompad-loomsync-v2-index-id",
+      "automerge:stale-v2-index",
+    );
+    window.sessionStorage.setItem(
+      "loompad-loomsync-story-session",
+      JSON.stringify({ "stale-loom": { "stale-turn": 1 } }),
+    );
+  });
+
+  await mockGeneration(page, "Fresh storage");
+  await page.goto("/");
+
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+  await expect.poll(() =>
+    page.evaluate(() => window.localStorage.getItem("loompad-loomsync-v3-index-id")),
+  ).toBeTruthy();
+  await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
+    kind: "thread",
+  });
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Fresh storage 1.");
+
+  await context.close();
+});
+
 test("browser URL follows the current loom and thread focus", async ({
   browser,
 }) => {
