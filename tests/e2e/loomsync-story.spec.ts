@@ -258,6 +258,43 @@ test("a copied thread link opens the same loom and lands on the intended thread"
   await guest.close();
 });
 
+test("separate browser contexts converge on live updates after opening a shared thread", async ({
+  browser,
+}) => {
+  const owner = await browser.newContext();
+  const page = await owner.newPage();
+  await mockGeneration(page, "Live shared thread");
+
+  await page.goto("/");
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Live shared thread 1.");
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
+    kind: "thread",
+  });
+  const threadUrl = page.url();
+
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await mockGeneration(guestPage, "Guest");
+  await guestPage.goto(threadUrl);
+  await expect(guestPage.locator("body")).toContainText(
+    "Live shared thread 1.",
+  );
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Live shared thread 4.");
+  await expect(guestPage.locator("body")).toContainText(
+    "Live shared thread 4.",
+  );
+
+  await owner.close();
+  await guest.close();
+});
+
 test("a copied thread link after root edit opens the edited root and branch", async ({
   browser,
 }) => {
@@ -361,6 +398,39 @@ test("editing the story root keeps existing branches navigable", async ({
 
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("body")).toContainText("Editable root 3.");
+
+  await context.close();
+});
+
+test("generating after a root edit adds a branch without losing inherited branches", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await mockGeneration(page, "Root regen");
+
+  await page.goto("/");
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Root regen 1.");
+
+  await page.keyboard.press("Backspace");
+  await page.locator("textarea").fill("Regenerated opening,");
+  await page.getByRole("button", { name: "START" }).click();
+  await expect(page.locator("body")).toContainText("Regenerated opening,");
+  await expect(page.locator("body")).toContainText("Root regen 1.");
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Root regen 4.");
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("body")).toContainText("Root regen 1.");
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("body")).toContainText("Root regen 2.");
 
   await context.close();
 });
