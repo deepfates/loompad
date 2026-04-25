@@ -40,6 +40,21 @@ importers:
         specifier: ^3.1.1
         version: 3.2.4(@types/node@22.19.17)
 
+  packages/client:
+    dependencies:
+      '@automerge/automerge-repo':
+        specifier: ^2.5.5
+        version: 2.5.5
+      '@automerge/automerge-repo-network-websocket':
+        specifier: ^2.5.5
+        version: 2.5.5
+      '@loomsync/core':
+        specifier: workspace:*
+        version: link:../core
+      '@loomsync/index':
+        specifier: workspace:*
+        version: link:../index
+
   packages/core: {}
 
   packages/index:
@@ -47,6 +62,18 @@ importers:
       '@loomsync/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/sync-server:
+    dependencies:
+      '@automerge/automerge-repo':
+        specifier: ^2.5.5
+        version: 2.5.5
+      '@automerge/automerge-repo-network-websocket':
+        specifier: ^2.5.5
+        version: 2.5.5
+      isomorphic-ws:
+        specifier: ^5.0.0
+        version: 5.0.0(ws@8.20.0)
 
   packages/text:
     dependencies:

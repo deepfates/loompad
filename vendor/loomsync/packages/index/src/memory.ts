@@ -1,7 +1,6 @@
 import { LoomError, duplicateLoomId, loomRef, unknownIndex } from "../../core/src/index";
 import type { IndexId, LoomId, LoomReference } from "../../core/src/index";
 import type {
-  CreateLoomIndexesOptions,
   LoomIndex,
   LoomIndexEntry,
   LoomIndexEntryInput,
@@ -13,6 +12,8 @@ import type {
   LoomIndexSnapshot,
   MemoryLoomIndexesOptions,
 } from "./types.js";
+
+export type { MemoryLoomIndexesOptions } from "./types.js";
 
 type InternalIndex<TEntryMeta, TIndexMeta> = {
   info: LoomIndexInfo<TIndexMeta>;
@@ -69,15 +70,6 @@ export function createMemoryLoomIndexes<
       return new MemoryLoomIndex(index.info.id, index, now);
     },
   };
-}
-
-export function createLoomIndexes<TEntryMeta = unknown, TIndexMeta = unknown>(
-  options: CreateLoomIndexesOptions = {},
-): LoomIndexes<TEntryMeta, TIndexMeta> {
-  if (options.backend && options.backend !== "memory") {
-    throw new Error(`Unsupported LoomSync index backend: ${options.backend}`);
-  }
-  return createMemoryLoomIndexes<TEntryMeta, TIndexMeta>(options);
 }
 
 class MemoryLoomIndex<TEntryMeta, TIndexMeta>

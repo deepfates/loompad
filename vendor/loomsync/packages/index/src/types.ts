@@ -76,7 +76,3 @@ export interface MemoryLoomIndexesOptions {
   createId?: () => string;
   now?: () => number;
 }
-
-export interface CreateLoomIndexesOptions extends MemoryLoomIndexesOptions {
-  backend?: "memory";
-}

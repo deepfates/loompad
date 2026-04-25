@@ -4,7 +4,7 @@ import {
   type Looms,
   type TurnId,
 } from "../../../vendor/loomsync/packages/core/src/index";
-import { createBrowserLoomClient } from "../../../vendor/loomsync/packages/index/src/browser";
+import { createBrowserLoomClient } from "../../../vendor/loomsync/packages/client/src/browser";
 import { upsertLoom } from "../../../vendor/loomsync/packages/index/src/entries";
 import type { LoomIndex } from "../../../vendor/loomsync/packages/index/src/types";
 import type { TextPayload } from "../../../vendor/loomsync/packages/text/src/types";

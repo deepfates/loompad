@@ -98,7 +98,3 @@ export interface MemoryLoomsOptions {
   createId?: () => string;
   now?: () => number;
 }
-
-export interface CreateLoomsOptions extends MemoryLoomsOptions {
-  backend?: "memory";
-}

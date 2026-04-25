@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createMemoryLooms } from "../../../../vendor/loomsync/packages/core/src/memory";
+import { createTestLoomClient } from "../../../../vendor/loomsync/packages/client/src/testing";
 import type { TextPayload } from "../../../../vendor/loomsync/packages/text/src/types";
 import {
   appendStoryDrafts,
@@ -10,10 +10,10 @@ import type { StoryDraft, StoryLoomMeta, StoryTurnMeta } from "../storyTypes";
 
 function createLooms() {
   let nextId = 0;
-  return createMemoryLooms<TextPayload, StoryLoomMeta, StoryTurnMeta>({
+  return createTestLoomClient<TextPayload, StoryLoomMeta, StoryTurnMeta>({
     createId: () => `turn-${++nextId}`,
     now: () => 1000 + nextId,
-  });
+  }).looms;
 }
 
 describe("Loompad story loom", () => {

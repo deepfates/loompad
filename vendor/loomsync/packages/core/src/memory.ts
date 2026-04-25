@@ -9,7 +9,6 @@ import {
 } from "./errors.js";
 import { assertJsonEncodable, cloneJson } from "./json.js";
 import type {
-  CreateLoomsOptions,
   Loom,
   LoomEvent,
   LoomId,
@@ -21,6 +20,8 @@ import type {
   Turn,
   TurnId,
 } from "./types.js";
+
+export type { MemoryLoomsOptions } from "./types.js";
 
 const ROOT_CHILDREN_KEY = "__root__";
 
@@ -96,19 +97,6 @@ export function createMemoryLooms<
       return cloneJson(doc.loom);
     },
   };
-}
-
-export function createLooms<
-  TPayload = unknown,
-  TLoomMeta = unknown,
-  TTurnMeta = unknown,
->(
-  options: CreateLoomsOptions = {},
-): Looms<TPayload, TLoomMeta, TTurnMeta> {
-  if (options.backend && options.backend !== "memory") {
-    throw new Error(`Unsupported LoomSync backend: ${options.backend}`);
-  }
-  return createMemoryLooms<TPayload, TLoomMeta, TTurnMeta>(options);
 }
 
 class MemoryLoom<TPayload, TLoomMeta, TTurnMeta>

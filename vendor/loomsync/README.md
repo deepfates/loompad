@@ -50,15 +50,16 @@ loom metadata or copy a whole subtree.
 
 ## Packages
 
-- `@loomsync/core`: looms, turns, threads, references, snapshots, and backends.
+- `@loomsync/core`: looms, turns, threads, references, and snapshots.
 - `@loomsync/index`: synced indexes of loom references.
+- `@loomsync/client`: browser, Node, and test runtime clients.
 - `@loomsync/text`: small helpers for text payload looms.
 - `@loomsync/sync-server`: a simple Automerge WebSocket sync relay.
 
 ## Quick Start
 
 ```ts
-import { createMemoryLooms } from "@loomsync/core/memory";
+import { createTestLoomClient } from "@loomsync/client/testing";
 
 type TextPayload = { text: string };
 type LoomMeta = { title: string };
@@ -67,10 +68,10 @@ type TurnMeta = {
   revises?: string;
 };
 
-const looms = createMemoryLooms<TextPayload, LoomMeta, TurnMeta>();
+const client = createTestLoomClient<TextPayload, LoomMeta, TurnMeta>();
 
-const info = await looms.create({ title: "Story 1" });
-const loom = await looms.open(info.id);
+const info = await client.looms.create({ title: "Story 1" });
+const loom = await client.looms.open(info.id);
 
 const seed = await loom.appendTurn(
   null,
@@ -95,13 +96,33 @@ const leaves = await loom.leaves();
 const snapshot = await loom.export();
 ```
 
+## Node Scripts
+
+Agents, importers, and command-line tools can write to the same kind of loom
+without depending on Loompad:
+
+```ts
+import { createNodeLoomClient } from "@loomsync/client/node";
+
+const client = createNodeLoomClient<TextPayload>({
+  storageDir: ".loomsync",
+  syncUrl: "ws://localhost:3030",
+});
+
+const info = await client.looms.create({ title: "Imported thread" });
+const loom = await client.looms.open(info.id);
+await loom.appendTurn(null, { text: "First imported post" });
+
+await client.close();
+```
+
 ## Browser Client
 
 Browser apps usually want looms, indexes, references, and one shared Automerge
-repo. `@loomsync/index/browser` provides that shape:
+repo. `@loomsync/client/browser` provides that shape:
 
 ```ts
-import { createBrowserLoomClient } from "@loomsync/index/browser";
+import { createBrowserLoomClient } from "@loomsync/client/browser";
 
 const client = createBrowserLoomClient<TextPayload, LoomMeta, TurnMeta>({
   browser: {
@@ -152,9 +173,13 @@ export default defineConfig({
 Packages expose subpaths so apps can import only the surface they need:
 
 ```ts
+import { createNodeLoomClient } from "@loomsync/client/node";
 import { createAutomergeLooms } from "@loomsync/core/automerge";
 import type { Loom, Turn } from "@loomsync/core/types";
 ```
+
+The normal application path is `@loomsync/client/*`. Lower-level core and index
+adapter subpaths exist for custom runtimes and focused tests.
 
 ## Vendoring Into Apps
 

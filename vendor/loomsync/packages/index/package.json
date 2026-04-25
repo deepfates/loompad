@@ -18,11 +18,6 @@
       "import": "./dist/automerge.js",
       "default": "./dist/automerge.js"
     },
-    "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.js",
-      "default": "./dist/browser.js"
-    },
     "./entries": {
       "types": "./dist/entries.d.ts",
       "import": "./dist/entries.js",
