@@ -258,6 +258,50 @@ test("a copied thread link opens the same loom and lands on the intended thread"
   await guest.close();
 });
 
+test("a copied thread link after root edit opens the edited root and branch", async ({
+  browser,
+}) => {
+  const owner = await browser.newContext();
+  const page = await owner.newPage();
+  await captureClipboard(page);
+  await mockGeneration(page, "Root edit share");
+
+  await page.goto("/");
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Root edit share 1.");
+
+  await page.keyboard.press("Backspace");
+  await page.locator("textarea").fill("Shared edited opening,");
+  await page.getByRole("button", { name: "START" }).click();
+  await expect(page.locator("body")).toContainText("Shared edited opening,");
+  await expect(page.locator("body")).toContainText("Root edit share 1.");
+
+  await openStoriesDrawer(page);
+  await page
+    .getByRole("button", { name: "Copy current thread link" })
+    .first()
+    .focus();
+  await page.keyboard.press("Enter");
+
+  const threadUrl = await readCapturedClipboard(page);
+  expect(threadUrl).toContain("?ref=");
+
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await mockGeneration(guestPage, "Guest");
+  await guestPage.goto(threadUrl);
+
+  await expect(guestPage.locator("body")).toContainText(
+    "Shared edited opening,",
+  );
+  await expect(guestPage.locator("body")).toContainText("Root edit share 1.");
+  await owner.close();
+  await guest.close();
+});
+
 test("editing a node with children creates one revision instead of duplicating it repeatedly", async ({
   browser,
 }) => {
@@ -282,6 +326,41 @@ test("editing a node with children creates one revision instead of duplicating i
   const threadText = await page.locator("body").innerText();
   const editedMatches = threadText.match(/Edited child/g) ?? [];
   expect(editedMatches.length).toBe(1);
+
+  await context.close();
+});
+
+test("editing the story root keeps existing branches navigable", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await mockGeneration(page, "Editable root");
+
+  await page.goto("/");
+  await expect(page.locator("body")).toContainText(
+    "Once upon a time, in Absalom,",
+  );
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toContainText("Editable root 1.");
+
+  await page.keyboard.press("Backspace");
+  await page.locator("textarea").fill("Edited opening,");
+  await page.getByRole("button", { name: "START" }).click();
+
+  await expect(page.locator("body")).toContainText("Edited opening,");
+  await expect(page.locator("body")).toContainText("Editable root 1.");
+
+  const threadText = await page.locator("body").innerText();
+  const editedMatches = threadText.match(/Edited opening,/g) ?? [];
+  expect(editedMatches.length).toBe(1);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("body")).toContainText("Editable root 2.");
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("body")).toContainText("Editable root 3.");
 
   await context.close();
 });

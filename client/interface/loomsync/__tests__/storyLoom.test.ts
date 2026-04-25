@@ -136,13 +136,17 @@ describe("Loompad story loom", () => {
     });
   });
 
-  it("saves root edits as top-level turn revisions without overwriting meta", async () => {
+  it("saves root edits as top-level turn revisions while preserving visible branches", async () => {
     const looms = createLooms();
     const info = await looms.create({ title: "Story" });
     const loom = await looms.open(info.id);
 
     const original = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
-    await loom.appendTurn(original.id, { text: "Original child" }, { role: "prose" });
+    const child = await loom.appendTurn(
+      original.id,
+      { text: "Original child" },
+      { role: "prose" },
+    );
 
     const appended = await appendStoryRevision(
       loom,
@@ -161,7 +165,87 @@ describe("Loompad story loom", () => {
       root: {
         id: appended.id,
         text: "Edited root",
-        continuations: [],
+        continuations: [
+          {
+            id: child.id,
+            text: "Original child",
+            continuations: [],
+          },
+        ],
+      },
+    });
+    expect(await loom.childrenOf(original.id)).toEqual([child]);
+    expect(await loom.childrenOf(appended.id)).toEqual([]);
+  });
+
+  it("preserves visible branches across repeated root revisions", async () => {
+    const looms = createLooms();
+    const info = await looms.create({ title: "Story" });
+    const loom = await looms.open(info.id);
+
+    const original = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
+    const child = await loom.appendTurn(original.id, { text: "Original child" }, { role: "prose" });
+    const firstEdit = await appendStoryRevision(
+      loom,
+      null,
+      { text: "Edited root once", continuations: [] },
+      original.id,
+    );
+    const secondEdit = await appendStoryRevision(
+      loom,
+      null,
+      { text: "Edited root twice", continuations: [] },
+      firstEdit.id,
+    );
+
+    expect(await projectStoryTree(loom, "Start")).toEqual({
+      root: {
+        id: secondEdit.id,
+        text: "Edited root twice",
+        continuations: [
+          {
+            id: child.id,
+            text: "Original child",
+            continuations: [],
+          },
+        ],
+      },
+    });
+  });
+
+  it("keeps root revision draft continuations before inherited branches", async () => {
+    const looms = createLooms();
+    const info = await looms.create({ title: "Story" });
+    const loom = await looms.open(info.id);
+
+    const original = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
+    const child = await loom.appendTurn(original.id, { text: "Original child" }, { role: "prose" });
+    const appended = await appendStoryRevision(
+      loom,
+      null,
+      {
+        text: "Edited root",
+        continuations: [{ text: "Edited root tail", continuations: [] }],
+      },
+      original.id,
+    );
+
+    expect(await projectStoryTree(loom, "Start")).toEqual({
+      root: {
+        id: appended.id,
+        text: "Edited root",
+        continuations: [
+          {
+            id: "turn-5",
+            text: "Edited root tail",
+            continuations: [],
+          },
+          {
+            id: child.id,
+            text: "Original child",
+            continuations: [],
+          },
+        ],
       },
     });
   });

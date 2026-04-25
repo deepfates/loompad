@@ -3,6 +3,8 @@ import type { TextPayload } from "../../../vendor/loomsync/packages/text/src/typ
 import type { StoryNode } from "../types";
 import type { StoryDraft, StoryLoom, StoryTurnMeta } from "./storyTypes";
 
+type StoryTurn = Turn<TextPayload, StoryTurnMeta>;
+
 export async function projectStoryTree(
   loom: StoryLoom,
   fallbackRootText = "",
@@ -24,15 +26,25 @@ export async function projectStoryTree(
 
   const rootNode: StoryNode = turnToStoryNode(rootTurn);
 
-  const appendChildren = async (parent: StoryNode, parentId: string) => {
-    const children = await loom.childrenOf(parentId);
+  const appendChildren = async (
+    parent: StoryNode,
+    parentTurn: StoryTurn,
+    isProjectedRoot = false,
+  ) => {
+    const children = isProjectedRoot
+      ? await visibleRootChildren(loom, parentTurn)
+      : await loom.childrenOf(parentTurn.id);
     parent.continuations = children.map(turnToStoryNode);
-    for (const child of parent.continuations) {
-      await appendChildren(child, child.id);
+    for (let index = 0; index < children.length; index += 1) {
+      const child = parent.continuations[index];
+      const childTurn = children[index];
+      if (child && childTurn) {
+        await appendChildren(child, childTurn);
+      }
     }
   };
 
-  await appendChildren(rootNode, rootTurn.id);
+  await appendChildren(rootNode, rootTurn, true);
   return { root: rootNode };
 }
 
@@ -71,7 +83,39 @@ export async function appendStoryDrafts(
   }
 }
 
-function turnToStoryNode(turn: Turn<TextPayload>): StoryNode {
+async function visibleRootChildren(
+  loom: StoryLoom,
+  rootTurn: StoryTurn,
+): Promise<StoryTurn[]> {
+  const children: StoryTurn[] = [];
+  const childIds = new Set<string>();
+  const visitedRoots = new Set<string>([rootTurn.id]);
+
+  const addChildrenFrom = async (turn: StoryTurn) => {
+    // Root edits are replacement seeds in the Loompad projection. Keep their
+    // own child chain first, then inherit branch choices from earlier seed
+    // revisions without moving or copying any stored turns.
+    for (const child of await loom.childrenOf(turn.id)) {
+      if (childIds.has(child.id)) continue;
+      childIds.add(child.id);
+      children.push(child);
+    }
+
+    const revises = turn.meta?.role === "revision" ? turn.meta.revises : null;
+    if (!revises || visitedRoots.has(revises)) return;
+
+    const revised = await loom.getTurn(revises);
+    if (!revised || revised.parentId !== null) return;
+
+    visitedRoots.add(revises);
+    await addChildrenFrom(revised);
+  };
+
+  await addChildrenFrom(rootTurn);
+  return children;
+}
+
+function turnToStoryNode(turn: StoryTurn): StoryNode {
   return {
     id: turn.id,
     text: turn.payload.text,
