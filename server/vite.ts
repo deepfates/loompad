@@ -43,7 +43,12 @@ export async function createServer() {
   const app = express();
   configureTrustedProxies(app);
   setupSiteAuthRoutes(app);
-  app.use(requireSiteAccess);
+  app.use((req, res, next) => {
+    // Lync sync uses raw WebSocket upgrades on the http_server.
+    // Only skip auth for actual upgrade requests on the exact path.
+    if (req.path === "/lync" && req.headers.upgrade === "websocket") return next();
+    return requireSiteAccess(req, res, next);
+  });
 
   const http_server = http.createServer(app);
   attachLyncServer(http_server);
