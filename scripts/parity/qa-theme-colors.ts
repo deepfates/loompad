@@ -66,7 +66,7 @@ const SEED_TREE = {
 async function seedAndTheme(page: Page, themeId: string, tone: "light" | "dark") {
   await page.addInitScript(
     ([prefs, treeJson]) => {
-      localStorage.setItem("loompad-theme-preferences", prefs);
+      localStorage.setItem("textile-theme-preferences", prefs);
       localStorage.setItem("story-trees", treeJson);
       localStorage.setItem("font-preference", "iosevka");
     },

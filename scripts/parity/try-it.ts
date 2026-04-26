@@ -1,5 +1,5 @@
 /**
- * Drive loompad through a realistic session and snapshot each step.
+ * Drive textile through a realistic session and snapshot each step.
  * The goal isn't parity — it's to actually feel each interaction and
  * catch the things screenshots don't.
  */

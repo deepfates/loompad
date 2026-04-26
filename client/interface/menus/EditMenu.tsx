@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { StoryNode } from "../types";
 
-export const EDIT_CONTROL_EVENT = "loompad:edit-control";
+export const EDIT_CONTROL_EVENT = "textile:edit-control";
 
 interface EditMenuProps {
   node: StoryNode;

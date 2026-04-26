@@ -32,8 +32,8 @@ export async function judgeContinuation(req: Request, res: Response) {
       apiURL: "https://openrouter.ai/api/v1",
       config: {
         defaultHeaders: {
-          "HTTP-Referer": "https://loompad.dev",
-          "X-Title": "LoomPad",
+          "HTTP-Referer": "https://textile.lol",
+          "X-Title": "Textile",
         },
       } as unknown as Record<string, unknown>,
       model: model,

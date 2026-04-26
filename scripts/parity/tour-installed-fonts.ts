@@ -1,5 +1,5 @@
 /**
- * Render every installed font in the actual loompad app at mobile width,
+ * Render every installed font in the actual textile app at mobile width,
  * on a story reader screen. This is the evidence that matters.
  */
 

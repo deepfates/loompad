@@ -32,7 +32,8 @@ async function main() {
       const htmlClasses = [...html.classList];
       const bodyClasses = [...body.classList];
       // Check loaded fonts
-      const loaded = Array.from((document as any).fonts as FontFaceSet).map((f: any) => ({
+      const fonts = document.fonts as FontFaceSet;
+      const loaded = Array.from(fonts).map((f) => ({
         family: f.family,
         status: f.status,
       }));

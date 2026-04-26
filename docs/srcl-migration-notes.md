@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document maps the existing `terminal.css` styles to srcl components for migrating the loompad UI while preserving the same visual appearance.
+This document maps the existing `terminal.css` styles to srcl components for migrating the textile UI while preserving the same visual appearance.
 
 ---
 
@@ -311,7 +311,7 @@ srcl uses:
 
 ## Styles to Keep (Not in srcl)
 
-These are custom to loompad and should remain:
+These are custom to textile and should remain:
 
 1. **Gamepad Layout**
    - `.terminal` main container
@@ -347,7 +347,7 @@ These are custom to loompad and should remain:
 
 ## srcl Components NOT Needed
 
-These srcl components don't map to loompad's UI:
+These srcl components don't map to textile's UI:
 
 - `Accordion` - No accordion UI
 - `ActionBar` - Different from mode bar

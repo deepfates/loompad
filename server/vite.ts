@@ -12,7 +12,9 @@ import wasm from "vite-plugin-wasm";
 import args from "server/args";
 import { setup_routes } from "server/apis/http";
 import { getMainProps } from "server/main_props";
-import { attachLoomSyncServer } from "server/loomsync";
+import { attachLyncServer } from "server/lync";
+import { configureTrustedProxies } from "server/trustedProxy";
+import { requireSiteAccess, setupSiteAuthRoutes } from "server/siteAuth";
 
 const port: number = args.port;
 const mode: "development" | "production" = args.mode;
@@ -39,9 +41,12 @@ export async function createServer() {
     }
   }
   const app = express();
+  configureTrustedProxies(app);
+  setupSiteAuthRoutes(app);
+  app.use(requireSiteAccess);
 
   const http_server = http.createServer(app);
-  attachLoomSyncServer(http_server);
+  attachLyncServer(http_server);
   setup_routes(app);
 
   let vite;
@@ -137,6 +142,40 @@ export async function createServer() {
     }
   });
 
+  // Serve PWA files at root level before the app shell catch-all.
+  app.get("/sw.js", (req, res) => {
+    if (mode === "production") {
+      res.setHeader("Content-Type", "application/javascript");
+      res.setHeader("Service-Worker-Allowed", "/");
+      res.setHeader("Cache-Control", "no-cache");
+      const swPath = path.resolve(client_dir_prod, "sw.js");
+      if (fs.existsSync(swPath)) {
+        res.sendFile(swPath);
+      } else {
+        const viteSwPath = path.resolve(client_dir_prod, "registerSW.js");
+        if (fs.existsSync(viteSwPath)) {
+          res.sendFile(viteSwPath);
+        } else {
+          res.status(404).send("Service worker not found");
+        }
+      }
+    } else {
+      res
+        .status(404)
+        .send("Service worker is served by Vite in development mode");
+    }
+  });
+
+  app.get("/manifest.webmanifest", (req, res) => {
+    if (mode === "production") {
+      res.setHeader("Content-Type", "application/manifest+json");
+      res.sendFile(path.resolve(client_dir_prod, "manifest.webmanifest"));
+    } else {
+      res.setHeader("Content-Type", "application/manifest+json");
+      res.sendFile(path.resolve(__dirname, "../client/manifest.webmanifest"));
+    }
+  });
+
   app.get("*", async (req, res, next) => {
     const url = req.originalUrl;
 
@@ -208,42 +247,6 @@ export async function createServer() {
         vite.ssrFixStacktrace(e);
       }
       next(e);
-    }
-  });
-
-  // Serve PWA files at root level
-  app.get("/sw.js", (req, res) => {
-    if (mode === "production") {
-      res.setHeader("Content-Type", "application/javascript");
-      res.setHeader("Service-Worker-Allowed", "/");
-      res.setHeader("Cache-Control", "no-cache");
-      const swPath = path.resolve(client_dir_prod, "sw.js");
-      if (fs.existsSync(swPath)) {
-        res.sendFile(swPath);
-      } else {
-        // VitePWA generates service worker with different name
-        const viteSwPath = path.resolve(client_dir_prod, "registerSW.js");
-        if (fs.existsSync(viteSwPath)) {
-          res.sendFile(viteSwPath);
-        } else {
-          res.status(404).send("Service worker not found");
-        }
-      }
-    } else {
-      // In development, VitePWA serves the service worker through Vite
-      res
-        .status(404)
-        .send("Service worker is served by Vite in development mode");
-    }
-  });
-
-  app.get("/manifest.webmanifest", (req, res) => {
-    if (mode === "production") {
-      res.setHeader("Content-Type", "application/manifest+json");
-      res.sendFile(path.resolve(client_dir_prod, "manifest.webmanifest"));
-    } else {
-      res.setHeader("Content-Type", "application/manifest+json");
-      res.sendFile(path.resolve(__dirname, "../client/manifest.webmanifest"));
     }
   });
 

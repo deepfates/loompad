@@ -1,6 +1,6 @@
 {
-  "name": "LoomPad",
-  "short_name": "LoomPad",
+  "name": "Textile",
+  "short_name": "Textile",
   "description": "An infinite game of choose your own adventure",
   "start_url": "/",
   "display": "standalone",

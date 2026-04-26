@@ -3,7 +3,7 @@
  * Uses ranked boundary detection with backward scanning
  */
 
-import type { StoryDraft } from "../loomsync/storyTypes";
+import type { StoryDraft } from "../lync/storyTypes";
 
 const MAX_CHUNK_SIZE = 1024;
 const LOOKBACK_WINDOW = 80;
@@ -118,7 +118,7 @@ export function splitText(text: string): string[] {
 
 /**
  * Convert a flat array of text chunks into a linked draft chain.
- * Drafts intentionally have no IDs; LoomSync assigns durable turn IDs when the
+ * Drafts intentionally have no IDs; Lync assigns durable turn IDs when the
  * draft is appended.
  */
 export function createDraftChain(chunks: string[]): StoryDraft | null {

@@ -25,8 +25,8 @@ const THEME_TONE_MAP = THEME_PRESETS.reduce<Record<ThemeClass, ThemeTone>>(
   {} as Record<ThemeClass, ThemeTone>
 );
 
-const STORAGE_KEY = "loompad-theme-preferences";
-const FONT_STORAGE_KEY = "loompad-font";
+const STORAGE_KEY = "textile-theme-preferences";
+const FONT_STORAGE_KEY = "textile-font";
 const LEGACY_KEY = "theme";
 
 interface ThemePreferences {

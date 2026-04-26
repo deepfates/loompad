@@ -89,7 +89,7 @@ export const InstallPrompt = () => {
       ref={promptRef}
       className="fixed top-2 left-2 right-2 z-50 p-3 bg-theme-bg-modal border border-theme-border rounded shadow-lg"
     >
-      <div className="font-bold">📱 Install LoomPad</div>
+      <div className="font-bold">📱 Install Textile</div>
       <div className="text-sm my-2 text-theme-border">
         Add to your home screen for the best experience
       </div>

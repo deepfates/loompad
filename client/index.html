@@ -4,40 +4,40 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://loompad.lol" />
-        <meta property="og:title" content="loompad" />
+        <meta property="og:url" content="https://textile.lol" />
+        <meta property="og:title" content="textile" />
         <meta
             property="og:description"
             content="an infinite game of choose your own adventure"
         />
         <meta
             property="og:image"
-            content="https://loompad.lol/client/assets/screenshot.png"
+            content="https://textile.lol/client/assets/screenshot.png"
         />
 
         <!-- PWA Meta Tags -->
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-        <meta name="apple-mobile-web-app-title" content="LoomPad" />
+        <meta name="apple-mobile-web-app-title" content="Textile" />
         <meta name="theme-color" content="#2a2a2a" />
         <meta name="msapplication-TileColor" content="#2a2a2a" />
         <link rel="apple-touch-icon" href="/client/assets/icon-192.png" />
         <link rel="manifest" href="/client/manifest.webmanifest" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:domain" content="loompad.lol" />
-        <meta name="twitter:url" content="https://loompad.lol" />
-        <meta name="twitter:title" content="loompad" />
+        <meta name="twitter:domain" content="textile.lol" />
+        <meta name="twitter:url" content="https://textile.lol" />
+        <meta name="twitter:title" content="textile" />
         <meta
             name="twitter:description"
             content="an infinite game of choose your own adventure"
         />
         <meta
             name="twitter:image"
-            content="https://loompad.lol/client/assets/screenshot.png"
+            content="https://textile.lol/client/assets/screenshot.png"
         />
-        <title>loompad</title>
+        <title>textile</title>
         <style>
             html,
             body {
@@ -78,7 +78,7 @@
                 ).matches;
                 var themeClass = prefersDark ? DEFAULT_DARK : DEFAULT_LIGHT;
                 try {
-                    var raw = localStorage.getItem("loompad-theme-preferences");
+                    var raw = localStorage.getItem("textile-theme-preferences");
                     if (raw) {
                         var prefs = JSON.parse(raw);
                         var mode = prefs && prefs.mode;
@@ -96,7 +96,7 @@
                         if (legacy === "phosphor") themeClass = DEFAULT_DARK;
                         else if (legacy === "light") themeClass = DEFAULT_LIGHT;
                     }
-                    var font = localStorage.getItem("loompad-font") || "iosevka";
+                    var font = localStorage.getItem("textile-font") || "iosevka";
                     var fontClass = font === "iosevka-slab"
                         ? "font-use-iosevka-slab"
                         : "font-use-iosevka";

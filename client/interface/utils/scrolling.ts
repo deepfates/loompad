@@ -129,10 +129,11 @@ export function scrollElementIntoViewIfNeeded(
  */
 export function getPrefersReducedMotion(): boolean {
   try {
-    const hasMatchMedia = (
-      o: any,
-    ): o is { matchMedia: (q: string) => MediaQueryList } =>
-      typeof o?.matchMedia === "function";
+    const hasMatchMedia = (value: unknown): value is Window =>
+      typeof value === "object" &&
+      value !== null &&
+      "matchMedia" in value &&
+      typeof value.matchMedia === "function";
 
     if (typeof window !== "undefined" && hasMatchMedia(window)) {
       return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
