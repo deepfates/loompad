@@ -73,6 +73,49 @@ interface StoryParams {
   autoModeIterations: number;
 }
 
+type StoryIndexEntry = Awaited<ReturnType<typeof listStoryEntries>>[number];
+
+export interface LoadedStoryEntries {
+  loomsById: Record<string, StoryLoom>;
+  trees: Record<string, { root: StoryNode }>;
+  titles: Record<string, string>;
+  orderedIds: string[];
+  skippedIds: string[];
+}
+
+export async function loadReachableStoryEntries(
+  entries: StoryIndexEntry[],
+  openLoom: (loomId: string) => Promise<StoryLoom>,
+  fallbackRootText: string,
+  onSkip: (loomId: string, error: unknown) => void = (loomId, error) => {
+    console.warn(`Skipping unreachable story loom ${loomId}:`, error);
+  },
+): Promise<LoadedStoryEntries> {
+  const trees: Record<string, { root: StoryNode }> = {};
+  const loomsById: Record<string, StoryLoom> = {};
+  const titles: Record<string, string> = {};
+  const orderedIds: string[] = [];
+  const skippedIds: string[] = [];
+
+  for (const entry of entries) {
+    const loomId = entry.ref.loomId;
+    try {
+      const loom = await openLoom(loomId);
+      const info = await loom.info();
+      loomsById[loomId] = loom;
+      titles[loomId] =
+        entry.title ?? entry.meta?.title ?? info.meta?.title ?? loomId;
+      trees[loomId] = await projectStoryTree(loom, fallbackRootText);
+      orderedIds.push(loomId);
+    } catch (error) {
+      skippedIds.push(loomId);
+      onSkip(loomId, error);
+    }
+  }
+
+  return { loomsById, trees, titles, orderedIds, skippedIds };
+}
+
 export function useStoryTree(params: StoryParams) {
   const [trees, setTrees] = useState(DEFAULT_TREES);
   const [loomsById, setLoomsById] = useState<Record<string, StoryLoom>>({});
@@ -122,36 +165,43 @@ export function useStoryTree(params: StoryParams) {
       return;
     }
 
-    const nextTrees: Record<string, { root: StoryNode }> = {};
-    const nextLooms: Record<string, StoryLoom> = {};
-    const nextTitles: Record<string, string> = {};
-    for (const entry of entries) {
-      const loomId = entry.ref.loomId;
-      const loom = await openStoryLoom(loomId);
-      const info = await loom.info();
-      nextLooms[loomId] = loom;
-      nextTitles[loomId] =
-        entry.title ?? entry.meta?.title ?? info.meta?.title ?? loomId;
-      nextTrees[loomId] = await projectStoryTree(
-        loom,
+    const loaded = await loadReachableStoryEntries(
+      entries,
+      openStoryLoom,
+      INITIAL_STORY.root.text,
+    );
+
+    if (!loaded.orderedIds.length) {
+      const { info, loom } = await createStoryLoom(
+        "Story 1",
         INITIAL_STORY.root.text,
       );
+      const tree = await projectStoryTree(loom, INITIAL_STORY.root.text);
+      setLoomsById({ [info.id]: loom });
+      setTrees({ [info.id]: tree });
+      setStoryTitles({ [info.id]: info.meta?.title ?? "Story 1" });
+      setCurrentLoomId(info.id);
+      setStoryTree(tree);
+      setCurrentDepth(0);
+      setSelectedOptions([0]);
+      return;
     }
-    const firstKey = entries[0]?.ref.loomId ?? Object.keys(nextTrees)[0];
-    setLoomsById(nextLooms);
-    setTrees(nextTrees);
-    setStoryTitles(nextTitles);
+
+    const firstKey = loaded.orderedIds[0];
+    setLoomsById(loaded.loomsById);
+    setTrees(loaded.trees);
+    setStoryTitles(loaded.titles);
     setCurrentLoomId((prev) => {
       const focusedKey = focus?.kind !== "index" ? focus?.loomId : null;
-      const nextKey = focusedKey && nextTrees[focusedKey]
+      const nextKey = focusedKey && loaded.trees[focusedKey]
         ? focusedKey
-        : nextTrees[prev]
+        : loaded.trees[prev]
           ? prev
           : firstKey;
-      const nextTree = nextTrees[nextKey] ?? nextTrees[firstKey] ?? INITIAL_STORY;
+      const nextTree = loaded.trees[nextKey] ?? loaded.trees[firstKey] ?? INITIAL_STORY;
       setStoryTree(nextTree);
       let appliedFocus = false;
-      if (focus?.kind !== "index" && focus?.turnId && nextTrees[nextKey]) {
+      if (focus?.kind !== "index" && focus?.turnId && loaded.trees[nextKey]) {
         const path = findPathById(nextTree.root, focus.turnId);
         if (path) {
           const indices = threadToSelectionIndices(path);
@@ -614,6 +664,11 @@ export function useStoryTree(params: StoryParams) {
       // generations from the same node if it's already generating.
       const currentPath = getCurrentPath();
       const currentNode = currentPath[currentDepth];
+      if (!currentNode) {
+        setCurrentDepth(0);
+        setSelectedOptions([0]);
+        return;
+      }
       if (key === "Enter" && isGeneratingAt(currentNode.id)) return;
 
       const options = getOptionsAtDepth(currentDepth);
@@ -676,6 +731,8 @@ export function useStoryTree(params: StoryParams) {
           break;
         case "Enter": {
           if (error) return;
+          const loom = loomsById[currentLoomId];
+          if (!loom) return;
 
           const currentNode = currentPath[currentDepth];
           const hasExistingContinuations =
@@ -696,8 +753,6 @@ export function useStoryTree(params: StoryParams) {
 
           try {
             const newContinuations = await generateContinuations(count);
-            const loom = loomsById[currentLoomId];
-            if (!loom) throw new Error(`Missing story loom: ${currentLoomId}`);
             await appendStoryDrafts(
               loom,
               currentNode.id,

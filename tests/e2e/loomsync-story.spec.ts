@@ -47,6 +47,12 @@ function referenceFromPageUrl(page: Page) {
   };
 }
 
+async function waitForCurrentThreadRef(page: Page) {
+  await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
+    kind: "thread",
+  });
+}
+
 declare global {
   interface Window {
     __loompadClipboardText: string;
@@ -64,6 +70,7 @@ test("same-browser tabs converge on generated story updates without refresh", as
   await expect(pageOne.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(pageOne);
 
   const pageTwo = await context.newPage();
   await mockGeneration(pageTwo, "Same browser sync");
@@ -71,6 +78,7 @@ test("same-browser tabs converge on generated story updates without refresh", as
   await expect(pageTwo.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(pageTwo);
 
   await pageOne.keyboard.press("Enter");
 
@@ -102,6 +110,7 @@ test("stale v2 local-first storage does not block the current v3 app", async ({
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
   await expect.poll(() =>
     page.evaluate(() => window.localStorage.getItem("loompad-loomsync-v3-index-id")),
   ).toBeTruthy();
@@ -126,6 +135,7 @@ test("browser URL follows the current loom and thread focus", async ({
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
 
   await expect.poll(() => referenceFromPageUrl(page)).toMatchObject({
     kind: "thread",
@@ -164,6 +174,7 @@ test("a copied story link opens the same loom in another browser context", async
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Shared root 1.");
   await openStoriesDrawer(page);
@@ -198,6 +209,7 @@ test("a copied story list link imports the shared index and listed looms", async
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Shared index 1.");
   await openStoriesDrawer(page);
@@ -231,6 +243,7 @@ test("a copied thread link opens the same loom and lands on the intended thread"
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Shared thread 1.");
   await page.keyboard.press("ArrowDown");
@@ -269,6 +282,7 @@ test("separate browser contexts converge on live updates after opening a shared 
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Live shared thread 1.");
   await page.keyboard.press("ArrowDown");
@@ -307,6 +321,7 @@ test("a copied thread link after root edit opens the edited root and branch", as
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Root edit share 1.");
 
@@ -350,6 +365,7 @@ test("editing a node with children creates one revision instead of duplicating i
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
 
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Editable child 1.");
@@ -378,6 +394,7 @@ test("editing the story root keeps existing branches navigable", async ({
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
 
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Editable root 1.");
@@ -413,6 +430,7 @@ test("generating after a root edit adds a branch without losing inherited branch
   await expect(page.locator("body")).toContainText(
     "Once upon a time, in Absalom,",
   );
+  await waitForCurrentThreadRef(page);
 
   await page.keyboard.press("Enter");
   await expect(page.locator("body")).toContainText("Root regen 1.");

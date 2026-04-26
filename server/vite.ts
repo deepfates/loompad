@@ -56,12 +56,12 @@ export async function createServer() {
           plugins: [tailwindcss()],
         },
       },
+      optimizeDeps: {
+        include: ["eventemitter3"],
+        exclude: ["@automerge/automerge"],
+      },
       server: {
         middlewareMode: true,
-        optimizeDeps: {
-          include: ["eventemitter3"],
-          exclude: ["@automerge/automerge"],
-        },
         hmr: {
           server: http_server,
           clientPort: 443,
