@@ -13,11 +13,10 @@ pnpm verify
 ## Completed v0.2 Cutover
 
 - [x] Create standalone TypeScript workspace.
-- [x] Define `core`, `index`, `text`, and `sync-server` package boundaries.
+- [x] Define `core`, `index`, `client`, and `sync-server` package boundaries.
 - [x] Implement in-memory loom backend.
 - [x] Implement in-memory index backend.
-- [x] Implement text helpers for Textile migration.
-- [x] Add meaningful topology, reference, index, sync, and text tests.
+- [x] Add meaningful topology, reference, index, sync, and client tests.
 - [x] Add Automerge document schema for looms.
 - [x] Implement Automerge `create`, `open`, `appendTurn`, and queries.
 - [x] Add Automerge export/import validation.

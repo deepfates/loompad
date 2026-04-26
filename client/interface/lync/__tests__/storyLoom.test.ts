@@ -1,16 +1,20 @@
 import { describe, expect, it } from "bun:test";
 import { createTestLoomClient } from "../../../../vendor/lync/packages/client/src/testing";
-import type { TextPayload } from "../../../../vendor/lync/packages/text/src/types";
 import {
   appendStoryDrafts,
   appendStoryRevision,
   projectStoryTree,
 } from "../storyLoom";
-import type { StoryDraft, StoryLoomMeta, StoryTurnMeta } from "../storyTypes";
+import type {
+  StoryDraft,
+  StoryLoomMeta,
+  StoryTurnMeta,
+  StoryTurnPayload,
+} from "../storyTypes";
 
 function createLooms() {
   let nextId = 0;
-  return createTestLoomClient<TextPayload, StoryLoomMeta, StoryTurnMeta>({
+  return createTestLoomClient<StoryTurnPayload, StoryLoomMeta, StoryTurnMeta>({
     createId: () => `turn-${++nextId}`,
     now: () => 1000 + nextId,
   }).looms;

@@ -7,12 +7,12 @@ import {
 import { createBrowserLoomClient } from "../../../vendor/lync/packages/client/src/browser";
 import { upsertLoom } from "../../../vendor/lync/packages/index/src/entries";
 import type { LoomIndex } from "../../../vendor/lync/packages/index/src/types";
-import type { TextPayload } from "../../../vendor/lync/packages/text/src/types";
 import type {
   StoryEntryMeta,
   StoryLoom,
   StoryLoomMeta,
   StoryTurnMeta,
+  StoryTurnPayload,
 } from "./storyTypes";
 
 export type { StoryEntryMeta, StoryLoom, StoryLoomMeta } from "./storyTypes";
@@ -23,7 +23,7 @@ export type StoryReferenceImport =
 
 type StoryClient = ReturnType<
   typeof createBrowserLoomClient<
-    TextPayload,
+    StoryTurnPayload,
     StoryLoomMeta,
     StoryTurnMeta,
     StoryEntryMeta,
@@ -39,7 +39,7 @@ const STORAGE_NAMESPACE = "textile-lync-v1";
 
 function getStoryClient() {
   client ??= createBrowserLoomClient<
-    TextPayload,
+    StoryTurnPayload,
     StoryLoomMeta,
     StoryTurnMeta,
     StoryEntryMeta,
@@ -57,7 +57,11 @@ function getStoryClient() {
   return client;
 }
 
-export function getStoryLooms(): Looms<TextPayload, StoryLoomMeta, StoryTurnMeta> {
+export function getStoryLooms(): Looms<
+  StoryTurnPayload,
+  StoryLoomMeta,
+  StoryTurnMeta
+> {
   return getStoryClient().looms;
 }
 

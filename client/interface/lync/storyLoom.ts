@@ -1,9 +1,13 @@
 import type { Turn } from "../../../vendor/lync/packages/core/src/types";
-import type { TextPayload } from "../../../vendor/lync/packages/text/src/types";
 import type { StoryNode } from "../types";
-import type { StoryDraft, StoryLoom, StoryTurnMeta } from "./storyTypes";
+import type {
+  StoryDraft,
+  StoryLoom,
+  StoryTurnMeta,
+  StoryTurnPayload,
+} from "./storyTypes";
 
-type StoryTurn = Turn<TextPayload, StoryTurnMeta>;
+type StoryTurn = Turn<StoryTurnPayload, StoryTurnMeta>;
 
 export async function projectStoryTree(
   loom: StoryLoom,
@@ -49,7 +53,7 @@ export async function appendStoryDraftChain(
   parentId: string | null,
   draft: StoryDraft,
   meta: StoryTurnMeta = { role: "prose" },
-): Promise<Turn<TextPayload, StoryTurnMeta>> {
+): Promise<Turn<StoryTurnPayload, StoryTurnMeta>> {
   const appended = await loom.appendTurn(parentId, { text: draft.text }, meta);
   for (const child of draft.continuations ?? []) {
     await appendStoryDraftChain(loom, appended.id, child, { role: "prose" });
@@ -62,7 +66,7 @@ export async function appendStoryRevision(
   parentId: string | null,
   revision: StoryDraft,
   revises?: string,
-): Promise<Turn<TextPayload, StoryTurnMeta>> {
+): Promise<Turn<StoryTurnPayload, StoryTurnMeta>> {
   if (parentId === null) {
     throw new Error("Root edits create a new story loom");
   }

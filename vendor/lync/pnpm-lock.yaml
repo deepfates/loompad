@@ -75,12 +75,6 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(ws@8.20.0)
 
-  packages/text:
-    dependencies:
-      '@lync/core':
-        specifier: workspace:*
-        version: link:../core
-
 packages:
 
   '@automerge/automerge-repo-network-broadcastchannel@2.5.5':

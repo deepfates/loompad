@@ -9,9 +9,6 @@ references, and deterministic import/export.
 `@lync/index` models a linked index of looms. It stores loom references and
 lightweight display metadata. It does not embed loom content.
 
-`@lync/text` provides helpers for text payload looms, including thread
-flattening and appending chains of text chunks.
-
 `@lync/sync-server` provides a simple Automerge WebSocket sync relay. The
 relay helps peers find and sync documents; it is not the semantic owner of a
 loom.
@@ -47,6 +44,10 @@ Turn payload should hold the human-readable content. Turn metadata should hold
 app-defined semantics such as role, author, model provenance, `revises`,
 `references`, or `respondsTo`. Loom metadata should remain mutable chrome and
 not carry the actual story seed or root text.
+
+Apps own their payload vocabulary. A text app may use `{ text: string }`; an
+agent trace app may use a discriminated union. Lync should not ship app-shaped
+helper packages until repeated integrations prove a real abstraction.
 
 ## Backends
 

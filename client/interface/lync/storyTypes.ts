@@ -2,8 +2,8 @@ import type {
   Loom,
   TurnId,
 } from "../../../vendor/lync/packages/core/src/types";
-import type { TextPayload } from "../../../vendor/lync/packages/text/src/types";
 
+export type StoryTurnPayload = { text: string };
 export type StoryLoomMeta = { title: string };
 export type StoryEntryMeta = { title: string };
 
@@ -34,4 +34,4 @@ export interface StoryTurnMeta {
   respondsTo?: TurnId;
 }
 
-export type StoryLoom = Loom<TextPayload, StoryLoomMeta, StoryTurnMeta>;
+export type StoryLoom = Loom<StoryTurnPayload, StoryLoomMeta, StoryTurnMeta>;

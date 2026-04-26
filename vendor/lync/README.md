@@ -44,16 +44,16 @@ Use the three data lanes deliberately:
 - **loom meta**: mutable chrome for the loom, for example title or color
 
 For story-like apps, the seed text should be a top-level turn:
-`appendTurn(null, { text: "Once..." })`. Editing that seed should append another
-top-level turn with turn metadata such as `{ revises: seed.id }`, not rewrite
-loom metadata or copy a whole subtree.
+`appendTurn(null, { text: "Once..." })`. If an app treats that seed as the
+identity of the story, editing it should create a new loom. Lync keeps turns
+append-only; it does not decide whether a seed revision belongs in the same loom
+or should become a new loom.
 
 ## Packages
 
 - `@lync/core`: looms, turns, threads, references, and snapshots.
 - `@lync/index`: synced indexes of loom references.
 - `@lync/client`: browser, Node, and test runtime clients.
-- `@lync/text`: small helpers for text payload looms.
 - `@lync/sync-server`: a simple Automerge WebSocket sync relay.
 
 ## Quick Start

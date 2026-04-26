@@ -21,6 +21,11 @@ rsync -a \
 # Textile vendors Lync as source files instead of installed packages. Keep
 # package imports in the standalone repo, but rewrite them inside the vendored
 # copy so Bun, Vite, and Playwright all resolve the same local source.
+LYNC_VENDOR_TS_FILES=()
+while IFS= read -r -d "" file; do
+  LYNC_VENDOR_TS_FILES+=("$file")
+done < <(find "$DEST/packages/client/src" "$DEST/packages/index/src" -type f -name "*.ts" -print0)
+
 LC_ALL=C perl -pi -e '
   s#\@lync/core/automerge#../../core/src/automerge#g;
   s#\@lync/core/browser#../../core/src/browser#g;
@@ -29,6 +34,4 @@ LC_ALL=C perl -pi -e '
   s#\@lync/index/automerge#../../index/src/automerge#g;
   s#\@lync/index/memory#../../index/src/memory#g;
   s#\@lync/index#../../index/src/index#g;
-' "$DEST"/packages/client/src/*.ts \
-  "$DEST"/packages/index/src/*.ts \
-  "$DEST"/packages/text/src/*.ts
+' "${LYNC_VENDOR_TS_FILES[@]}"
