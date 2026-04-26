@@ -30,3 +30,6 @@ bun.lockb
 
 scripts/parity/shots/
 .claude/
+.data/
+test-results/
+playwright-report/

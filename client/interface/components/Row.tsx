@@ -29,6 +29,8 @@ interface PickProps extends BaseProps {
   value: string;
   /** Glyph shown when the row is selected and ←→ adjusts the value. */
   showAdjust?: boolean;
+  /** Optional right-side controls. */
+  trailing?: ReactNode;
 }
 
 interface KnobProps extends BaseProps {
@@ -118,6 +120,9 @@ const RowContent = (props: RowProps) => {
             <span className="menu-item-hint" aria-hidden="true">
               {adjustGlyph}
             </span>
+          ) : null}
+          {props.trailing ? (
+            <span className="menu-item-trailing">{props.trailing}</span>
           ) : null}
         </>
       );

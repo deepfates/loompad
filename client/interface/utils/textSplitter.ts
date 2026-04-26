@@ -3,6 +3,8 @@
  * Uses ranked boundary detection with backward scanning
  */
 
+import type { StoryDraft } from "../loomsync/storyTypes";
+
 const MAX_CHUNK_SIZE = 1024;
 const LOOKBACK_WINDOW = 80;
 
@@ -115,17 +117,14 @@ export function splitText(text: string): string[] {
 }
 
 /**
- * Convert a flat array of text chunks into a linked chain of StoryNodes
+ * Convert a flat array of text chunks into a linked draft chain.
+ * Drafts intentionally have no IDs; LoomSync assigns durable turn IDs when the
+ * draft is appended.
  */
-export function createNodeChain(
-  chunks: string[],
-): import("../types").StoryNode | null {
+export function createDraftChain(chunks: string[]): StoryDraft | null {
   if (chunks.length === 0) return null;
 
-  const generateId = () => Math.random().toString(36).substring(2, 15);
-
-  const head: import("../types").StoryNode = {
-    id: generateId(),
+  const head: StoryDraft = {
     text: chunks[0],
     continuations: [],
   };
@@ -133,14 +132,12 @@ export function createNodeChain(
   let current = head;
 
   for (let i = 1; i < chunks.length; i++) {
-    const child: import("../types").StoryNode = {
-      id: generateId(),
+    const child: StoryDraft = {
       text: chunks[i],
       continuations: [],
     };
 
     current.continuations = [child];
-    current.lastSelectedIndex = 0;
     current = child;
   }
 
@@ -148,11 +145,9 @@ export function createNodeChain(
 }
 
 /**
- * Split text and create a node chain in one step
+ * Split text and create a draft chain in one step.
  */
-export function splitTextToNodes(
-  text: string,
-): import("../types").StoryNode | null {
+export function splitTextToDraft(text: string): StoryDraft | null {
   const chunks = splitText(text);
-  return createNodeChain(chunks);
+  return createDraftChain(chunks);
 }

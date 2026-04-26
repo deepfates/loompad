@@ -10,7 +10,6 @@ export interface StoryNode {
   id: string;
   text: string;
   continuations?: StoryNode[];
-  lastSelectedIndex?: number;
 }
 
 export interface MenuScreenProps {
@@ -42,6 +41,7 @@ export interface SettingsMenuProps {
 
 export interface TreeListProps {
   trees: { [key: string]: { root: StoryNode } };
+  storyTitles?: Record<string, string>;
   selectedIndex: number;
   selectedColumn: number;
   sortOrder: import("../utils/storyMeta").StorySortOption;
@@ -49,6 +49,9 @@ export interface TreeListProps {
   onSelect: (key: string) => void;
   onDelete?: (key: string) => void;
   onNew?: () => void;
+  onShareStory?: (key: string) => void;
+  onShareThread?: (key: string) => void;
+  onShareIndex?: () => void;
   onExportJson?: (key: string) => void;
   onExportThread?: (key: string) => void;
   onHighlight?: (index: number, column: number) => void;
