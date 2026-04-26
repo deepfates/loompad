@@ -25,6 +25,13 @@ export default defineConfig({
         ).pathname,
       },
       {
+        find: /^@lync\/core\/profiles\/text-story$/,
+        replacement: new URL(
+          "./packages/core/src/profiles/text-story.ts",
+          import.meta.url,
+        ).pathname,
+      },
+      {
         find: /^@lync\/core$/,
         replacement: new URL("./packages/core/src/index.ts", import.meta.url).pathname,
       },

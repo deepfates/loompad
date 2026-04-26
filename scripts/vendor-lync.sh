@@ -30,6 +30,7 @@ LC_ALL=C perl -pi -e '
   s#\@lync/core/automerge#../../core/src/automerge#g;
   s#\@lync/core/browser#../../core/src/browser#g;
   s#\@lync/core/memory#../../core/src/memory#g;
+  s#\@lync/core/profiles/text-story#../../core/src/profiles/text-story#g;
   s#\@lync/core#../../core/src/index#g;
   s#\@lync/index/automerge#../../index/src/automerge#g;
   s#\@lync/index/memory#../../index/src/memory#g;

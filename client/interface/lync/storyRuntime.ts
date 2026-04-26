@@ -4,6 +4,10 @@ import {
   type Looms,
   type TurnId,
 } from "../../../vendor/lync/packages/core/src/index";
+import {
+  isTextStoryLoomMeta,
+  textStoryLoomMeta,
+} from "../../../vendor/lync/packages/core/src/profiles/text-story";
 import { createBrowserLoomClient } from "../../../vendor/lync/packages/client/src/browser";
 import { upsertLoom } from "../../../vendor/lync/packages/index/src/entries";
 import type { LoomIndex } from "../../../vendor/lync/packages/index/src/types";
@@ -147,6 +151,9 @@ export async function importStoryReferenceFromUrl(): Promise<StoryReferenceImpor
   }
 
   const info = await opened.loom.info();
+  if (!isTextStoryLoomMeta(info.meta)) {
+    throw new Error("Reference does not point to a text-story loom");
+  }
   await addStoryLoomToIndex(info.id, {
     title: info.meta?.title ?? "Shared Story",
   });
@@ -159,7 +166,7 @@ export async function importStoryReferenceFromUrl(): Promise<StoryReferenceImpor
 
 export async function createStoryLoom(title: string, seedText: string) {
   const storyLooms = getStoryLooms();
-  const info = await storyLooms.create({ title });
+  const info = await storyLooms.create(textStoryLoomMeta({ title }));
   const loom = await storyLooms.open(info.id);
   await loom.appendTurn(null, { text: seedText }, { role: "prose" });
   await addStoryLoomToIndex(info.id, { title });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { loomRef } from "../../../../vendor/lync/packages/core/src/references";
 import { createTestLoomClient } from "../../../../vendor/lync/packages/client/src/testing";
+import { textStoryLoomMeta } from "../../../../vendor/lync/packages/core/src/profiles/text-story";
 import {
   INITIAL_STORY,
   loadReachableStoryEntries,
@@ -24,7 +25,9 @@ describe("loadReachableStoryEntries", () => {
       createId: () => `id-${++nextId}`,
       now: () => nextId,
     });
-    const info = await client.looms.create({ title: "Reachable story" });
+    const info = await client.looms.create(
+      textStoryLoomMeta({ title: "Reachable story" }),
+    );
     const loom = await client.looms.open(info.id);
     await loom.appendTurn(null, { text: "Reachable opening" }, { role: "prose" });
     const skipped: string[] = [];

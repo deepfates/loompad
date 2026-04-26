@@ -26,6 +26,7 @@ pnpm verify
 - [x] Add WebSocket sync relay package.
 - [x] Cut public language to `loom`, `turn`, `thread`, `reference`, and `index`.
 - [x] Fold Textile integration learnings into docs and payload boundaries.
+- [x] Add the starter `text-story` profile contract for independent writers.
 
 ## Likely Next Work
 

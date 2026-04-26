@@ -10,6 +10,9 @@ leaves, export/import deterministic snapshots, and create portable
 The implementation is intentionally boring underneath: Automerge documents,
 IndexedDB persistence, BroadcastChannel tab sync, and optional WebSocket sync.
 The public API stays about looms, turns, threads, references, and indexes.
+Lync also ships small **profile contracts** for data shapes that need
+cross-application interoperability. A profile is not a helper layer; it is a
+versioned schema target that independent writers and readers can agree on.
 
 ## Vocabulary
 
@@ -22,6 +25,8 @@ The public API stays about looms, turns, threads, references, and indexes.
 - A **reference** is a portable address to a loom, turn, thread, or index.
 - An **index** is a synced discovery document that stores loom references plus
   narrow display metadata. It does not duplicate loom contents.
+- A **profile** is a named content contract for looms that multiple apps can
+  read and write.
 
 ## Boundaries
 
@@ -56,6 +61,75 @@ or should become a new loom.
 - `@lync/client`: browser, Node, and test runtime clients.
 - `@lync/sync-server`: a simple Automerge WebSocket sync relay.
 
+## Text Story Profile
+
+`@lync/core/profiles/text-story` defines the starter interoperable profile for
+branching prose:
+
+```ts
+import {
+  textStoryLoomMeta,
+  type TextStoryLoomMeta,
+  type TextStoryTurnMeta,
+  type TextStoryTurnPayload,
+} from "@lync/core/profiles/text-story";
+```
+
+The profile contract is intentionally small:
+
+- loom meta has `profile: "org.lync.profile.textStory.v1"` and optional `title`
+- turn payload is `{ text: string }`
+- turn meta may include `role`, `revises`, and app-defined `generatedBy`
+- the first top-level turn is the story opening
+- child turns are continuations/branches
+- if an app treats the opening as story identity, editing it should create a new
+  loom
+
+An external TypeScript program can write a Textile-readable story without
+importing Textile:
+
+```ts
+import { createNodeLoomClient } from "@lync/client/node";
+import {
+  textStoryLoomMeta,
+  type TextStoryLoomMeta,
+  type TextStoryTurnMeta,
+  type TextStoryTurnPayload,
+} from "@lync/core/profiles/text-story";
+
+const client = createNodeLoomClient<
+  TextStoryTurnPayload,
+  TextStoryLoomMeta,
+  TextStoryTurnMeta
+>({
+  syncUrl: "wss://loompad.lol/lync",
+});
+
+const info = await client.looms.create(
+  textStoryLoomMeta({ title: "Written elsewhere" }),
+);
+const loom = await client.looms.open(info.id);
+
+const opening = await loom.appendTurn(
+  null,
+  { text: "Once..." },
+  { role: "prose" },
+);
+const next = await loom.appendTurn(
+  opening.id,
+  { text: " then..." },
+  { role: "prose" },
+);
+
+const url = client.references.toUrl(
+  client.references.thread(info.id, next.id),
+  new URL("https://loompad.lol/"),
+);
+```
+
+The URL is enough for a reader to open the loom if both sides can reach the same
+sync relay.
+
 ## Quick Start
 
 ```ts
@@ -85,11 +159,7 @@ const next = await loom.appendTurn(
   { role: "prose" },
 );
 
-await loom.appendTurn(
-  null,
-  { text: "At the edge of town," },
-  { role: "revision", revises: seed.id },
-);
+await loom.appendTurn(seed.id, { text: " the tower burned." }, { role: "prose" });
 
 const thread = await loom.threadTo(next.id);
 const leaves = await loom.leaves();
@@ -103,13 +173,25 @@ without depending on Textile:
 
 ```ts
 import { createNodeLoomClient } from "@lync/client/node";
+import {
+  textStoryLoomMeta,
+  type TextStoryLoomMeta,
+  type TextStoryTurnMeta,
+  type TextStoryTurnPayload,
+} from "@lync/core/profiles/text-story";
 
-const client = createNodeLoomClient<TextPayload>({
+const client = createNodeLoomClient<
+  TextStoryTurnPayload,
+  TextStoryLoomMeta,
+  TextStoryTurnMeta
+>({
   storageDir: ".lync",
   syncUrl: "ws://localhost:3030",
 });
 
-const info = await client.looms.create({ title: "Imported thread" });
+const info = await client.looms.create(
+  textStoryLoomMeta({ title: "Imported thread" }),
+);
 const loom = await client.looms.open(info.id);
 await loom.appendTurn(null, { text: "First imported post" });
 
@@ -175,6 +257,7 @@ Packages expose subpaths so apps can import only the surface they need:
 ```ts
 import { createNodeLoomClient } from "@lync/client/node";
 import { createAutomergeLooms } from "@lync/core/automerge";
+import { textStoryLoomMeta } from "@lync/core/profiles/text-story";
 import type { Loom, Turn } from "@lync/core/types";
 ```
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { createTestLoomClient } from "../../../../vendor/lync/packages/client/src/testing";
+import { textStoryLoomMeta } from "../../../../vendor/lync/packages/core/src/profiles/text-story";
 import {
   appendStoryDrafts,
   appendStoryRevision,
@@ -23,7 +24,7 @@ function createLooms() {
 describe("Textile story loom", () => {
   it("appends story drafts as Lync turns with durable generated IDs", async () => {
     const looms = createLooms();
-    const info = await looms.create({ title: "Story" });
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
     const loom = await looms.open(info.id);
     const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
 
@@ -56,7 +57,7 @@ describe("Textile story loom", () => {
 
   it("projects a branching loom in canonical child order", async () => {
     const looms = createLooms();
-    const info = await looms.create({ title: "Story" });
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
     const loom = await looms.open(info.id);
     const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
 
@@ -96,7 +97,7 @@ describe("Textile story loom", () => {
 
   it("saves edits as a new sibling revision without copying descendants", async () => {
     const looms = createLooms();
-    const info = await looms.create({ title: "Story" });
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
     const loom = await looms.open(info.id);
 
     const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
@@ -142,7 +143,7 @@ describe("Textile story loom", () => {
 
   it("rejects root revisions because root edits create new story looms", async () => {
     const looms = createLooms();
-    const info = await looms.create({ title: "Story" });
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
     const loom = await looms.open(info.id);
 
     const original = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
@@ -161,7 +162,7 @@ describe("Textile story loom", () => {
 
   it("projects the first seed turn rather than treating root siblings as edits", async () => {
     const looms = createLooms();
-    const info = await looms.create({ title: "Story" });
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
     const loom = await looms.open(info.id);
 
     const original = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
@@ -181,5 +182,24 @@ describe("Textile story loom", () => {
         ],
       },
     });
+  });
+
+  it("rejects turns outside the text-story payload contract", async () => {
+    const looms = createLooms();
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
+    const loom = await looms.open(info.id);
+    const unsafeLoom = loom as unknown as {
+      appendTurn(
+        parentId: string | null,
+        payload: unknown,
+        meta?: unknown,
+      ): Promise<unknown>;
+    };
+
+    await unsafeLoom.appendTurn(null, { value: "Start" }, { role: "prose" });
+
+    await expect(projectStoryTree(loom, "Start")).rejects.toThrow(
+      "Expected text-story turn payload",
+    );
   });
 });

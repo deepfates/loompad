@@ -1,3 +1,4 @@
+import { assertTextStoryTurn } from "../../../vendor/lync/packages/core/src/profiles/text-story";
 import type { Turn } from "../../../vendor/lync/packages/core/src/types";
 import type { StoryNode } from "../types";
 import type {
@@ -87,6 +88,7 @@ export async function appendStoryDrafts(
 }
 
 function turnToStoryNode(turn: StoryTurn): StoryNode {
+  assertTextStoryTurn(turn);
   return {
     id: turn.id,
     text: turn.payload.text,

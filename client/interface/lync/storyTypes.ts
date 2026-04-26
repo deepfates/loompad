@@ -2,9 +2,14 @@ import type {
   Loom,
   TurnId,
 } from "../../../vendor/lync/packages/core/src/types";
+import type {
+  TextStoryLoomMeta,
+  TextStoryTurnMeta,
+  TextStoryTurnPayload,
+} from "../../../vendor/lync/packages/core/src/profiles/text-story";
 
-export type StoryTurnPayload = { text: string };
-export type StoryLoomMeta = { title: string };
+export type StoryTurnPayload = TextStoryTurnPayload;
+export type StoryLoomMeta = TextStoryLoomMeta;
 export type StoryEntryMeta = { title: string };
 
 export interface StoryDraft {
@@ -20,7 +25,7 @@ export type StoryTurnRole =
   | "summary"
   | "annotation";
 
-export interface StoryTurnMeta {
+export interface StoryTurnMeta extends TextStoryTurnMeta {
   role: StoryTurnRole;
   author?: string;
   generatedBy?: {

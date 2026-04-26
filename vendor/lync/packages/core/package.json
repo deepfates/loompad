@@ -33,6 +33,11 @@
       "import": "./dist/memory.js",
       "default": "./dist/memory.js"
     },
+    "./profiles/text-story": {
+      "types": "./dist/profiles/text-story.d.ts",
+      "import": "./dist/profiles/text-story.js",
+      "default": "./dist/profiles/text-story.js"
+    },
     "./references": {
       "types": "./dist/references.d.ts",
       "import": "./dist/references.js",
