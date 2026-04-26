@@ -13,6 +13,7 @@ import args from "server/args";
 import { setup_routes } from "server/apis/http";
 import { getMainProps } from "server/main_props";
 import { attachLyncServer } from "server/lync";
+import { configureTrustedProxies } from "server/trustedProxy";
 
 const port: number = args.port;
 const mode: "development" | "production" = args.mode;
@@ -39,7 +40,7 @@ export async function createServer() {
     }
   }
   const app = express();
-  app.set("trust proxy", true);
+  configureTrustedProxies(app);
 
   const http_server = http.createServer(app);
   attachLyncServer(http_server);
