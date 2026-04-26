@@ -35,7 +35,9 @@ export const apiCors = cors({
   },
 });
 
-function getAuthToken(req: Request): string | null {
+type AuthRequest = Pick<Request, "get" | "header" | "protocol">;
+
+function getAuthToken(req: AuthRequest): string | null {
   const headerToken = req.header("x-api-key");
   if (headerToken) return headerToken;
 
@@ -57,7 +59,7 @@ function secureEquals(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-function isSameOriginRequest(req: Request): boolean {
+export function isSameOriginRequest(req: AuthRequest): boolean {
   const host = req.get("host");
   if (!host) return false;
 
@@ -78,35 +80,39 @@ function isSameOriginRequest(req: Request): boolean {
   return false;
 }
 
+export function canAccessProtectedApi(
+  req: AuthRequest,
+  expected: string | null,
+  isDevelopment: boolean,
+) {
+  const provided = getAuthToken(req);
+
+  if (expected && provided && secureEquals(provided, expected)) {
+    return true;
+  }
+
+  if (isSameOriginRequest(req)) {
+    return true;
+  }
+
+  if (!expected && isDevelopment) {
+    return true;
+  }
+
+  return false;
+}
+
 export function requireApiAuth(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
-  const expected = config.apiAuthToken;
-  if (!expected) {
+  if (canAccessProtectedApi(req, config.apiAuthToken, config.isDevelopment)) {
     next();
     return;
   }
 
-  const provided = getAuthToken(req);
-  if (provided && secureEquals(provided, expected)) {
-    next();
-    return;
-  }
-
-  // Preserve first-party browser functionality when auth is enabled.
-  if (isSameOriginRequest(req)) {
-    next();
-    return;
-  }
-
-  if (!provided || !secureEquals(provided, expected)) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  next();
+  res.status(401).json({ error: "Unauthorized" });
 }
 
 type RateLimitBucket = {

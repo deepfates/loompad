@@ -39,6 +39,7 @@ export async function createServer() {
     }
   }
   const app = express();
+  app.set("trust proxy", true);
 
   const http_server = http.createServer(app);
   attachLyncServer(http_server);
