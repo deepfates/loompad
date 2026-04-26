@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Repo } from "@automerge/automerge-repo";
-import { loomRef } from "@lync/core";
+import { loomRef } from "../../core/src/index";
 import { createAutomergeLoomIndexes } from "../src/automerge.js";
 
 function deterministicAutomergeIndexes() {

@@ -3,6 +3,14 @@ import { hierarchy } from "d3-hierarchy";
 import { flextree } from "d3-flextree";
 import type { StoryNode } from "../types";
 
+type LayoutStoryNode = {
+  data: StoryNode;
+  x?: number;
+  y?: number;
+  depth?: number;
+  children?: LayoutStoryNode[];
+};
+
 /**
  * VISUAL DESIGN:
  * The minimap uses a gameboy/e-paper aesthetic with nodes as vertical "pages" of varying heights.
@@ -143,7 +151,7 @@ function useCoords(root: StoryNode) {
 
     const rootPoint = treeLayout(rootHierarchy);
     // Build coords from flextree's calculated positions
-    const buildPath = (node: any, path: StoryNode[] = []): StoryNode[] => {
+    const buildPath = (node: LayoutStoryNode, path: StoryNode[] = []): StoryNode[] => {
       const currentPath = [...path, node.data];
       const textLength = (node.data.text || "").length;
       const nodeHeight = getNodeHeight(textLength);
@@ -161,7 +169,7 @@ function useCoords(root: StoryNode) {
       // Recursively process children
       if (node.children) {
 
-        node.children.forEach((child: any) =>
+        node.children.forEach((child) =>
           buildPath(child, currentPath),
         );
       }

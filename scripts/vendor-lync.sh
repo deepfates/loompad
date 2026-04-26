@@ -24,7 +24,16 @@ rsync -a \
 LYNC_VENDOR_TS_FILES=()
 while IFS= read -r -d "" file; do
   LYNC_VENDOR_TS_FILES+=("$file")
-done < <(find "$DEST/packages/client/src" "$DEST/packages/index/src" -type f -name "*.ts" -print0)
+done < <(
+  find \
+    "$DEST/packages/client/src" \
+    "$DEST/packages/client/test" \
+    "$DEST/packages/index/src" \
+    "$DEST/packages/index/test" \
+    -type f \
+    -name "*.ts" \
+    -print0
+)
 
 LC_ALL=C perl -pi -e '
   s#\@lync/core/automerge#../../core/src/automerge#g;
