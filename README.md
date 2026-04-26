@@ -67,6 +67,12 @@ bun run build
 bun run prod
 ```
 
+Production deployments need `OPENROUTER_API_KEY` and at least one access gate:
+`TEXTILE_SITE_PASSWORD` for browser users, `TEXTILE_API_AUTH_TOKEN` for trusted
+scripts/server clients, or both. The API token is accepted as
+`Authorization: Bearer <token>` or `x-api-key`, including for `/lync` websocket
+sync upgrades.
+
 
 ## Project layout
 

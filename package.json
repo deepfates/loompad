@@ -8,9 +8,9 @@
     "vendor:lync": "bash scripts/vendor-lync.sh",
     "prebuild": "node scripts/build-icons.cjs",
     "build": "vite build --outDir=dist/server --ssr server/ssr.tsx  --config config/vite.config.ts && vite build --outDir=dist/client --config config/vite.config.ts",
-    "prod": "bun run.ts --mode=production",
+    "prod": "NODE_ENV=production bun run.ts --mode=production",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test": "bun test server client",
+    "test": "bun test ./server ./client",
     "test:e2e": "playwright test"
   },
   "dependencies": {

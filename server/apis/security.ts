@@ -1,8 +1,12 @@
-import { timingSafeEqual } from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import { config } from "../config";
 import { hasValidSiteSession } from "../siteAuth";
+import {
+  hasValidApiAuthToken,
+  type HeaderSource,
+} from "../apiAuthToken";
+export { createRateLimitMiddleware } from "../rateLimit";
 
 function normalizeOrigin(origin: string): string {
   return origin.replace(/\/+$/, "");
@@ -36,39 +40,13 @@ export const apiCors = cors({
   },
 });
 
-type AuthRequest = Pick<Request, "header">;
-
-function getAuthToken(req: AuthRequest): string | null {
-  const headerToken = req.header("x-api-key");
-  if (headerToken) return headerToken;
-
-  const authorization = req.header("authorization");
-  if (!authorization) return null;
-
-  const [scheme, token] = authorization.split(" ");
-  if (scheme?.toLowerCase() === "bearer" && token) {
-    return token;
-  }
-
-  return null;
-}
-
-function secureEquals(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
-}
-
 export function canAccessProtectedApi(
-  req: AuthRequest,
+  req: HeaderSource,
   expected: string | null,
   isDevelopment: boolean,
   hasSiteSession = false,
 ) {
-  const provided = getAuthToken(req);
-
-  if (expected && provided && secureEquals(provided, expected)) {
+  if (hasValidApiAuthToken(req, expected)) {
     return true;
   }
 
@@ -109,58 +87,4 @@ export function requireApiAuth(
   }
 
   res.status(401).json({ error: "Unauthorized" });
-}
-
-type RateLimitBucket = {
-  count: number;
-  resetAt: number;
-};
-
-const rateLimitStore = new Map<string, RateLimitBucket>();
-
-export function createRateLimitMiddleware(scope: string) {
-  const windowMs = config.rateLimitWindowMs;
-  const maxRequests = config.rateLimitMaxRequests;
-
-  return (req: Request, res: Response, next: NextFunction) => {
-    const now = Date.now();
-    const ip = req.ip || req.socket.remoteAddress || "unknown";
-    const key = `${scope}:${ip}`;
-    const current = rateLimitStore.get(key);
-
-    let bucket: RateLimitBucket;
-    if (!current || now >= current.resetAt) {
-      bucket = {
-        count: 0,
-        resetAt: now + windowMs,
-      };
-    } else {
-      bucket = current;
-    }
-
-    if (bucket.count >= maxRequests) {
-      const retryAfterSeconds = Math.max(
-        1,
-        Math.ceil((bucket.resetAt - now) / 1000),
-      );
-      res.setHeader("Retry-After", retryAfterSeconds.toString());
-      res.status(429).json({ error: "Too many requests" });
-      return;
-    }
-
-    bucket.count += 1;
-    rateLimitStore.set(key, bucket);
-
-    res.setHeader("X-RateLimit-Limit", String(maxRequests));
-    res.setHeader(
-      "X-RateLimit-Remaining",
-      String(Math.max(0, maxRequests - bucket.count)),
-    );
-    res.setHeader(
-      "X-RateLimit-Reset",
-      String(Math.ceil(bucket.resetAt / 1000)),
-    );
-
-    next();
-  };
 }

@@ -186,7 +186,7 @@ const client = createNodeLoomClient<
   TextStoryTurnMeta
 >({
   storageDir: ".lync",
-  syncUrl: "ws://localhost:3030",
+  syncUrl: "ws://localhost:3030/lync",
 });
 
 const info = await client.looms.create(
@@ -197,6 +197,28 @@ await loom.appendTurn(null, { text: "First imported post" });
 
 await client.close();
 ```
+
+## Sync Server
+
+`@lync/sync-server` provides a small Automerge WebSocket relay. Its default
+WebSocket path is `/lync`, and the standalone server reports that full URL:
+
+```ts
+import { createLyncServer } from "@lync/sync-server";
+
+const server = createLyncServer({
+  port: 3030,
+  storageDir: ".lync-relay",
+  authenticate(request) {
+    return request.headers.authorization === `Bearer ${process.env.LYNC_TOKEN}`;
+  },
+});
+
+console.log(server.url); // ws://127.0.0.1:3030/lync
+```
+
+`authenticate` is synchronous by design. Return `false` to reject an upgrade; if
+the predicate throws, Lync rejects the upgrade instead of accepting it.
 
 ## Browser Client
 

@@ -33,6 +33,7 @@ export interface LyncServer {
 export function createLyncServer(options: LyncServerOptions = {}): LyncServer {
   const port = options.port ?? 0;
   const host = options.host ?? "127.0.0.1";
+  const socketPath = normalizeSyncPath(options.path ?? "/lync");
   const httpServer = http.createServer();
   const relay = attachLyncServer(httpServer, options);
   httpServer.listen(port, host);
@@ -42,8 +43,10 @@ export function createLyncServer(options: LyncServerOptions = {}): LyncServer {
     server: relay.server,
     get url() {
       const address = httpServer.address();
-      if (typeof address === "string" || address === null) return `ws://${host}:${port}`;
-      return `ws://${address.address}:${address.port}`;
+      if (typeof address === "string" || address === null) {
+        return `ws://${formatWebSocketHost(host)}:${port}${socketPath}`;
+      }
+      return `ws://${formatWebSocketHost(address.address)}:${address.port}${socketPath}`;
     },
     async close() {
       await relay.repo.shutdown();
@@ -66,7 +69,7 @@ export function attachLyncServer(
   server: http.Server,
   options: AttachLyncServerOptions = {},
 ) {
-  const socketPath = options.path ?? "/lync";
+  const socketPath = normalizeSyncPath(options.path ?? "/lync");
   const socketServer = new WebSocketServer({
     noServer: true,
   });
@@ -77,7 +80,7 @@ export function attachLyncServer(
     head: Buffer,
   ) => {
     if (!isSocketPath(request, socketPath)) return;
-    if (options.authenticate && !options.authenticate(request)) {
+    if (!isAuthorized(options.authenticate, request)) {
       rejectUpgrade(socket);
       return;
     }
@@ -108,8 +111,24 @@ export function attachLyncServer(
 }
 
 function isSocketPath(request: http.IncomingMessage, socketPath: string) {
-  const url = new URL(request.url ?? "/", "http://localhost");
-  return url.pathname === socketPath;
+  try {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    return url.pathname === socketPath;
+  } catch {
+    return false;
+  }
+}
+
+function isAuthorized(
+  authenticate: LyncUpgradeAuthenticator | undefined,
+  request: http.IncomingMessage,
+) {
+  if (!authenticate) return true;
+  try {
+    return authenticate(request);
+  } catch {
+    return false;
+  }
 }
 
 function rejectUpgrade(socket: Duplex) {
@@ -123,12 +142,20 @@ function createRelayRepo(
 ) {
   const adapter = new WebSocketServerAdapter(server, options.keepAliveInterval);
   return new Repo({
+    ...options.repoConfig,
     storage: options.storageDir
       ? new FileStorageAdapter(options.storageDir)
       : options.repoConfig?.storage,
-    ...options.repoConfig,
     network: [adapter],
   });
+}
+
+function normalizeSyncPath(path: string) {
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+function formatWebSocketHost(host: string) {
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
 }
 
 export class FileStorageAdapter implements StorageAdapterInterface {

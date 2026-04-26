@@ -35,9 +35,18 @@ function parseAllowedOrigins(raw: string | undefined): string[] | null {
     .filter(Boolean);
 }
 
+function hasProductionModeArg(argv = process.argv): boolean {
+  return argv.some(
+    (arg, index) =>
+      arg === "--mode=production" ||
+      (arg === "--mode" && argv[index + 1] === "production"),
+  );
+}
+
 function validateConfig(): Config {
   const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isDevelopment =
+    process.env.NODE_ENV !== "production" && !hasProductionModeArg();
   const apiAuthToken = process.env.TEXTILE_API_AUTH_TOKEN?.trim() || null;
   const sitePassword = process.env.TEXTILE_SITE_PASSWORD?.trim() || null;
   const siteAuthSecret =

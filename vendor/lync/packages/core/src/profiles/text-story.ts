@@ -36,8 +36,8 @@ export function textStoryLoomMeta(
   meta: Omit<TextStoryLoomMeta, "profile"> = {},
 ): TextStoryLoomMeta {
   return {
-    profile: TEXT_STORY_PROFILE,
     ...meta,
+    profile: TEXT_STORY_PROFILE,
   };
 }
 

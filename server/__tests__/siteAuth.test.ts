@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   createSiteAuthCookieValue,
+  hasSiteAccess,
   hasValidSiteSession,
   isSiteAuthConfigured,
   SITE_AUTH_COOKIE,
@@ -49,5 +50,32 @@ describe("site auth", () => {
         options,
       ),
     ).toBe(false);
+  });
+
+  it("treats malformed cookies as missing cookies", () => {
+    expect(
+      hasValidSiteSession(
+        {
+          headers: {
+            cookie: `${SITE_AUTH_COOKIE}=%E0%A4%A`,
+          },
+        },
+        options,
+      ),
+    ).toBe(false);
+  });
+
+  it("allows API token access through the site gate", () => {
+    expect(
+      hasSiteAccess(
+        {
+          headers: {
+            authorization: "Bearer script-secret",
+          },
+        },
+        options,
+        "script-secret",
+      ),
+    ).toBe(true);
   });
 });

@@ -1,12 +1,14 @@
 import crypto from "crypto";
 import type { Application, NextFunction, Request, Response } from "express";
 import express from "express";
+import { hasValidApiAuthToken } from "./apiAuthToken";
 import { config } from "./config";
+import { createRateLimitMiddleware } from "./rateLimit";
 
 export const SITE_AUTH_COOKIE = "textile_site";
 
 type HeaderRequest = {
-  headers: {
+  headers: Record<string, string | string[] | undefined> & {
     cookie?: string | string[];
   };
 };
@@ -40,7 +42,11 @@ function parseCookies(raw: string | string[] | undefined) {
   for (const part of cookieHeader.split(";")) {
     const [rawName, ...rawValue] = part.trim().split("=");
     if (!rawName || rawValue.length === 0) continue;
-    cookies.set(rawName, decodeURIComponent(rawValue.join("=")));
+    try {
+      cookies.set(rawName, decodeURIComponent(rawValue.join("=")));
+    } catch {
+      continue;
+    }
   }
 
   return cookies;
@@ -72,6 +78,18 @@ export function hasValidSiteSession(
   const actual = parseCookies(req.headers.cookie).get(SITE_AUTH_COOKIE);
   if (!actual) return false;
   return timingSafeEqualString(actual, sessionValue(options.siteAuthSecret));
+}
+
+export function hasSiteAccess(
+  req: HeaderRequest,
+  options = getSiteAuthOptions(),
+  apiAuthToken = config.apiAuthToken,
+) {
+  return (
+    !isSiteAuthConfigured(options) ||
+    hasValidSiteSession(req, options) ||
+    hasValidApiAuthToken(req, apiAuthToken)
+  );
 }
 
 function safeRedirectTarget(raw: unknown) {
@@ -168,6 +186,7 @@ export function setupSiteAuthRoutes(app: Application) {
 
   app.post(
     "/_textile/login",
+    createRateLimitMiddleware("site-login"),
     express.urlencoded({ extended: false }),
     (req, res) => {
       if (!isSiteAuthConfigured()) {
@@ -211,7 +230,7 @@ export function requireSiteAccess(
   res: Response,
   next: NextFunction,
 ) {
-  if (!isSiteAuthConfigured() || hasValidSiteSession(req)) {
+  if (hasSiteAccess(req)) {
     next();
     return;
   }

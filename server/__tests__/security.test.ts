@@ -53,6 +53,18 @@ describe("API auth", () => {
     ).toBe(true);
   });
 
+  it("allows direct requests with the x-api-key header", () => {
+    expect(
+      canAccessProtectedApi(
+        request({
+          "x-api-key": "secret",
+        }),
+        "secret",
+        false,
+      ),
+    ).toBe(true);
+  });
+
   it("allows development requests without configured auth", () => {
     expect(canAccessProtectedApi(request({}), null, true)).toBe(true);
   });

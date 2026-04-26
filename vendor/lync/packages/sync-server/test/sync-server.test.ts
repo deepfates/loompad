@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import http from "node:http";
 import fs from "node:fs/promises";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -17,7 +16,16 @@ describe("lync server", () => {
     const server = createLyncServer();
 
     expect(server.url.startsWith("ws://")).toBe(true);
+    expect(new URL(server.url).pathname).toBe("/lync");
     expect(server.repo.peerId).toBeTruthy();
+
+    await server.close();
+  });
+
+  it("normalizes custom sync paths in the standalone server URL", async () => {
+    const server = createLyncServer({ path: "sync" });
+
+    expect(new URL(server.url).pathname).toBe("/sync");
 
     await server.close();
   });
@@ -49,10 +57,30 @@ describe("lync server", () => {
     }
     const url = `ws://127.0.0.1:${address.port}/lync`;
 
-    await sendUpgrade(address.port);
+    await expect(sendUpgrade(address.port)).resolves.toContain("401 Unauthorized");
     expect(seenAuthHeaders).toContain(undefined);
     await expect(connect(url, { authorization: "Bearer ok" })).resolves.toBeUndefined();
     expect(seenAuthHeaders).toContain("Bearer ok");
+
+    await relay.close();
+    httpServer.close();
+  });
+
+  it("rejects websocket upgrades when authentication throws", async () => {
+    const httpServer = http.createServer();
+    const relay = attachLyncServer(httpServer, {
+      authenticate: () => {
+        throw new Error("auth backend unavailable");
+      },
+    });
+
+    await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+    const address = httpServer.address();
+    if (typeof address === "string" || address === null) {
+      throw new Error("Expected TCP server address");
+    }
+
+    await expect(sendUpgrade(address.port)).resolves.toContain("401 Unauthorized");
 
     await relay.close();
     httpServer.close();
@@ -74,33 +102,32 @@ describe("lync server", () => {
 });
 
 function sendUpgrade(port: number) {
-  return new Promise<void>((resolve, reject) => {
-    const socket = net.connect(port, "127.0.0.1");
+  return new Promise<string>((resolve, reject) => {
+    const request = http.request({
+      host: "127.0.0.1",
+      port,
+      path: "/lync",
+      headers: {
+        Connection: "Upgrade",
+        Upgrade: "websocket",
+        "Sec-WebSocket-Version": "13",
+        "Sec-WebSocket-Key": crypto.randomBytes(16).toString("base64"),
+      },
+    });
 
-    socket.setTimeout(1000, () => {
-      socket.destroy();
-      reject(new Error("Timed out waiting for websocket rejection"));
+    request.setTimeout(1000, () => {
+      request.destroy(new Error("Timed out waiting for websocket rejection"));
     });
-    socket.on("connect", () => {
-      const key = crypto.randomBytes(16).toString("base64");
-      socket.write(
-        [
-          "GET /lync HTTP/1.1",
-          "Host: 127.0.0.1",
-          "Connection: Upgrade",
-          "Upgrade: websocket",
-          "Sec-WebSocket-Version: 13",
-          `Sec-WebSocket-Key: ${key}`,
-          "",
-          "",
-        ].join("\r\n"),
-      );
-      setTimeout(() => {
-        socket.destroy();
-        resolve();
-      }, 25);
+    request.on("response", (response) => {
+      response.resume();
+      resolve(`${response.statusCode} ${response.statusMessage}`);
     });
-    socket.on("error", reject);
+    request.on("upgrade", () => {
+      request.destroy();
+      reject(new Error("Expected websocket upgrade to be rejected"));
+    });
+    request.on("error", reject);
+    request.end();
   });
 }
 
