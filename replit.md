@@ -1,7 +1,7 @@
-# LoomPad: Interactive Story Tree Explorer
+# Textile: Interactive Story Tree Explorer
 
 ## Overview
-LoomPad is an interactive Progressive Web App (PWA) for exploring branching narratives with AI-powered text generation. It features a gamepad-style interface with keyboard controls for navigating story trees and generating AI continuations.
+Textile is an interactive Progressive Web App (PWA) for exploring branching narratives with AI-powered text generation. It features a gamepad-style interface with keyboard controls for navigating story trees and generating AI continuations.
 
 **Tech Stack:**
 - Runtime: Bun 1.2.16

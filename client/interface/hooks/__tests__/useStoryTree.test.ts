@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { loomRef } from "../../../../vendor/loomsync/packages/core/src/references";
-import { createTestLoomClient } from "../../../../vendor/loomsync/packages/client/src/testing";
-import type { TextPayload } from "../../../../vendor/loomsync/packages/text/src/types";
+import { loomRef } from "../../../../vendor/lync/packages/core/src/references";
+import { createTestLoomClient } from "../../../../vendor/lync/packages/client/src/testing";
+import type { TextPayload } from "../../../../vendor/lync/packages/text/src/types";
 import {
   INITIAL_STORY,
   loadReachableStoryEntries,
@@ -10,7 +10,7 @@ import type {
   StoryEntryMeta,
   StoryLoomMeta,
   StoryTurnMeta,
-} from "../../loomsync/storyTypes";
+} from "../../lync/storyTypes";
 
 describe("loadReachableStoryEntries", () => {
   it("skips unreachable index entries while keeping reachable stories", async () => {

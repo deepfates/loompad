@@ -28,22 +28,22 @@ function parseAllowedOrigins(raw: string | undefined): string[] | null {
 function validateConfig(): Config {
   const openRouterApiKey = process.env.OPENROUTER_API_KEY;
   const isDevelopment = process.env.NODE_ENV !== "production";
-  const apiAuthToken = process.env.LOOMPAD_API_AUTH_TOKEN?.trim() || null;
+  const apiAuthToken = process.env.TEXTILE_API_AUTH_TOKEN?.trim() || null;
   const corsAllowedOrigins = parseAllowedOrigins(
     process.env.CORS_ALLOWED_ORIGINS,
   );
   const rateLimitWindowMs = parsePositiveInt(
-    process.env.LOOMPAD_RATE_LIMIT_WINDOW_MS,
+    process.env.TEXTILE_RATE_LIMIT_WINDOW_MS,
     60_000,
   );
   const rateLimitMaxRequests = parsePositiveInt(
-    process.env.LOOMPAD_RATE_LIMIT_MAX_REQUESTS,
+    process.env.TEXTILE_RATE_LIMIT_MAX_REQUESTS,
     30,
   );
 
   if (!isDevelopment && !apiAuthToken) {
     console.warn(
-      "⚠️ LOOMPAD_API_AUTH_TOKEN is not set. Cost-bearing APIs are unauthenticated.",
+      "⚠️ TEXTILE_API_AUTH_TOKEN is not set. Cost-bearing APIs are unauthenticated.",
     );
   }
 

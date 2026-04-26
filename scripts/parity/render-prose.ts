@@ -1,7 +1,7 @@
 /**
  * Render a real prose passage (matching the screenshot-2.png story text) in
- * every installed font, at the actual body text size loompad uses, on a
- * neutral dark theme. This is what typography does in loompad — nothing
+ * every installed font, at the actual body text size textile uses, on a
+ * neutral dark theme. This is what typography does in textile — nothing
  * else.
  */
 

@@ -30,7 +30,7 @@ async function seed(page: Page) {
   await page.addInitScript(
     ([tree]) => {
       localStorage.setItem(
-        "loompad-theme-preferences",
+        "textile-theme-preferences",
         JSON.stringify({
           mode: "light",
           paletteLight: "theme-light",

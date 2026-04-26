@@ -3,7 +3,7 @@ import { useTextGeneration } from "./useTextGeneration";
 import { splitTextToDraft } from "../utils/textSplitter";
 import { joinSegments } from "../utils/join";
 import type { StoryNode } from "../types";
-import type { StoryDraft } from "../loomsync/storyTypes";
+import type { StoryDraft } from "../lync/storyTypes";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
 

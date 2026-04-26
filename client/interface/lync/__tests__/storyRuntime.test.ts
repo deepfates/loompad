@@ -1,0 +1,70 @@
+import { describe, expect, it } from "bun:test";
+import {
+  createStoryIndexShareUrl,
+  createStoryFocusShareUrl,
+  createStoryShareUrl,
+  createStoryThreadShareUrl,
+  getStoryReferenceFromLocation,
+} from "../storyRuntime";
+
+describe("story runtime references", () => {
+  it("creates loom reference URLs without carrying stale parameters", () => {
+    const location = new URL("https://textile.test/?old=1#stale");
+
+    const url = new URL(createStoryShareUrl("loom-1", location));
+
+    expect([...url.searchParams.keys()]).toEqual(["ref"]);
+    expect(url.hash).toBe("");
+    expect(getStoryReferenceFromLocation(url)).toEqual({
+      v: 1,
+      kind: "loom",
+      loomId: "loom-1",
+    });
+  });
+
+  it("creates index reference URLs", () => {
+    const location = new URL("https://textile.test/?draft=old");
+
+    const url = new URL(createStoryIndexShareUrl("index-1", location));
+
+    expect([...url.searchParams.keys()]).toEqual(["ref"]);
+    expect(getStoryReferenceFromLocation(url)).toEqual({
+      v: 1,
+      kind: "index",
+      indexId: "index-1",
+    });
+  });
+
+  it("creates thread reference URLs", () => {
+    const location = new URL("https://textile.test/");
+
+    const url = new URL(createStoryThreadShareUrl("loom-1", "turn-1", location));
+
+    expect(getStoryReferenceFromLocation(url)).toEqual({
+      v: 1,
+      kind: "thread",
+      loomId: "loom-1",
+      turnId: "turn-1",
+    });
+  });
+
+  it("creates focus URLs as loom or thread references", () => {
+    const location = new URL("https://textile.test/");
+
+    expect(getStoryReferenceFromLocation(
+      new URL(createStoryFocusShareUrl("loom-1", null, location)),
+    )).toEqual({
+      v: 1,
+      kind: "loom",
+      loomId: "loom-1",
+    });
+    expect(getStoryReferenceFromLocation(
+      new URL(createStoryFocusShareUrl("loom-1", "turn-1", location)),
+    )).toEqual({
+      v: 1,
+      kind: "thread",
+      loomId: "loom-1",
+      turnId: "turn-1",
+    });
+  });
+});

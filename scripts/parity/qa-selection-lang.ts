@@ -17,7 +17,7 @@ const THEMES: Array<{ id: string; label: string; tone: "light" | "dark" }> = [
 async function seed(page: Page, id: string, tone: "light" | "dark") {
   await page.addInitScript(
     ([prefs]) => {
-      localStorage.setItem("loompad-theme-preferences", prefs);
+      localStorage.setItem("textile-theme-preferences", prefs);
       localStorage.setItem("font-preference", "iosevka");
     },
     [

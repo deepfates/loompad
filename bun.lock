@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "spiel-bun",
+      "name": "textile",
       "dependencies": {
         "@automerge/automerge-repo": "^2.5.5",
         "@automerge/automerge-repo-network-broadcastchannel": "^2.5.5",

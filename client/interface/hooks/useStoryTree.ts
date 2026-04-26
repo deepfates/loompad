@@ -7,12 +7,12 @@ import { touchStoryUpdated } from "../utils/storyMeta";
 import {
   getPreferredChildIndex,
   setPreferredChildIndex,
-} from "../loomsync/storySessionState";
+} from "../lync/storySessionState";
 import {
   appendStoryDrafts,
   appendStoryRevision,
   projectStoryTree,
-} from "../loomsync/storyLoom";
+} from "../lync/storyLoom";
 import {
   createStoryLoom,
   getStoryIndex,
@@ -22,8 +22,8 @@ import {
   removeStory,
   type StoryLoom,
   type StoryReferenceImport,
-} from "../loomsync/storyRuntime";
-import type { StoryDraft } from "../loomsync/storyTypes";
+} from "../lync/storyRuntime";
+import type { StoryDraft } from "../lync/storyTypes";
 
 export const INITIAL_STORY = {
   root: {

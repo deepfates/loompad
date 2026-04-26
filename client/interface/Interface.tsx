@@ -62,7 +62,7 @@ import {
   createStoryThreadShareUrl,
   getStoryIndex,
   replaceStoryFocusUrl,
-} from "./loomsync/storyRuntime";
+} from "./lync/storyRuntime";
 
 const DEFAULT_PARAMS = {
   temperature: 1.0,
