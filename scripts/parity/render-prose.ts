@@ -122,10 +122,12 @@ html, body { margin: 0; padding: 0; background: #000000; color: #5cff3b; }
     // Wait for font to load
     try {
       await page.evaluate(
-        (f) => (document as any).fonts.load(`14px "${f}"`),
+        (f) => document.fonts.load(`14px "${f}"`),
         family,
       );
-    } catch {}
+    } catch (error) {
+      console.warn(`Font load check failed for ${family}:`, error);
+    }
     await page.waitForTimeout(350);
     await page.screenshot({
       path: path.join(OUT, `${family}.png`),

@@ -7,7 +7,14 @@ const OUT = path.resolve(process.cwd(), "scripts/parity/shots/scroll");
 
 // A story deep enough that current-depth navigation has real scroll
 // distance to travel.  Short paragraphs so the centering case triggers.
-function makeNode(id: string, text: string, kids: any[] = []): any {
+type SeedNode = {
+  id: string;
+  text: string;
+  continuations: SeedNode[];
+  lastSelectedIndex: number;
+};
+
+function makeNode(id: string, text: string, kids: SeedNode[] = []): SeedNode {
   return { id, text, continuations: kids, lastSelectedIndex: 0 };
 }
 const long = (n: number, s: string) =>
