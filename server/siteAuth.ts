@@ -105,71 +105,170 @@ function escapeAttribute(value: string) {
 
 function loginPage(next = "/", error = false) {
   const message = error
-    ? "<p class=\"error\">That password did not work.</p>"
+    ? "<p class=\"error\" role=\"alert\">That password did not work.</p>"
     : "";
   const safeNext = escapeAttribute(safeRedirectTarget(next));
   return `<!doctype html>
-<html lang="en">
-  <head>
+	<html lang="en">
+	  <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Textile</title>
-    <style>
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #10130f;
-        color: #f3f0e8;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      }
-      main {
-        width: min(28rem, calc(100vw - 2rem));
-      }
-      label, input, button {
-        display: block;
-        width: 100%;
-        box-sizing: border-box;
-      }
-      label {
-        margin-bottom: 0.5rem;
-        color: #b9b4a7;
-      }
-      input {
-        margin-bottom: 1rem;
-        padding: 0.75rem;
-        border: 1px solid #555044;
-        background: #191c16;
-        color: inherit;
-        font: inherit;
-      }
-      button {
-        padding: 0.75rem;
-        border: 1px solid #d8c98b;
-        background: #d8c98b;
-        color: #10130f;
-        font: inherit;
-        cursor: pointer;
-      }
-      .error {
-        color: #ffb0a8;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Textile</h1>
-      ${message}
-      <form method="post" action="/_textile/login">
-        <input type="hidden" name="next" value="${safeNext}" />
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" autofocus />
-        <button type="submit">Enter</button>
-      </form>
-    </main>
-  </body>
-</html>`;
+	    <meta name="viewport" content="width=device-width, initial-scale=1" />
+	    <title>Textile</title>
+	    <style>
+	      :root {
+	        --theme-background: #000;
+	        --theme-background-modal: #262626;
+	        --theme-background-input: #525252;
+	        --theme-border: #393939;
+	        --theme-border-subdued: rgba(82, 82, 82, 0.3);
+	        --theme-text: #24a148;
+	        --theme-button: #24a148;
+	        --theme-button-text: #044317;
+	        --theme-focused-foreground: #c6c6c6;
+	        --theme-muted: #6fdc8c;
+	        --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	      }
+	      * {
+	        box-sizing: border-box;
+	      }
+	      body {
+	        margin: 0;
+	        min-height: 100dvh;
+	        display: flex;
+	        align-items: center;
+	        justify-content: center;
+	        padding: 1rem;
+	        background: var(--theme-background);
+	        color: var(--theme-text);
+	        font-family: var(--font-family-mono);
+	      }
+	      main {
+	        width: min(90vw, 32rem);
+	        min-width: min(20rem, calc(100vw - 2rem));
+	      }
+	      .screen {
+	        width: 100%;
+	        border: 2px solid var(--theme-text);
+	        background: var(--theme-background);
+	        box-shadow: 0 0 0 1px var(--theme-border-subdued);
+	      }
+	      .mode-bar {
+	        display: flex;
+	        align-items: center;
+	        justify-content: space-between;
+	        gap: 1.5ch;
+	        min-width: 0;
+	        padding: 0.75ch 1.25ch;
+	        border-bottom: 1px solid var(--theme-border);
+	      }
+	      .mode-bar-title {
+	        font-weight: 700;
+	        white-space: nowrap;
+	      }
+	      .mode-bar-status {
+	        min-width: 0;
+	        overflow: hidden;
+	        color: var(--theme-muted);
+	        text-overflow: ellipsis;
+	        white-space: nowrap;
+	      }
+	      .content {
+	        padding: 1rem;
+	        line-height: 1.6;
+	      }
+	      h1 {
+	        margin: 0 0 1rem;
+	        color: var(--theme-focused-foreground);
+	        font-size: 1.25rem;
+	        font-weight: 700;
+	      }
+	      form {
+	        display: grid;
+	        gap: 0.75rem;
+	      }
+	      label {
+	        color: var(--theme-muted);
+	      }
+	      input,
+	      button {
+	        width: 100%;
+	        min-height: 3rem;
+	        border: 2px solid var(--theme-text);
+	        border-radius: 0;
+	        font: inherit;
+	      }
+	      input {
+	        padding: 0.75rem;
+	        background: var(--theme-background-input);
+	        color: var(--theme-focused-foreground);
+	      }
+	      input:focus {
+	        border-color: var(--theme-focused-foreground);
+	        outline: none;
+	        box-shadow: 0 0 0 2px var(--theme-border);
+	      }
+	      button {
+	        display: flex;
+	        align-items: center;
+	        justify-content: center;
+	        background: transparent;
+	        color: var(--theme-text);
+	        cursor: pointer;
+	        user-select: none;
+	        transition: background-color 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+	      }
+	      button:hover,
+	      button:focus-visible {
+	        border-color: var(--theme-focused-foreground);
+	        color: var(--theme-focused-foreground);
+	        outline: none;
+	      }
+	      button:active {
+	        background: var(--theme-focused-foreground);
+	        color: var(--theme-background);
+	        border-color: var(--theme-focused-foreground);
+	      }
+	      .error {
+	        margin: 0 0 1rem;
+	        padding: 0.75rem;
+	        border: 1px solid #c83232;
+	        color: #ff9632;
+	      }
+	      @media (max-width: 22rem) {
+	        body {
+	          padding: 0.75rem;
+	        }
+	        main {
+	          min-width: 0;
+	          width: 100%;
+	        }
+	        .content {
+	          padding: 0.75rem;
+	        }
+	      }
+	    </style>
+	  </head>
+	  <body>
+	    <main>
+	      <section class="screen" aria-labelledby="title">
+	        <div class="mode-bar">
+	          <span class="mode-bar-title">Textile</span>
+	          <span class="mode-bar-status">private alpha</span>
+	        </div>
+	        <div class="content">
+	          <h1 id="title">Enter password</h1>
+	          ${message}
+	          <form method="post" action="/_textile/login">
+	            <input type="hidden" name="next" value="${safeNext}" />
+	            <label for="password">Password</label>
+	            <input id="password" name="password" type="password" autocomplete="current-password" autofocus />
+	            <button type="submit">Enter</button>
+	          </form>
+	        </div>
+	      </section>
+	    </main>
+	  </body>
+	</html>`;
 }
 
 export function setupSiteAuthRoutes(app: Application) {
