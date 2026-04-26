@@ -44,10 +44,9 @@ export async function createServer() {
   configureTrustedProxies(app);
   setupSiteAuthRoutes(app);
   app.use((req, res, next) => {
-    // Lync sync uses raw WebSocket upgrades on the http_server — Express
-    // middleware shouldn't block the initial HTTP request that triggers
-    // the upgrade.  Let it through; the sync-server handles its own auth.
-    if (req.path.startsWith("/lync")) return next();
+    // Lync sync uses raw WebSocket upgrades on the http_server.
+    // Only skip auth for actual upgrade requests on the exact path.
+    if (req.path === "/lync" && req.headers.upgrade === "websocket") return next();
     return requireSiteAccess(req, res, next);
   });
 
