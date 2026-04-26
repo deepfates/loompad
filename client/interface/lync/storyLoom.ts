@@ -10,10 +10,9 @@ export async function projectStoryTree(
   fallbackRootText = "",
 ): Promise<{ root: StoryNode }> {
   const rootTurns = await loom.childrenOf(null);
-  // The reader/minimap is a single-root projection. Root-level sibling turns
-  // remain in Lync as seed revisions; the UI currently displays the latest
-  // canonical root sibling.
-  const rootTurn = rootTurns.at(-1);
+  // Textile stories are single-root projections. Editing the visible root
+  // creates a new loom, so later top-level turns are not treated as root edits.
+  const rootTurn = rootTurns[0];
   if (!rootTurn) {
     return {
       root: {
@@ -29,11 +28,8 @@ export async function projectStoryTree(
   const appendChildren = async (
     parent: StoryNode,
     parentTurn: StoryTurn,
-    isProjectedRoot = false,
   ) => {
-    const children = isProjectedRoot
-      ? await visibleRootChildren(loom, parentTurn)
-      : await loom.childrenOf(parentTurn.id);
+    const children = await loom.childrenOf(parentTurn.id);
     parent.continuations = children.map(turnToStoryNode);
     for (let index = 0; index < children.length; index += 1) {
       const child = parent.continuations[index];
@@ -44,7 +40,7 @@ export async function projectStoryTree(
     }
   };
 
-  await appendChildren(rootNode, rootTurn, true);
+  await appendChildren(rootNode, rootTurn);
   return { root: rootNode };
 }
 
@@ -67,6 +63,9 @@ export async function appendStoryRevision(
   revision: StoryDraft,
   revises?: string,
 ): Promise<Turn<TextPayload, StoryTurnMeta>> {
+  if (parentId === null) {
+    throw new Error("Root edits create a new story loom");
+  }
   return appendStoryDraftChain(loom, parentId, revision, {
     role: "revision",
     revises,
@@ -81,38 +80,6 @@ export async function appendStoryDrafts(
   for (const draft of drafts) {
     await appendStoryDraftChain(loom, parentId, draft);
   }
-}
-
-async function visibleRootChildren(
-  loom: StoryLoom,
-  rootTurn: StoryTurn,
-): Promise<StoryTurn[]> {
-  const children: StoryTurn[] = [];
-  const childIds = new Set<string>();
-  const visitedRoots = new Set<string>([rootTurn.id]);
-
-  const addChildrenFrom = async (turn: StoryTurn) => {
-    // Root edits are replacement seeds in the Textile projection. Keep their
-    // own child chain first, then inherit branch choices from earlier seed
-    // revisions without moving or copying any stored turns.
-    for (const child of await loom.childrenOf(turn.id)) {
-      if (childIds.has(child.id)) continue;
-      childIds.add(child.id);
-      children.push(child);
-    }
-
-    const revises = turn.meta?.role === "revision" ? turn.meta.revises : null;
-    if (!revises || visitedRoots.has(revises)) return;
-
-    const revised = await loom.getTurn(revises);
-    if (!revised || revised.parentId !== null) return;
-
-    visitedRoots.add(revises);
-    await addChildrenFrom(revised);
-  };
-
-  await addChildrenFrom(rootTurn);
-  return children;
 }
 
 function turnToStoryNode(turn: StoryTurn): StoryNode {

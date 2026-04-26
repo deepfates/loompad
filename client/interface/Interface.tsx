@@ -47,7 +47,6 @@ import {
   getDefaultStoryKey,
   getStoryMeta,
   setStoryMeta,
-  touchStoryUpdated,
   touchStoryActive,
   type StorySortOption,
 } from "./utils/storyMeta";
@@ -1741,8 +1740,6 @@ export const GamepadInterface = () => {
                     continuations: [],
                   };
                   await saveCurrentNodeRevision(revision);
-                  // Mark story as updated for reverse-chronological order
-                  touchStoryUpdated(currentLoomId);
                   setScreen(null);
 
                   // Align to end of updated content after text splitting

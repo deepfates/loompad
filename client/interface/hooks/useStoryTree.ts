@@ -610,19 +610,40 @@ export function useStoryTree(params: StoryParams) {
 
       const parentNode = currentPath[currentDepth - 1];
       const parentId = parentNode?.id ?? null;
+      if (parentId === null) {
+        const title = `Story ${Object.keys(trees).length + 1}`;
+        const { info, loom: newLoom } = await createStoryLoom(
+          title,
+          revision.text,
+        );
+        const [rootTurn] = await newLoom.childrenOf(null);
+        if (rootTurn && revision.continuations?.length) {
+          await appendStoryDrafts(newLoom, rootTurn.id, revision.continuations);
+        }
+
+        const newTree = await projectStoryTree(
+          newLoom,
+          INITIAL_STORY.root.text,
+        );
+        setLoomsById((prev) => ({ ...prev, [info.id]: newLoom }));
+        setStoryTitles((prev) => ({ ...prev, [info.id]: title }));
+        setTrees((prev) => ({ ...prev, [info.id]: newTree }));
+        setCurrentLoomId(info.id);
+        setStoryTree(newTree);
+        setCurrentDepth(0);
+        setSelectedOptions([0]);
+        touchStoryUpdated(info.id, { alsoActive: true });
+        return;
+      }
+
       const appended = await appendStoryRevision(
         loom,
-        parentId ?? null,
+        parentId,
         revision,
         currentNode.id,
       );
       const updatedTree = await refreshTreeFromLoom(currentLoomId, loom);
-
-      if (parentId === null) {
-        setCurrentDepth(0);
-        setSelectedOptions([0]);
-        return;
-      }
+      touchStoryUpdated(currentLoomId);
 
       const updatedParent =
         (() => {
@@ -655,6 +676,7 @@ export function useStoryTree(params: StoryParams) {
       getCurrentPath,
       refreshTreeFromLoom,
       loomsById,
+      trees,
     ],
   );
 
