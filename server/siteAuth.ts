@@ -188,6 +188,19 @@ const themeBootstrapScript = `(() => {
   }
 })();`;
 
+const loginLayoutScript = `(() => {
+  const container = document.getElementById("login-container");
+  if (!container) return;
+  const update = () => {
+    const aspectRatio = container.clientWidth / container.clientHeight;
+    const landscape = aspectRatio >= 1.33;
+    container.classList.toggle("landscape", landscape);
+    container.classList.toggle("portrait", !landscape);
+  };
+  new ResizeObserver(update).observe(container);
+  update();
+})();`;
+
 function loginPage(next = "/", error = false) {
   const message = error
     ? "<p class=\"login-error\" role=\"alert\">That password did not work.</p>"
@@ -203,117 +216,110 @@ function loginPage(next = "/", error = false) {
       <script>${themeBootstrapScript}</script>
       <link rel="stylesheet" href="${LOGIN_STYLES_PATH}" />
       <style>
-        .login-main {
-          justify-content: center;
-          padding: 1rem;
-        }
-
-        .login-container {
-          justify-content: center;
-          max-width: min(100%, 32rem);
-          padding: 0;
-        }
-
-        .login-screen {
-          flex: 0 1 auto;
-          min-height: 0;
-          min-width: min(var(--min-width), 100%);
-          box-shadow: 0 0 0 1px var(--theme-border-subdued);
-        }
-
-        .login-status {
-          min-width: 0;
-          overflow: hidden;
-          color: var(--theme-muted);
-          opacity: 0.85;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .login-content {
-          display: grid;
-          gap: 1rem;
-          padding: 1rem;
-          line-height: 1.6;
-        }
-
-        .login-title {
-          margin: 0;
-          color: var(--theme-focused-foreground);
-          font-size: 1.25rem;
-          font-weight: 700;
-          letter-spacing: 0;
-        }
-
         .login-form {
-          display: grid;
-          gap: 0.75rem;
+          display: contents;
         }
 
-        .login-label {
-          color: var(--theme-muted);
-          font-weight: 700;
+        .login-menu {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          padding-top: 0.5rem;
         }
 
         .login-input {
           width: 100%;
-          min-height: var(--button-size);
-          border: 2px solid var(--theme-text);
+          min-width: 0;
+          border: 0;
           border-radius: 0;
-          background: var(--theme-background-input);
-          color: var(--theme-focused-foreground);
+          background: transparent;
+          color: inherit;
           font: inherit;
-          padding: 0.75rem;
+          line-height: 1.3;
+          outline: none;
+          padding: 0;
         }
 
-        .login-input:focus {
-          border-color: var(--theme-focused-foreground);
-          outline: none;
+        .login-input::placeholder {
+          color: currentColor;
+          opacity: 0.55;
+        }
+
+        .login-action {
+          appearance: none;
+          text-align: left;
         }
 
         .login-submit {
-          width: 100%;
-          height: var(--button-size);
+          border: 0;
+          font: inherit;
         }
 
         .login-error {
-          margin: 0;
-          padding: 0.75rem;
-          border: 1px solid var(--theme-focused-foreground);
-          color: var(--theme-focused-foreground);
+          margin: 0 1rem 0.5rem;
+          padding: 0.25rem 0.75rem;
+          background: var(--theme-background-input);
+          color: inherit;
         }
 
-        @media (max-width: 22rem) {
-          .login-main {
-            padding: 0.75rem;
-          }
-
-          .login-content {
-            padding: 0.75rem;
-          }
+        .login-controls {
+          pointer-events: none;
         }
       </style>
     </head>
     <body>
-      <main class="gamepad-main login-main">
-        <div class="gamepad-container login-container">
-          <section class="terminal-screen login-screen" aria-labelledby="title">
+      <main class="gamepad-main bg-theme-bg text-theme-text font-mono" aria-label="Textile Login">
+        <div id="login-container" class="gamepad-container portrait">
+          <section class="terminal-screen" aria-labelledby="title">
             <div class="mode-bar">
-              <strong class="mode-bar-title">Textile</strong>
-              <span class="login-status">private alpha</span>
+              <strong class="mode-bar-title" id="title">LOGIN</strong>
+              <div class="mode-bar-hint-frame">
+                <span class="mode-bar-hint" aria-label="status">PRIVATE ALPHA</span>
+              </div>
             </div>
-            <div class="login-content">
-              <h1 class="login-title" id="title">Enter password</h1>
-              ${message}
-              <form class="login-form" method="post" action="/_textile/login">
-                <input type="hidden" name="next" value="${safeNext}" />
-                <label class="login-label" for="password">Password</label>
-                <input class="login-input" id="password" name="password" type="password" autocomplete="current-password" autofocus />
-                <button class="gamepad-btn login-submit" type="submit">Enter</button>
-              </form>
+            <form class="login-form" method="post" action="/_textile/login">
+              <input type="hidden" name="next" value="${safeNext}" />
+              <div class="drawer">
+                <div class="drawer-body">
+                  <div class="menu-content login-menu">
+                    ${message}
+                    <label class="menu-item menu-item--row menu-item--pick selected" for="password">
+                      <span class="menu-item-label">Password:</span>
+                      <input class="login-input" id="password" name="password" type="password" autocomplete="current-password" placeholder="required" autofocus />
+                    </label>
+                    <button class="menu-item menu-item--row menu-item--action login-action" type="submit">
+                      <span class="menu-item-glyph" aria-hidden="true">↵</span>
+                      <span class="menu-item-label">Enter</span>
+                      <span class="menu-item-preview">continue to Textile</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+            <div class="navigation-bar">
+              <span class="navbar-minibuffer" aria-live="polite">Textile private alpha</span>
             </div>
           </section>
+          <div class="gamepad-controls login-controls" aria-hidden="true">
+            <div class="controls-top">
+              <div class="terminal-grid">
+                <div class="terminal-grid-cell"><button class="gamepad-btn" type="button" tabindex="-1">▲</button></div>
+                <div class="terminal-grid-cell"><button class="gamepad-btn" type="button" tabindex="-1">◀</button></div>
+                <div class="terminal-grid-cell"><button class="gamepad-btn" type="button" tabindex="-1">▶</button></div>
+                <div class="terminal-grid-cell"><button class="gamepad-btn" type="button" tabindex="-1">▼</button></div>
+              </div>
+              <div class="terminal-buttons">
+                <button class="gamepad-btn" type="button" tabindex="-1">⌫</button>
+                <button class="gamepad-btn" type="button" tabindex="-1">↵</button>
+              </div>
+            </div>
+            <div class="terminal-menu">
+              <button class="gamepad-btn" type="button" tabindex="-1">SELECT</button>
+              <button class="gamepad-btn" type="button" tabindex="-1">START</button>
+            </div>
+          </div>
         </div>
+        <script>${loginLayoutScript}</script>
       </main>
     </body>
   </html>`;
