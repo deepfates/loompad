@@ -25,26 +25,28 @@ function parseAllowedOrigins(raw: string | undefined): string[] | null {
     .filter(Boolean);
 }
 
-function validateConfig(): Config {
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-  const isDevelopment = process.env.NODE_ENV !== "production";
-  const apiAuthToken = process.env.TEXTILE_API_AUTH_TOKEN?.trim() || null;
+export function readApiAuthToken(env: NodeJS.ProcessEnv = process.env): string | null {
+  return env.TEXTILE_API_AUTH_TOKEN?.trim() || null;
+}
+
+export function validateConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const openRouterApiKey = env.OPENROUTER_API_KEY;
+  const isDevelopment = env.NODE_ENV !== "production";
+  const apiAuthToken = readApiAuthToken(env);
   const corsAllowedOrigins = parseAllowedOrigins(
-    process.env.CORS_ALLOWED_ORIGINS,
+    env.CORS_ALLOWED_ORIGINS,
   );
   const rateLimitWindowMs = parsePositiveInt(
-    process.env.TEXTILE_RATE_LIMIT_WINDOW_MS,
+    env.TEXTILE_RATE_LIMIT_WINDOW_MS,
     60_000,
   );
   const rateLimitMaxRequests = parsePositiveInt(
-    process.env.TEXTILE_RATE_LIMIT_MAX_REQUESTS,
+    env.TEXTILE_RATE_LIMIT_MAX_REQUESTS,
     30,
   );
 
   if (!isDevelopment && !apiAuthToken) {
-    console.warn(
-      "⚠️ TEXTILE_API_AUTH_TOKEN is not set. Cost-bearing APIs are unauthenticated.",
-    );
+    throw new Error("TEXTILE_API_AUTH_TOKEN environment variable is required in production");
   }
 
   if (!openRouterApiKey) {
