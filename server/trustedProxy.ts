@@ -1,12 +1,10 @@
 import type { Express } from "express";
+import { config } from "./config";
 
-export const TRUSTED_PROXY_SUBNETS = [
-  "loopback",
-  "linklocal",
-  "uniquelocal",
-] as const;
+export function trustedProxySetting(hops: number) {
+  return hops > 0 ? hops : false;
+}
 
 export function configureTrustedProxies(app: Express) {
-  // Trust forwarded headers only from local/private reverse proxies.
-  app.set("trust proxy", [...TRUSTED_PROXY_SUBNETS]);
+  app.set("trust proxy", trustedProxySetting(config.trustProxyHops));
 }

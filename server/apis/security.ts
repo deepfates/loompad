@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import { config } from "../config";
+import { hasValidSiteSession } from "../siteAuth";
 
 function normalizeOrigin(origin: string): string {
   return origin.replace(/\/+$/, "");
@@ -35,7 +36,7 @@ export const apiCors = cors({
   },
 });
 
-type AuthRequest = Pick<Request, "get" | "header" | "protocol">;
+type AuthRequest = Pick<Request, "header">;
 
 function getAuthToken(req: AuthRequest): string | null {
   const headerToken = req.header("x-api-key");
@@ -59,31 +60,11 @@ function secureEquals(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-export function isSameOriginRequest(req: AuthRequest): boolean {
-  const host = req.get("host");
-  if (!host) return false;
-
-  const expectedOrigin = `${req.protocol}://${host}`;
-  const origin = req.get("origin");
-  if (origin && normalizeOrigin(origin) === normalizeOrigin(expectedOrigin)) {
-    return true;
-  }
-
-  const referer = req.get("referer");
-  if (
-    referer &&
-    normalizeOrigin(referer).startsWith(normalizeOrigin(expectedOrigin))
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
 export function canAccessProtectedApi(
   req: AuthRequest,
   expected: string | null,
   isDevelopment: boolean,
+  hasSiteSession = false,
 ) {
   const provided = getAuthToken(req);
 
@@ -91,7 +72,7 @@ export function canAccessProtectedApi(
     return true;
   }
 
-  if (isSameOriginRequest(req)) {
+  if (hasSiteSession) {
     return true;
   }
 
@@ -107,8 +88,23 @@ export function requireApiAuth(
   res: Response,
   next: NextFunction,
 ) {
-  if (canAccessProtectedApi(req, config.apiAuthToken, config.isDevelopment)) {
+  if (
+    canAccessProtectedApi(
+      req,
+      config.apiAuthToken,
+      config.isDevelopment,
+      hasValidSiteSession(req),
+    )
+  ) {
     next();
+    return;
+  }
+
+  if (!config.isDevelopment && !config.apiAuthToken && !config.sitePassword) {
+    res.status(503).json({
+      error:
+        "Protected APIs require TEXTILE_SITE_PASSWORD or TEXTILE_API_AUTH_TOKEN in production",
+    });
     return;
   }
 

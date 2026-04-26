@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
-import type http from "node:http";
+import http from "node:http";
 import path from "node:path";
+import type { Duplex } from "node:stream";
 import { Repo, type RepoConfig } from "@automerge/automerge-repo";
 import type {
   Chunk,
@@ -10,12 +11,15 @@ import type {
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket";
 import { WebSocketServer } from "isomorphic-ws";
 
+export type LyncUpgradeAuthenticator = (request: http.IncomingMessage) => boolean;
+
 export interface LyncServerOptions {
   port?: number;
   host?: string;
   path?: string;
   storageDir?: string;
   keepAliveInterval?: number;
+  authenticate?: LyncUpgradeAuthenticator;
   repoConfig?: Omit<RepoConfig, "network">;
 }
 
@@ -29,25 +33,23 @@ export interface LyncServer {
 export function createLyncServer(options: LyncServerOptions = {}): LyncServer {
   const port = options.port ?? 0;
   const host = options.host ?? "127.0.0.1";
-  const server = new WebSocketServer({
-    host,
-    port,
-    path: options.path,
-  });
-  const repo = createRelayRepo(server, options);
+  const httpServer = http.createServer();
+  const relay = attachLyncServer(httpServer, options);
+  httpServer.listen(port, host);
 
   return {
-    repo,
-    server,
+    repo: relay.repo,
+    server: relay.server,
     get url() {
-      const address = server.address();
+      const address = httpServer.address();
       if (typeof address === "string" || address === null) return `ws://${host}:${port}`;
       return `ws://${address.address}:${address.port}`;
     },
     async close() {
-      await repo.shutdown();
+      await relay.repo.shutdown();
+      await relay.close();
       await new Promise<void>((resolve, reject) => {
-        server.close((error?: Error) => {
+        httpServer.close((error?: Error) => {
           if (error) reject(error);
           else resolve();
         });
@@ -64,11 +66,27 @@ export function attachLyncServer(
   server: http.Server,
   options: AttachLyncServerOptions = {},
 ) {
+  const socketPath = options.path ?? "/lync";
   const socketServer = new WebSocketServer({
-    server,
-    path: options.path ?? "/lync",
+    noServer: true,
   });
   const repo = options.repo ?? createRelayRepo(socketServer, options);
+  const onUpgrade = (
+    request: http.IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ) => {
+    if (!isSocketPath(request, socketPath)) return;
+    if (options.authenticate && !options.authenticate(request)) {
+      rejectUpgrade(socket);
+      return;
+    }
+    socketServer.handleUpgrade(request, socket, head, (websocket) => {
+      socketServer.emit("connection", websocket, request);
+    });
+  };
+
+  server.on("upgrade", onUpgrade);
 
   server.on("close", () => {
     socketServer.close();
@@ -77,14 +95,26 @@ export function attachLyncServer(
   return {
     repo,
     server: socketServer,
-    close: () =>
-      new Promise<void>((resolve, reject) => {
+    close: () => {
+      server.off("upgrade", onUpgrade);
+      return new Promise<void>((resolve, reject) => {
         socketServer.close((error?: Error) => {
           if (error) reject(error);
           else resolve();
         });
-      }),
+      });
+    },
   };
+}
+
+function isSocketPath(request: http.IncomingMessage, socketPath: string) {
+  const url = new URL(request.url ?? "/", "http://localhost");
+  return url.pathname === socketPath;
+}
+
+function rejectUpgrade(socket: Duplex) {
+  socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+  setTimeout(() => socket.destroy(), 0);
 }
 
 function createRelayRepo(

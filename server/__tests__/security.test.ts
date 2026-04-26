@@ -1,17 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { canAccessProtectedApi, isSameOriginRequest } from "../apis/security";
+import { canAccessProtectedApi } from "../apis/security";
 
 type HeaderMap = Record<string, string | undefined>;
 
-function request(headers: HeaderMap, protocol = "https") {
+function request(headers: HeaderMap) {
   const normalized = Object.fromEntries(
     Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
   );
   return {
-    protocol,
-    get(name: string) {
-      return normalized[name.toLowerCase()];
-    },
     header(name: string) {
       return normalized[name.toLowerCase()];
     },
@@ -19,23 +15,13 @@ function request(headers: HeaderMap, protocol = "https") {
 }
 
 describe("API auth", () => {
-  it("recognizes same-origin browser requests", () => {
-    expect(
-      isSameOriginRequest(
-        request({
-          host: "textile.lol",
-          origin: "https://textile.lol",
-        }),
-      ),
-    ).toBe(true);
-  });
-
-  it("rejects off-origin production requests when no API token is configured", () => {
+  it("rejects spoofable same-origin headers in production", () => {
     expect(
       canAccessProtectedApi(
         request({
           host: "textile.lol",
-          origin: "https://attacker.example",
+          origin: "https://textile.lol",
+          referer: "https://textile.lol/story",
         }),
         null,
         false,
@@ -43,15 +29,13 @@ describe("API auth", () => {
     ).toBe(false);
   });
 
-  it("allows first-party production requests when no API token is configured", () => {
+  it("allows requests with a valid site session", () => {
     expect(
       canAccessProtectedApi(
-        request({
-          host: "textile.lol",
-          origin: "https://textile.lol",
-        }),
+        request({}),
         null,
         false,
+        true,
       ),
     ).toBe(true);
   });
@@ -67,5 +51,9 @@ describe("API auth", () => {
         false,
       ),
     ).toBe(true);
+  });
+
+  it("allows development requests without configured auth", () => {
+    expect(canAccessProtectedApi(request({}), null, true)).toBe(true);
   });
 });

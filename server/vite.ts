@@ -14,6 +14,7 @@ import { setup_routes } from "server/apis/http";
 import { getMainProps } from "server/main_props";
 import { attachLyncServer } from "server/lync";
 import { configureTrustedProxies } from "server/trustedProxy";
+import { requireSiteAccess, setupSiteAuthRoutes } from "server/siteAuth";
 
 const port: number = args.port;
 const mode: "development" | "production" = args.mode;
@@ -41,6 +42,8 @@ export async function createServer() {
   }
   const app = express();
   configureTrustedProxies(app);
+  setupSiteAuthRoutes(app);
+  app.use(requireSiteAccess);
 
   const http_server = http.createServer(app);
   attachLyncServer(http_server);
