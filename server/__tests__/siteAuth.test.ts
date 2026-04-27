@@ -1,9 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import express from "express";
+import http from "http";
 import {
   createSiteAuthCookieValue,
   hasSiteAccess,
   hasValidSiteSession,
   isSiteAuthConfigured,
+  setupSiteAuthRoutes,
   SITE_AUTH_COOKIE,
 } from "../siteAuth";
 
@@ -77,5 +80,35 @@ describe("site auth", () => {
         "script-secret",
       ),
     ).toBe(true);
+  });
+
+  it("serves login styles without Tailwind source directives", async () => {
+    const app = express();
+    setupSiteAuthRoutes(app);
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      server.close();
+      throw new Error("Expected TCP test server address");
+    }
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/_textile/terminal.css`,
+      );
+      const css = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/css");
+      expect(css).toContain(".terminal-screen");
+      expect(css).toContain(".gamepad-btn");
+      expect(css).toContain("/_textile/fonts/Iosevka-Regular.woff2");
+      expect(css).not.toContain('@import "tailwindcss"');
+      expect(css).not.toContain("@theme");
+      expect(css).not.toContain("@source");
+    } finally {
+      server.close();
+    }
   });
 });
