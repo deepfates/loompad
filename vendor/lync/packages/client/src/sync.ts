@@ -8,9 +8,15 @@ import {
 import WebSocket from "isomorphic-ws";
 
 const PROTOCOL_V1 = "1";
+const swallowSocketAbortError = () => {};
 
 type TimeoutId = ReturnType<typeof setTimeout>;
 type IntervalId = ReturnType<typeof setInterval>;
+type DestroyableSocket = { destroy: () => void; destroyed?: boolean };
+type WebSocketInternals = {
+  _req?: { abort?: () => void; socket?: DestroyableSocket };
+  _socket?: DestroyableSocket;
+};
 
 export type SyncMode = "best-effort" | "required";
 
@@ -75,6 +81,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
   private retryTimeoutId?: TimeoutId;
   private readonly retryInterval: number;
   private readonly mode: SyncMode;
+  private abandonedHandshakeRetryAt = 0;
 
   remotePeerId?: PeerId;
 
@@ -93,6 +100,8 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
   }
 
   connect(peerId: PeerId, peerMetadata?: PeerMetadata) {
+    if (Date.now() < this.abandonedHandshakeRetryAt) return;
+
     if (!this.socket || !this.peerId) {
       this.peerId = peerId;
       this.peerMetadata = peerMetadata ?? {};
@@ -100,7 +109,11 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
       this.reportError(new Error("Cannot reconnect websocket with a new peer id"), false);
       return;
     } else {
-      this.removeSocketListeners(this.socket);
+      const previousSocket = this.socket;
+      this.closeSocket(previousSocket);
+      if (previousSocket.readyState !== WebSocket.CLOSED) {
+        return;
+      }
     }
 
     if (!this.retryIntervalId && this.retryInterval > 0) {
@@ -130,8 +143,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
     this.retryTimeoutId = undefined;
 
     if (this.socket) {
-      this.removeSocketListeners(this.socket);
-      this.socket.close();
+      this.closeSocket(this.socket);
     }
     if (this.remotePeerId) {
       this.emit("peer-disconnected", { peerId: this.remotePeerId });
@@ -162,6 +174,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
   private onOpen = () => {
     if (this.retryIntervalId) clearInterval(this.retryIntervalId);
     this.retryIntervalId = undefined;
+    this.abandonedHandshakeRetryAt = 0;
     this.join();
   };
 
@@ -264,6 +277,41 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
     socket.removeEventListener("close", this.onClose);
     socket.removeEventListener("message", this.onMessage);
     socket.removeEventListener("error", this.onSocketError);
+  }
+
+  private closeSocket(socket: WebSocket) {
+    this.removeSocketListeners(socket);
+    socket.addEventListener("error", swallowSocketAbortError);
+    if (socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+      return;
+    }
+
+    if (socket.readyState === WebSocket.CONNECTING) {
+      this.abandonedHandshakeRetryAt = Date.now() + Math.max(this.retryInterval, 5_000);
+      this.destroySocketTransport(socket);
+      socket.terminate();
+      return;
+    }
+
+    socket.close();
+    const timeout = setTimeout(() => {
+      if (socket.readyState !== WebSocket.CLOSED) {
+        this.destroySocketTransport(socket);
+        socket.terminate();
+      }
+    }, 1_000);
+    timeout.unref?.();
+  }
+
+  private destroySocketTransport(socket: WebSocket) {
+    const internals = socket as WebSocket & WebSocketInternals;
+    internals._req?.abort?.();
+    if (internals._req?.socket && !internals._req.socket.destroyed) {
+      internals._req.socket.destroy();
+    }
+    if (internals._socket && !internals._socket.destroyed) {
+      internals._socket.destroy();
+    }
   }
 }
 
