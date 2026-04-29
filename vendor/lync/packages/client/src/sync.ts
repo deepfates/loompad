@@ -287,6 +287,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
     }
 
     if (socket.readyState === WebSocket.CONNECTING) {
+      this.reportError(new Error("WebSocket handshake timed out"), true);
       this.abandonedHandshakeRetryAt = Date.now() + Math.max(this.retryInterval, 5_000);
       this.destroySocketTransport(socket);
       socket.terminate();

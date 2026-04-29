@@ -85,6 +85,7 @@ describe("node loom client", () => {
 
   it("closes a hanging websocket before retrying", async () => {
     const upgradeSockets = new Set<net.Socket>();
+    const statuses: SyncStatus[] = [];
     const server = http.createServer();
     server.on("upgrade", (_request, socket) => {
       upgradeSockets.add(socket);
@@ -97,12 +98,21 @@ describe("node loom client", () => {
     const adapter = createWebSocketSyncAdapter({
       url: `ws://127.0.0.1:${address.port}/lync`,
       retryInterval: 20,
+      onStatus: (status) => statuses.push(status),
     });
 
     adapter.connect("peer-a" as PeerId);
     await new Promise((resolve) => setTimeout(resolve, 120));
 
     expect(upgradeSockets.size).toBeLessThanOrEqual(1);
+    expect(
+      statuses.some(
+        (status) =>
+          status.state === "failed" &&
+          status.recoverable &&
+          status.error.message === "WebSocket handshake timed out",
+      ),
+    ).toBe(true);
 
     adapter.disconnect();
     for (const socket of upgradeSockets) socket.destroy();
