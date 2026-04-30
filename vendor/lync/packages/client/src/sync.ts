@@ -110,7 +110,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
       return;
     } else {
       const previousSocket = this.socket;
-      this.closeSocket(previousSocket);
+      this.closeSocket(previousSocket, { reportConnectingFailure: true });
       if (previousSocket.readyState !== WebSocket.CLOSED) {
         return;
       }
@@ -279,7 +279,10 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
     socket.removeEventListener("error", this.onSocketError);
   }
 
-  private closeSocket(socket: WebSocket) {
+  private closeSocket(
+    socket: WebSocket,
+    options: { reportConnectingFailure?: boolean } = {},
+  ) {
     this.removeSocketListeners(socket);
     socket.addEventListener("error", swallowSocketAbortError);
     if (socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
@@ -287,6 +290,9 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
     }
 
     if (socket.readyState === WebSocket.CONNECTING) {
+      if (options.reportConnectingFailure) {
+        this.reportError(new Error("WebSocket handshake timed out"), true);
+      }
       this.abandonedHandshakeRetryAt = Date.now() + Math.max(this.retryInterval, 5_000);
       this.destroySocketTransport(socket);
       socket.terminate();

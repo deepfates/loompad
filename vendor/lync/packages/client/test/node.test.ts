@@ -85,6 +85,7 @@ describe("node loom client", () => {
 
   it("closes a hanging websocket before retrying", async () => {
     const upgradeSockets = new Set<net.Socket>();
+    const statuses: SyncStatus[] = [];
     const server = http.createServer();
     server.on("upgrade", (_request, socket) => {
       upgradeSockets.add(socket);
@@ -97,14 +98,51 @@ describe("node loom client", () => {
     const adapter = createWebSocketSyncAdapter({
       url: `ws://127.0.0.1:${address.port}/lync`,
       retryInterval: 20,
+      onStatus: (status) => statuses.push(status),
     });
 
     adapter.connect("peer-a" as PeerId);
     await new Promise((resolve) => setTimeout(resolve, 120));
 
     expect(upgradeSockets.size).toBeLessThanOrEqual(1);
+    expect(
+      statuses.some(
+        (status) =>
+          status.state === "failed" &&
+          status.recoverable &&
+          status.error.message === "WebSocket handshake timed out",
+      ),
+    ).toBe(true);
 
     adapter.disconnect();
+    for (const socket of upgradeSockets) socket.destroy();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("does not report a timeout when disconnecting during a handshake", async () => {
+    const upgradeSockets = new Set<net.Socket>();
+    const statuses: SyncStatus[] = [];
+    const server = http.createServer();
+    server.on("upgrade", (_request, socket) => {
+      upgradeSockets.add(socket);
+      socket.on("close", () => upgradeSockets.delete(socket));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP server");
+
+    const adapter = createWebSocketSyncAdapter({
+      url: `ws://127.0.0.1:${address.port}/lync`,
+      retryInterval: 20,
+      onStatus: (status) => statuses.push(status),
+    });
+
+    adapter.connect("peer-a" as PeerId);
+    adapter.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(statuses.some((status) => status.state === "failed")).toBe(false);
+
     for (const socket of upgradeSockets) socket.destroy();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
