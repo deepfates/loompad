@@ -29,6 +29,17 @@ export function attachLyncServer(server: http.Server) {
   };
   relay = attachVendoredLyncServer(server, options);
 
+  server.on("upgrade", (request) => {
+    try {
+      const url = new URL(request.url ?? "/", "http://localhost");
+      if (url.pathname === "/lync") {
+        console.log("[Lync] websocket upgrade requested");
+      }
+    } catch {
+      // Ignore malformed upgrade URLs; the relay handles rejection.
+    }
+  });
+
   relay.server.on("connection", (socket) => {
     const openConnections = relay?.server.clients.size ?? 0;
     console.log(`[Lync] websocket connected; open=${openConnections}`);
