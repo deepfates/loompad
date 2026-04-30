@@ -3,8 +3,9 @@ import http from "node:http";
 import type net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import type { PeerId } from "@automerge/automerge-repo/slim";
+import { cbor, type PeerId } from "@automerge/automerge-repo/slim";
 import { describe, expect, it } from "vitest";
+import { WebSocketServer } from "isomorphic-ws";
 import { createNodeLoomClient, type SyncStatus } from "../src/node.js";
 import { createWebSocketSyncAdapter } from "../src/sync.js";
 
@@ -116,6 +117,41 @@ describe("node loom client", () => {
 
     adapter.disconnect();
     for (const socket of upgradeSockets) socket.destroy();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("does not reconnect after the peer handshake completes", async () => {
+    const server = new WebSocketServer({ port: 0 });
+    let connectionCount = 0;
+    server.on("connection", (socket) => {
+      connectionCount += 1;
+      socket.send(
+        cbor.encode({
+          type: "peer",
+          senderId: "peer-server",
+          peerMetadata: {},
+          selectedProtocolVersion: "1",
+          targetId: "peer-a",
+        }),
+      );
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP server");
+
+    const statuses: SyncStatus[] = [];
+    const adapter = createWebSocketSyncAdapter({
+      url: `ws://127.0.0.1:${address.port}/lync`,
+      retryInterval: 20,
+      onStatus: (status) => statuses.push(status),
+    });
+
+    adapter.connect("peer-a" as PeerId);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(connectionCount).toBe(1);
+    expect(statuses.some((status) => status.state === "connected")).toBe(true);
+
+    adapter.disconnect();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 

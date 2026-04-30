@@ -172,8 +172,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
   }
 
   private onOpen = () => {
-    if (this.retryIntervalId) clearInterval(this.retryIntervalId);
-    this.retryIntervalId = undefined;
+    this.clearRetryInterval();
     this.abandonedHandshakeRetryAt = 0;
     this.join();
   };
@@ -236,6 +235,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
     if (isPeerMessage(message)) {
       this.forceReady();
       this.remotePeerId = message.senderId;
+      this.clearRetryInterval();
       this.options.onStatus?.({
         state: "connected",
         url: this.options.url,
@@ -257,6 +257,11 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
       this.ready = true;
       this.readyResolver?.();
     }
+  }
+
+  private clearRetryInterval() {
+    if (this.retryIntervalId) clearInterval(this.retryIntervalId);
+    this.retryIntervalId = undefined;
   }
 
   private reportError(error: Error, recoverable: boolean) {
