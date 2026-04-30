@@ -59,6 +59,7 @@ import {
   createStoryIndexShareUrl,
   createStoryShareUrl,
   createStoryThreadShareUrl,
+  getStoryReferenceFromLocation,
   getStoryIndex,
   replaceStoryFocusUrl,
 } from "./lync/storyRuntime";
@@ -251,6 +252,10 @@ export const GamepadInterface = () => {
 
   useEffect(() => {
     if (hasAppliedDefault.current) return;
+    if (getStoryReferenceFromLocation()) {
+      hasAppliedDefault.current = true;
+      return;
+    }
     const keys = Object.keys(trees);
     if (!keys.length) return;
     const preferred = getDefaultStoryKey(trees) ?? orderedKeys[0];
