@@ -9,6 +9,11 @@ import { WebSocketServer } from "isomorphic-ws";
 import { createNodeLoomClient, type SyncStatus } from "../src/node.js";
 import { createWebSocketSyncAdapter } from "../src/sync.js";
 
+type JoinMessage = {
+  type: "join";
+  senderId: PeerId;
+};
+
 describe("node loom client", () => {
   it("persists looms through the filesystem storage adapter", async () => {
     const storageDir = await fs.mkdtemp(path.join(os.tmpdir(), "lync-node-"));
@@ -154,6 +159,55 @@ describe("node loom client", () => {
 
     adapter.disconnect();
     await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("can use the native Automerge websocket adapter for unauthenticated sync", async () => {
+    const server = new WebSocketServer({ port: 0 });
+    await new Promise<void>((resolve) => server.once("listening", resolve));
+    let receivedJoin = false;
+    server.on("connection", (socket) => {
+      socket.on("message", (messageBytes) => {
+        const message = cbor.decode(new Uint8Array(messageBytes as Buffer)) as JoinMessage;
+        if (message.type !== "join") return;
+        receivedJoin = true;
+        socket.send(
+          cbor.encode({
+            type: "peer",
+            senderId: "peer-server",
+            peerMetadata: {},
+            selectedProtocolVersion: "1",
+            targetId: message.senderId,
+          }),
+        );
+      });
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP server");
+
+    const client = createNodeLoomClient<{ text: string }>({
+      storageDir: false,
+      sync: {
+        url: `ws://127.0.0.1:${address.port}/lync`,
+        retryInterval: 20,
+        adapter: "native",
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(receivedJoin).toBe(true);
+
+    await client.close();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("rejects native adapter selection when auth headers are required", () => {
+    expect(() =>
+      createWebSocketSyncAdapter({
+        url: "ws://127.0.0.1:3030/lync",
+        adapter: "native",
+        auth: { type: "bearer", token: "secret" },
+      }),
+    ).toThrow("does not support auth headers");
   });
 
   it("does not report a timeout when disconnecting during a handshake", async () => {
