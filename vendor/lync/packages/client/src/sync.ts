@@ -5,6 +5,7 @@ import {
   type PeerId,
   type PeerMetadata,
 } from "@automerge/automerge-repo/slim";
+import { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import WebSocket from "isomorphic-ws";
 
 const PROTOCOL_V1 = "1";
@@ -34,6 +35,7 @@ export interface WebSocketSyncOptions {
   kind?: "websocket";
   url: string;
   retryInterval?: number;
+  adapter?: "auto" | "native" | "resilient";
   mode?: SyncMode;
   headers?: Record<string, string>;
   auth?: SyncAuth;
@@ -67,7 +69,28 @@ type FromClientMessage = JoinMessage | Message;
 type FromServerMessage = PeerMessage | ErrorMessage | Message;
 
 export function createWebSocketSyncAdapter(options: WebSocketSyncOptions) {
+  if (shouldUseNativeAdapter(options)) {
+    return new WebSocketClientAdapter(options.url, options.retryInterval);
+  }
   return new ResilientWebSocketClientAdapter(options);
+}
+
+function shouldUseNativeAdapter(options: WebSocketSyncOptions) {
+  if (options.adapter === "resilient") return false;
+  if (options.adapter === "native") {
+    if (options.auth || hasHeaders(options.headers)) {
+      throw new Error("The native Automerge websocket adapter does not support auth headers");
+    }
+    return true;
+  }
+
+  return (
+    !options.auth &&
+    !hasHeaders(options.headers) &&
+    !options.onStatus &&
+    !options.onError &&
+    options.mode !== "required"
+  );
 }
 
 class ResilientWebSocketClientAdapter extends NetworkAdapter {
@@ -172,8 +195,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
   }
 
   private onOpen = () => {
-    if (this.retryIntervalId) clearInterval(this.retryIntervalId);
-    this.retryIntervalId = undefined;
+    this.clearRetryInterval();
     this.abandonedHandshakeRetryAt = 0;
     this.join();
   };
@@ -236,6 +258,7 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
     if (isPeerMessage(message)) {
       this.forceReady();
       this.remotePeerId = message.senderId;
+      this.clearRetryInterval();
       this.options.onStatus?.({
         state: "connected",
         url: this.options.url,
@@ -257,6 +280,11 @@ class ResilientWebSocketClientAdapter extends NetworkAdapter {
       this.ready = true;
       this.readyResolver?.();
     }
+  }
+
+  private clearRetryInterval() {
+    if (this.retryIntervalId) clearInterval(this.retryIntervalId);
+    this.retryIntervalId = undefined;
   }
 
   private reportError(error: Error, recoverable: boolean) {
@@ -329,6 +357,10 @@ function syncHeaders(options: WebSocketSyncOptions) {
     headers[options.auth.header ?? "x-api-key"] = options.auth.token;
   }
   return headers;
+}
+
+function hasHeaders(headers: Record<string, string> | undefined) {
+  return Boolean(headers && Object.keys(headers).length > 0);
 }
 
 function isPeerMessage(message: FromServerMessage): message is PeerMessage {

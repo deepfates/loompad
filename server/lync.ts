@@ -8,6 +8,8 @@ import { hasSiteAccess } from "./siteAuth";
 
 let attached = false;
 let relay: ReturnType<typeof attachVendoredLyncServer> | null = null;
+const DEFAULT_LYNC_KEEPALIVE_INTERVAL_MS = 30_000;
+type LyncAuthMode = "site-access" | "public";
 
 function parsePositiveInt(value: string | undefined) {
   if (!value) return undefined;
@@ -15,19 +17,27 @@ function parsePositiveInt(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+export function resolveLyncAuthMode(value = process.env.LYNC_AUTH_MODE): LyncAuthMode {
+  return value?.trim().toLowerCase() === "public" ? "public" : "site-access";
+}
+
 export function attachLyncServer(server: http.Server) {
   if (attached) return relay;
   attached = true;
+  const authMode = resolveLyncAuthMode();
   const options: AttachLyncServerOptions = {
     path: "/lync",
     storageDir:
       process.env.LYNC_STORAGE_DIR ??
       path.resolve(process.cwd(), ".data/lync"),
-    keepAliveInterval: parsePositiveInt(process.env.LYNC_KEEPALIVE_INTERVAL_MS),
+    keepAliveInterval:
+      parsePositiveInt(process.env.LYNC_KEEPALIVE_INTERVAL_MS) ??
+      DEFAULT_LYNC_KEEPALIVE_INTERVAL_MS,
     maxConnections: parsePositiveInt(process.env.LYNC_MAX_CONNECTIONS),
-    authenticate: hasSiteAccess,
+    authenticate: authMode === "public" ? undefined : hasSiteAccess,
   };
   relay = attachVendoredLyncServer(server, options);
+  console.log(`[Lync] relay auth mode: ${authMode}`);
 
   server.on("upgrade", (request) => {
     try {
