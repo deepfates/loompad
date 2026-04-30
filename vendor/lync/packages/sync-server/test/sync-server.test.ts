@@ -41,6 +41,21 @@ describe("lync server", () => {
     httpServer.close();
   });
 
+  it("does not fail shutdown when the repo cannot flush", async () => {
+    const httpServer = http.createServer();
+    const relay = attachLyncServer(httpServer, {
+      repo: {
+        peerId: "broken-shutdown-repo",
+        shutdown: async () => {
+          throw new Error("DocHandle is not ready");
+        },
+      } as never,
+    });
+
+    await expect(relay.close()).resolves.toBeUndefined();
+    httpServer.close();
+  });
+
   it("can authenticate websocket upgrades", async () => {
     const httpServer = http.createServer();
     const seenAuthHeaders: Array<string | undefined> = [];
@@ -105,6 +120,7 @@ describe("lync server", () => {
 
 function sendUpgrade(port: number) {
   return new Promise<string>((resolve, reject) => {
+    let settled = false;
     const socket = net.createConnection({ host: "127.0.0.1", port }, () => {
       socket.write(
         [
@@ -123,8 +139,18 @@ function sendUpgrade(port: number) {
     socket.setTimeout(1000, () => {
       socket.destroy(new Error("Timed out waiting for websocket rejection"));
     });
-    socket.on("close", () => resolve("closed"));
-    socket.on("error", reject);
+    socket.on("data", (chunk) => {
+      if (!chunk.toString().startsWith("HTTP/1.1")) return;
+      settled = true;
+      socket.destroy();
+      resolve("closed");
+    });
+    socket.on("close", () => {
+      if (!settled) resolve("closed");
+    });
+    socket.on("error", (error) => {
+      if (!settled) reject(error);
+    });
   });
 }
 

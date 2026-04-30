@@ -94,11 +94,14 @@ export function attachLyncServer(
     head: Buffer,
   ) => {
     if (!isSocketPath(request, socketPath)) return;
+    console.log("[Lync] upgrade received by relay");
     if (closing) {
+      console.log("[Lync] rejecting upgrade: server closing");
       rejectUpgrade(socket, "503 Service Unavailable");
       return;
     }
     if (!isAuthorized(options.authenticate, request)) {
+      console.log("[Lync] rejecting upgrade: unauthorized");
       rejectUpgrade(socket, "401 Unauthorized");
       return;
     }
@@ -106,12 +109,14 @@ export function attachLyncServer(
       options.maxConnections !== undefined &&
       socketServer.clients.size >= options.maxConnections
     ) {
+      console.log("[Lync] rejecting upgrade: max connections");
       rejectUpgrade(socket, "503 Service Unavailable");
       return;
     }
     upgradeSockets.add(socket);
     socket.once("close", () => upgradeSockets.delete(socket));
     socketServer.handleUpgrade(request, socket, head, (websocket) => {
+      console.log("[Lync] upgrade accepted by relay");
       socketServer.emit("connection", websocket, request);
     });
   };
@@ -175,7 +180,7 @@ async function closeRelay(
     for (const socket of upgradeSockets) socket.destroy();
   }, 1_500).unref?.();
 
-  await repo.shutdown();
+  await shutdownRepo(repo);
   await withTimeout(
     new Promise<void>((resolve, reject) => {
       socketServer.close((error?: Error) => {
@@ -185,6 +190,14 @@ async function closeRelay(
     }),
     2_000,
   );
+}
+
+async function shutdownRepo(repo: Repo) {
+  try {
+    await repo.shutdown();
+  } catch (error) {
+    console.warn("[Lync] repo shutdown failed; continuing shutdown", error);
+  }
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | void> {
