@@ -122,6 +122,7 @@ describe("node loom client", () => {
 
   it("does not reconnect after the peer handshake completes", async () => {
     const server = new WebSocketServer({ port: 0 });
+    await new Promise<void>((resolve) => server.once("listening", resolve));
     let connectionCount = 0;
     server.on("connection", (socket) => {
       connectionCount += 1;
