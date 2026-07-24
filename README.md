@@ -1,5 +1,10 @@
 # textile
 
+> **Status:** private application. Version 0.1.0 is the first coherent source
+> release candidate for the raw-Lync corpus workflow and UI; it is not an npm
+> package. Textile supports `@deepfates/lync >=0.3.0 <0.5.0`. Its lock remains
+> on the published 0.3 line until the owner-authorized 0.4 registry release.
+
 ## Raw Lync corpus acceptance
 
 Textile opens raw `.lync` event unions directly. Its reader follows only the
