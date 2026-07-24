@@ -69,6 +69,14 @@ LOOM; press **START** to show its branch map.
 
 textile is a loom for language models. You generate text, branch from any point, and navigate the full tree of what's possible.
 
+The current reader projects the first parent as a navigable tree and retains
+the rest of the Lync DAG as source context. The longer horizon includes other
+projections over the same durable events: typed derivation and composition
+relations such as Text Machines' derive/extend/splice moves, evaluation and
+selection graphs, timelines, program/model traces, resident lives, and world
+histories. Those views should compose with Textile's small tactile interface;
+they should not be flattened into one overloaded universal tree.
+
 ## What's a loom?
 
 Language models don't give you one answer. They give you a probability distribution over all possible continuations. Most chat interfaces hide this - they sample once and show you a single thread, even though the model could have gone a thousand different ways.
