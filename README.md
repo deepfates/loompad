@@ -34,7 +34,9 @@ checkout discovery when needed.
 
 Set `KEEP_CORPUS_LOOP_OUTPUT=1` to retain and print the temporary source,
 clusters, annotations, selection, final union, and training files for
-inspection. The automated Textile boundary is its real app-layer projection,
+inspection. The synthetic source events use a presentation-safe fixture
+operator and portable `fixture://` source reference rather than the local
+account name or checkout path. The automated Textile boundary is its real app-layer projection,
 Loom import, keep mark, reprojection, and selection exporter. It does not claim
 to click the browser controls. For the human UI check, open **Settings →
 Stories → Import Lync** and choose the retained `annotated.lync` (it has

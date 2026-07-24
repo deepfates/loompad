@@ -22,6 +22,8 @@ import type { StoryNode } from "../client/interface/types";
 
 const SEED = 42;
 const SELECTION_AT = "2026-07-01T12:03:00.000Z";
+const FIXTURE_OPERATOR = "corpus-rehearsal";
+const FIXTURE_SOURCE_REF = "fixture://corpus-loop-twitter";
 const here = dirname(fileURLToPath(import.meta.url));
 const textileRoot = resolve(here, "..");
 const checkoutParent = resolve(textileRoot, "..");
@@ -99,6 +101,7 @@ try {
 
   const ingestArgs = (out: string) => [
     "run", "start", "--", "lync", "archive", "--source", fixturePath, "--out", out,
+    "--operator", FIXTURE_OPERATOR, "--source-ref", FIXTURE_SOURCE_REF,
   ];
   const ingestLog = run("Splice source ingest", "npm", ingestArgs(source), roots.splice);
   run("Splice source replay", "npm", ingestArgs(sourceReplay), roots.splice);
@@ -114,6 +117,15 @@ try {
     .map((line) => JSON.parse(line));
   if (sourceEvents.length !== 3 || !sourceEvents.every((event) => event.kind === "twitter/tweet")) {
     throw new Error("Splice did not emit the three expected source tweet events");
+  }
+  if (
+    sourceEvents.some(
+      (event) =>
+        event.author?.operator !== FIXTURE_OPERATOR ||
+        !event.author?.source?.startsWith(`${FIXTURE_SOURCE_REF}:`),
+    )
+  ) {
+    throw new Error("Synthetic source events exposed non-portable operator or source provenance");
   }
   const sourceIds = new Set(sourceEvents.map((event) => event.id));
 
