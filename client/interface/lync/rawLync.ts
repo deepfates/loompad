@@ -10,6 +10,8 @@ export interface RawLyncProjection {
   snapshot: ConversationLoomSnapshot;
   sourceEventCount: number;
   annotationCount: number;
+  branchPointCount: number;
+  selectedSourceCount: number;
   nonconformingCount: number;
   warnings: string[];
 }
@@ -57,6 +59,10 @@ export function projectRawLyncFile(
   );
   const tagsByTarget = clusterTagsByTarget(annotations);
   const selectedIds = selectedSourceIds(annotations);
+  const childCounts = new Map<string, number>();
+  for (const parent of navigationParents.values()) {
+    if (parent) childCounts.set(parent, (childCounts.get(parent) ?? 0) + 1);
+  }
   const virtualId = `textile-raw-root:${content[0]!.id}`;
   const createdAt = Math.min(...content.map(eventTime));
   const loomId = `textile-raw:${content[0]!.id}`;
@@ -107,6 +113,8 @@ export function projectRawLyncFile(
     },
     sourceEventCount: content.length,
     annotationCount: annotations.length,
+    branchPointCount: [...childCounts.values()].filter((count) => count > 1).length,
+    selectedSourceCount: content.filter((event) => selectedIds.has(event.id)).length,
     nonconformingCount: nonconforming.length,
     warnings: nonconforming.map(
       (line) => `${line.file}:${line.line} nonconforming: ${line.reason}`,

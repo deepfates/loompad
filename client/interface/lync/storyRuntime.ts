@@ -531,6 +531,8 @@ export interface ImportedConversation {
   turnCount: number;
   kind?: "conversation" | "raw-lync";
   annotationCount?: number;
+  branchPointCount?: number;
+  selectedSourceCount?: number;
   nonconformingCount?: number;
   warnings?: string[];
 }
@@ -598,6 +600,8 @@ export async function importRawLyncText(
     kind: "raw-lync",
     turnCount: projection.sourceEventCount,
     annotationCount: projection.annotationCount,
+    branchPointCount: projection.branchPointCount,
+    selectedSourceCount: projection.selectedSourceCount,
     nonconformingCount: projection.nonconformingCount,
     warnings: projection.warnings,
   };

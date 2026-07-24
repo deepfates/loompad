@@ -22,6 +22,8 @@ describe("raw .lync projection", () => {
     );
     expect(projection.sourceEventCount).toBe(4);
     expect(projection.annotationCount).toBe(2);
+    expect(projection.branchPointCount).toBe(1);
+    expect(projection.selectedSourceCount).toBe(1);
     expect(projection.nonconformingCount).toBe(0);
     expect(projection.warnings).toEqual([]);
 

@@ -31,9 +31,12 @@ Set `KEEP_CORPUS_LOOP_OUTPUT=1` to retain and print the temporary source,
 clusters, annotations, selection, final union, and training files for
 inspection. The automated Textile boundary is its real app-layer projection,
 Loom import, keep mark, reprojection, and selection exporter. It does not claim
-to click the browser controls; the human UI check remains dragging the retained
-`corpus.lync` into the running app, navigating the two sibling replies, and
-using Backspace → Keep on the intended branch.
+to click the browser controls. For the human UI check, drag the retained
+`annotated.lync` into the running app (it has clusters but no selection yet),
+use Left/Right to compare the two sibling replies, press `K` on the intended
+branch to toggle Keep, and press Escape to inspect the map. Drag `corpus.lync`
+instead when you want to inspect the final verified union with its selection
+already present.
 
 To inspect that synthetic fixture in the running interface, start Textile with
 `bun run dev`, open `http://localhost:5173`, and drag

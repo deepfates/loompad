@@ -80,6 +80,7 @@ import {
   type AuthorshipDisplay,
   type ImportedConversation,
 } from "./lync/storyRuntime";
+import { formatImportedConversationNotice } from "./lync/importNotice";
 import { getRegisteredMode } from "./modes/modeRegistry";
 import { AuthorshipIndicator } from "./components/AuthorshipIndicator";
 import { CurationIndicator } from "./components/CurationIndicator";
@@ -408,19 +409,7 @@ export const GamepadInterface = () => {
   const handleConversationImported = useCallback(
     (result: ImportedConversation) => {
       setCurrentLoomId(result.loomId);
-      showImportNotice(
-        `Imported "${result.title}" — ${result.turnCount} ${
-          result.turnCount === 1 ? "turn" : "turns"
-        }${
-          result.kind === "raw-lync"
-            ? ` · ${result.annotationCount ?? 0} annotations${
-                result.nonconformingCount
-                  ? ` · ${result.nonconformingCount} nonconforming (${result.warnings?.join("; ")})`
-                  : " · conforming"
-              }`
-            : ""
-        }`,
-      );
+      showImportNotice(formatImportedConversationNotice(result));
     },
     [setCurrentLoomId, showImportNotice],
   );
