@@ -21,6 +21,8 @@ export function formatImportedConversationNotice(result: ImportedConversation): 
   ].join(" · ");
 
   const controls =
-    result.kind === "raw-lync" ? " — ←/→ compare siblings · K toggles Keep · Esc shows map" : "";
+    result.kind === "raw-lync"
+      ? " — START opens map · ↓ selects child · ←/→ compare siblings · focus reading surface + K to Keep"
+      : "";
   return `Imported "${result.title}" — ${summary}${controls}`;
 }

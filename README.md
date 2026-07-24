@@ -36,17 +36,27 @@ Set `KEEP_CORPUS_LOOP_OUTPUT=1` to retain and print the temporary source,
 clusters, annotations, selection, final union, and training files for
 inspection. The automated Textile boundary is its real app-layer projection,
 Loom import, keep mark, reprojection, and selection exporter. It does not claim
-to click the browser controls. For the human UI check, drag the retained
-`annotated.lync` into the running app (it has clusters but no selection yet),
-use Left/Right to compare the two sibling replies, press `K` on the intended
-branch to toggle Keep, and press Escape to inspect the map. Drag `corpus.lync`
-instead when you want to inspect the final verified union with its selection
-already present.
+to click the browser controls. For the human UI check, open **Settings →
+Stories → Import Lync** and choose the retained `annotated.lync` (it has
+clusters but no selection yet). Import opens LOOM; do not expect Left/Right
+there to switch between siblings. Press **START** to open MAP at the branch
+parent, press Down to descend to the selected child, then use Left/Right to
+compare the siblings with their source and tag context. Focus the reading
+surface and press `K`; the successful Keep is visible as `Kept this turn ✓`
+and `✓kept`. Import `corpus.lync` instead when you want to inspect the final
+verified union with its selection already present.
+
+**Export KEPT** downloads an annotation patch, not a standalone corpus. `lync
+verify` accepts its selection event, while graph inspection is expected to
+report dangling source parents because the source turns remain in
+`annotated.lync`. Merge the export with that retained annotated corpus, then
+verify the merged union when you need a self-contained graph.
 
 To inspect that synthetic fixture in the running interface, start Textile with
-`bun run dev`, open `http://localhost:5173`, and drag
-`client/interface/lync/__tests__/fixtures/corpus-loop.lync` anywhere into the
-window. The import opens immediately; press Escape to show its branch map.
+`bun run dev`, open `http://localhost:5173`, then use **Settings → Stories →
+Import Lync** to choose
+`client/interface/lync/__tests__/fixtures/corpus-loop.lync`. The import opens in
+LOOM; press **START** to show its branch map.
 
 <p align="center">
   <img src="client/assets/screenshot-1.png" width="300" alt="textile reading view" />
