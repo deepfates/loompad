@@ -163,6 +163,8 @@ function rawRole(event: LyncEventBody): string {
 
 function readableText(payload: Record<string, unknown>): string | null {
   if (typeof payload.text === "string") return payload.text;
+  if (typeof payload.full_text === "string") return payload.full_text;
+  if (typeof payload.fullText === "string") return payload.fullText;
   if (typeof payload.message === "string") return payload.message;
   const message = payload.message;
   if (message && typeof message === "object") {

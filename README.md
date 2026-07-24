@@ -10,11 +10,30 @@ Unsafe unions (damaged or garbage lines, ID conflicts, missing parents, or graph
 cycles) fail closed with concrete reasons. Accepted nonconforming events remain
 readable and carry their warnings on the focused turn.
 
-To verify the seam against current source checkouts (nothing is published):
+To run the provider-free rehearsal against sibling Lync, Splice, and Curare
+source checkouts (nothing is published):
 
 ```sh
-CURARE_ROOT=/path/to/curare SPLICE_ROOT=/path/to/splice bun run verify:corpus-loop
+bun run verify:corpus-loop
 ```
+
+The command runs Splice's real Twitter archive importer twice, verifies and
+merges with the Lync CLI, runs Curare's real local embedding/clustering CLI
+twice with seed 42, imports the union through Textile's raw projection and Loom
+client, records a keep through Textile's append-only mark path, exports the
+resulting standard selection, and runs Splice's training exporter. It fails if
+any source identity is lost, replay differs, Curare annotations are absent, the
+Textile branch/selection path is bypassed, or the final SFT and preference rows
+do not reconcile. `LYNC_ROOT`, `SPLICE_ROOT`, and `CURARE_ROOT` override sibling
+checkout discovery when needed.
+
+Set `KEEP_CORPUS_LOOP_OUTPUT=1` to retain and print the temporary source,
+clusters, annotations, selection, final union, and training files for
+inspection. The automated Textile boundary is its real app-layer projection,
+Loom import, keep mark, reprojection, and selection exporter. It does not claim
+to click the browser controls; the human UI check remains dragging the retained
+`corpus.lync` into the running app, navigating the two sibling replies, and
+using Backspace → Keep on the intended branch.
 
 To inspect that synthetic fixture in the running interface, start Textile with
 `bun run dev`, open `http://localhost:5173`, and drag

@@ -116,6 +116,20 @@ describe("raw .lync projection", () => {
     ]);
   });
 
+  it("projects preserved Twitter archive text without changing source identity", () => {
+    const id = "0197e6a0-4a09-7000-8000-000000000055";
+    const input = {
+      ...event(id, [], "unused"),
+      kind: "twitter/tweet",
+      payload: { id_str: "55", full_text: "Preserved archive text." },
+    };
+
+    const projection = projectRawLyncFile(`${JSON.stringify(input)}\n`, "twitter.lync");
+    const turn = projection.snapshot.turns.find((candidate) => candidate.meta.sourceId === id);
+    expect(turn?.payload.text).toBe("Preserved archive text.");
+    expect(turn?.meta.sourceId).toBe(id);
+  });
+
   it("collapses unreadable tool steps to the nearest readable first-parent ancestor", () => {
     const a = "0197e6a0-4a09-7000-8000-000000000061";
     const tool = "0197e6a0-4a09-7000-8000-000000000062";
