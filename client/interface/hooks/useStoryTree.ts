@@ -445,7 +445,6 @@ export function useStoryTree(params: StoryParams) {
           }
           return false;
         case "Enter": {
-          if (error) return false;
           const loom = loomsById[currentLoomId];
           if (!loom) return false;
 
@@ -532,7 +531,6 @@ export function useStoryTree(params: StoryParams) {
       return true;
     },
     [
-      error,
       getCurrentPath,
       getOptionsAtDepth,
       currentDepth,
