@@ -2,7 +2,7 @@
 id: Hac-1i65
 status: open
 deps: []
-links: []
+links: [tex-qit3, tex-3au2]
 created: 2026-07-25T18:35:56Z
 type: feature
 priority: 2
