@@ -211,6 +211,12 @@ React, Vite, Express, TypeScript, Tailwind. OpenAI SDK pointed at OpenRouter. d3
 
 D-pad navigation maps naturally to tree traversal. Up/down for depth, left/right for siblings. The aesthetic is fun but the controls are genuinely good for this.
 
+## Work tracking
+
+Project-owned implementation work is tracked in `.tickets/`; run `tk list`
+from this repository to inspect it. Cross-project corpus coordination remains
+in the workshop root ledger.
+
 ## License
 
 MIT

@@ -1,0 +1,22 @@
+---
+id: Hac-1i65
+status: open
+deps: []
+links: []
+created: 2026-07-25T18:35:56Z
+type: feature
+priority: 2
+assignee: deepfates
+tags: [corpus, textile, lync, dag, navigation, pointers]
+---
+# Textile: navigate non-first-parent Lync causal links
+
+A separate corpus-navigation gap from Hac-i3qe. Lync preserves every ordered parent and its branch-tree/context views retain the DAG, but Textile raw import projects each readable source event into a Loom turn with navigationParent resolved only from event.parents[0]. Later source parents survive only as meta.sourceParents and meta.extraParentIds, so they remain auditable/exportable but are not reachable as causal edges through the reading interface. The real browser audit therefore exercised a first-parent tree projection, not arbitrary Lync-pointer or DAG navigation. This does not invalidate the working two-client synchronization and curation loop, and that narrow shared-curation ticket does not complete the broader corpus endpoint. The workshop direction explicitly names arbitrary Lync pointers and DAG views beyond first-parent trees; the exact focus and navigation idiom remains an owner-held UX decision.
+
+## Design
+
+Candidate boundary: keep the existing Loom tree as one useful projection while adding a source-DAG/pointer read model derived from immutable Lync ids and all ordered parents. Do not remint events or encode extra parents as prose. The presentation/readable projection ticket Hac-i4by determines what a node says; this ticket determines which causal edges a person can inspect and follow. MAP prose/source/curation alignment remains Hac-i3qe and must not be implemented implicitly here.
+
+## Acceptance Criteria
+
+A verifier-clean checked-in fixture contains a readable event with at least two meaningful parents plus a pointer/annotation edge. Through ordinary Textile import and discovery, a person can see that the focused source event has multiple causal inputs, traverse directly to every preserved parent and back to the child, and distinguish causal parents from annotations or other typed pointers. Navigation preserves exact source ids, ordered parent roles where the kind pact defines them, authorship, warnings, selection/tag/note targets, and export round trips. The UI names any unsupported edge semantics instead of silently displaying only parents[0]. Browser coverage discovers the graph through visible content rather than known ids. Owner ratifies the MAP/focus interaction before implementation; Hac-i3qe and Hac-i4by remain separate.
