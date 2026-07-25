@@ -1,6 +1,6 @@
 ---
 id: Hac-bgmi
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-07-25T17:44:17Z
@@ -17,3 +17,8 @@ In a fresh ordinary browser session, Settings -> Author Name highlights normally
 
 A fresh browser user can enter and confirm a curator name through Textile's own interface idiom, sees when it takes effect, and subsequent keep/note events export with that actor; the flow uses no native prompt/alert, is keyboard and pointer reachable, and a focused two-client browser test establishes both names through ordinary UI rather than localStorage seeding.
 
+## Notes
+
+**2026-07-25T23:00:00Z**
+
+Source and browser audit confirmed the settings action depended on window.prompt/window.alert and was unusable in the controlled browser. Commit d9fe3ce adds an AUTHOR overlay with in-app save/cancel and explicit reload guidance. The corpus e2e now sets Ada and Grace through that UI, reloads to bind each writer, disconnects/reconnects, and exports four Lync annotation events whose actors are exactly Ada and Grace.

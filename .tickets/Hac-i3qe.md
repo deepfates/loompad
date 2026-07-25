@@ -1,6 +1,6 @@
 ---
 id: Hac-i3qe
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-07-25T18:19:28Z
@@ -23,3 +23,7 @@ For raw-Lync stories, every MAP state has one unambiguous focused turn: rendered
 **2026-07-25T18:26:24Z**
 
 The exported 6-event curation patch made the mismatch auditable: actor anon-ce3c6bb6 selected/noted 3f91fb15 after reading the 42a289ef prose preview, then selected/noted 42a289ef after reading the 04f6bbd0 preview. The 18-source-node full-tree JSON confirms those notes are durably attached to the earlier nodes. Two-origin reconnect and live convergence otherwise succeeded.
+
+**2026-07-25T23:00:00Z**
+
+Reproduced again in the real browser on the synthetic Twitter corpus. Commit d9fe3ce makes MAP prose describe the highlighted event and adds unit plus browser regressions. The real browser then showed root prose, source id 3f91fb15-efa8-883a-bc73-7288e4712854, keep state, and note on the same event. The two-context corpus test covers synchronization, reconnect, exact-source curation, and export.

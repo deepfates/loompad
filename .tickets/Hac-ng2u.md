@@ -1,6 +1,6 @@
 ---
 id: Hac-ng2u
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-07-25T18:19:28Z
@@ -23,3 +23,7 @@ Import Lync is a standalone valid interactive control, not nested inside another
 **2026-07-25T18:26:24Z**
 
 Falsified locator ambiguity after ticket creation: a disposable repository Playwright test resolved exactly one visible button.story-action[aria-label=Import Lync], clicked it, and still timed out for 30 seconds waiting for filechooser. The temporary test and server were removed; Textile worktree was restored clean.
+
+**2026-07-25T23:00:00Z**
+
+Reproduced twice in the real browser: the visible Import Lync control focused but no chooser appeared, while the d-pad/Enter path worked. The deeper cause was focus-driven React cursor state changing during the native click sequence. Commit d9fe3ce makes New Story and Import sibling controls and uses the native file input as the pointer target without pre-click state mutation. Pointer, keyboard, synthetic conversation, and raw Twitter-corpus imports pass.
