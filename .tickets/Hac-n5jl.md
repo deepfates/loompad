@@ -33,3 +33,13 @@ The repair uses an explicit 1 MiB presentation boundary and a 65,536-character F
 The focused browser flow also paged first-to-last, kept and noted the exact ocr/document, opened MAP, discovered and navigated to the sibling ocr/page, copied a story link, exported full-tree JSON containing both source sentinels, and exported a two-event Lync curation patch whose selection chose the document while preserving both shown siblings and whose note parent was the document id. 161 unit tests, lint, build, and 23 e2e tests outside the separately tracked Backspace/direct-edit semantic conflict pass.
 
 Remaining uncertainty: after deliberately accumulating several repeated 10 MB imports in one persistent audit browser, later import notices sometimes appeared after the clean 2s budget. That cumulative-storage/relay behavior was not isolated well enough to claim as this clean-corpus defect or to mint another ticket yet.
+
+**2026-07-25T23:14:24Z**
+
+2026-07-25 bounded repeated-import isolation (single run; performance lane stopped afterward).
+
+A fresh browser origin on port 5181 and a fresh temporary Lync relay began with 1 story, 1 reachable projected node, and 127 DOM elements. Browser `performance.memory` and `measureUserAgentSpecificMemory` were both unavailable, so no trustworthy JS-heap number was possible. The privacy-safe verifier-clean fixture contained exactly 3 raw events and one exact 8 MiB OCR document (8,389,681-byte JSONL file).
+
+The first real UI import reported success in 1,166 ms and produced the expected 2 stories, 5 reachable projected nodes (the initial 1 plus the imported 4-node projection), and 162 DOM elements. Textile's LOOMS -> LOOM ACTIONS -> DELETE LOOM? interaction then removed the imported story; the catalog returned to 1 story, 1 reachable node, and 126 DOM elements.
+
+The intended capped imports 2-4 could not be delivered to Textile: after the first successful chooser upload, the in-app browser control returned a SyntaxError from each later file-chooser setFiles operation, including a byte-identical copy in a fresh same-origin tab, before the application displayed an import receipt or changed story/node counts. This is an audit-tool limitation, not a Textile finding. Consequently cumulative repeated-import growth was not reproduced or exonerated, and no attributable performance ticket is warranted from this run. The visible cleanup result proves story-index cleanup only; the app exposes no physical orphan-store row count, so durable orphan cleanup remains unmeasured.
