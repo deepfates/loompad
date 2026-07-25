@@ -51,7 +51,7 @@ const resolvePrimaryPath = (root: StoryNode): StoryNode[] => {
 export const downloadStoryTreeJson = (
   key: string,
   tree: { root: StoryNode },
-): void => {
+): string => {
   const payload = {
     schemaVersion: 1,
     title: key,
@@ -62,18 +62,20 @@ export const downloadStoryTreeJson = (
   const filename = `${sanitizeForFilename(key)}-tree.json`;
   const json = JSON.stringify(payload, null, 2);
   triggerDownload(filename, json, "application/json");
+  return filename;
 };
 
 export const downloadStoryThreadText = (
   key: string,
   path: StoryNode[],
-): void => {
+): string => {
   const segments = path
     .map((node) => node.text?.trim())
     .filter((text): text is string => Boolean(text && text.length));
   const content = segments.join("\n\n");
   const filename = `${sanitizeForFilename(key)}-thread.txt`;
   triggerDownload(filename, content, "text/plain");
+  return filename;
 };
 
 export const getStoryPrimaryPath = (tree: { root: StoryNode }): StoryNode[] =>
@@ -142,10 +144,11 @@ export const buildKeptStoryExport = (
 export const downloadKeptStoryJson = (
   key: string,
   tree: { root: StoryNode },
-): void => {
+): string => {
   const payload = buildKeptStoryExport(key, tree);
   const filename = `${sanitizeForFilename(key)}-kept.json`;
   triggerDownload(filename, JSON.stringify(payload, null, 2), "application/json");
+  return filename;
 };
 
 interface RawLyncAnnotationEvent {
@@ -263,14 +266,16 @@ export const buildRawLyncCurationEvents = (
 export const downloadRawLyncCuration = (
   key: string,
   tree: { root: StoryNode },
-): void => {
+): string => {
   const events = buildRawLyncCurationEvents(tree);
   const body = events.map((event) => JSON.stringify(event)).join("\n");
+  const filename = `${sanitizeForFilename(key)}-curation.lync`;
   triggerDownload(
-    `${sanitizeForFilename(key)}-curation.lync`,
+    filename,
     body ? `${body}\n` : "",
     "application/x-lync+jsonl",
   );
+  return filename;
 };
 
 /** @deprecated Use downloadRawLyncCuration. */

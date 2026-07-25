@@ -146,6 +146,7 @@ const StoryActionButton = ({
       .join(" ")}
     aria-label={label}
     title={label}
+    onMouseDown={(event) => event.preventDefault()}
     onClick={onClick}
     onFocus={onFocus}
   >
@@ -217,13 +218,13 @@ export function getStoryRowPreview({
 /**
  * Stories list.  Mirrors the Models-tab row layout:
  *   row 0 — Sort pick (Recent / A→Z / Z→A); column 1 is the Index-link action
- *   row 1 — + New Story action; column 1 is the Import-conversation action
+ *   row 1 — sibling + New Story and Import Lync actions
  *   row 2+ — each existing story as an action row whose trailing slot
  *            carries sub-actions (copy links / export JSON / export thread)
  * The cursor is (rowIndex, columnIndex) — column 0 is the story body,
  * columns 1+ are the sub-actions in order. Rows 0 and 1 keep their existing
- * indices (the e2e row math depends on it); Import rides row 1 as a trailing
- * action, adding NO new row.
+ * indices (the e2e row math depends on it). The two row-1 controls are sibling
+ * buttons: Import must never be nested inside New Story's interactive surface.
  */
 export const TreeListMenu = ({
   trees,
@@ -237,6 +238,7 @@ export const TreeListMenu = ({
   onSelect,
   onNew,
   onImportConversation,
+  onImportFileChosen,
   onShareStory,
   onShareThread,
   onShareIndex,
@@ -250,7 +252,7 @@ export const TreeListMenu = ({
   const selectedPositionRef = useRef({ selectedColumn, selectedIndex });
   const [openSecondaryKey, setOpenSecondaryKey] = useState<string | null>(null);
   const orderedKeys = orderKeysByStorySort(trees, sortOrder);
-  const hasImport = Boolean(onImportConversation);
+  const hasImport = Boolean(onImportConversation || onImportFileChosen);
   const hasShare = Boolean(onShareStory);
   const hasThreadShare = Boolean(onShareThread);
   const hasIndexShare = Boolean(onShareIndex);
@@ -341,35 +343,57 @@ export const TreeListMenu = ({
           ) : undefined
         }
       />
-      <Row
-        kind="action"
-        label="New Story"
-        glyph="+"
-        selected={selectedIndex === 1 && selectedColumn === 0}
-        onActivate={() => {
-          setOpenSecondaryKey(null);
-          onNew?.();
-          onHighlight?.(1, 0);
-        }}
-        trailing={
-          hasImport ? (
-            <div className="story-action-cluster" role="group">
-              <StoryActionButton
-                label="Import Lync"
-                icon={<ImportIcon />}
-                selected={selectedIndex === 1 && selectedColumn === 1}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setOpenSecondaryKey(null);
-                  onImportConversation?.();
-                  onHighlight?.(1, 1);
-                }}
-                onFocus={() => onHighlight?.(1, 1)}
+      <div
+        className={[
+          "menu-item",
+          "menu-item--row",
+          "menu-item--action",
+          "story-create-row",
+          selectedIndex === 1 && selectedColumn === 0 ? "selected" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        role="group"
+        aria-label="Story creation"
+      >
+        <button
+          type="button"
+          className="story-create-row__new"
+          aria-label="New Story"
+          onClick={() => {
+            setOpenSecondaryKey(null);
+            onNew?.();
+            onHighlight?.(1, 0);
+          }}
+        >
+          <span className="menu-item-glyph" aria-hidden="true">+</span>
+          <span className="menu-item-label">New Story</span>
+        </button>
+        {hasImport ? (
+          <div className="story-action-cluster" role="group">
+            <label
+              className={[
+                "story-action",
+                "story-import-control",
+                selectedIndex === 1 && selectedColumn === 1 ? "selected" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              title="Import Lync"
+            >
+              <ImportIcon />
+              <span className="story-action-label">Import Lync</span>
+              <input
+                type="file"
+                className="story-import-control__input"
+                accept="application/x-lync+jsonl,.lync,.jsonl,application/json,.json"
+                aria-label="Import Lync"
+                onChange={onImportFileChosen}
               />
-            </div>
-          ) : undefined
-        }
-      />
+            </label>
+          </div>
+        ) : null}
+      </div>
       {orderedKeys.map((key, index) => {
         const tree = trees[key];
         const rowIndex = index + 2;
@@ -525,6 +549,7 @@ export const TreeListMenu = ({
                     aria-expanded={secondaryOpen}
                     aria-controls={secondaryActionsId}
                     title="More story actions"
+                    onMouseDown={(event) => event.preventDefault()}
                     onFocus={() => {
                       if (jsonSelected) {
                         onHighlight?.(rowIndex, jsonColumn);

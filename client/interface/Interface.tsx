@@ -239,29 +239,6 @@ export const GamepadInterface = () => {
     setAuthorshipDisplayState(mode);
   }, []);
 
-  const editAuthorName = useCallback(() => {
-    const input = window.prompt(
-      "Your name (how your turns are signed on shared stories)",
-      authorName,
-    );
-    if (input === null) return;
-    const trimmed = input.trim();
-    if (trimmed === authorName) return;
-    setAuthorName(trimmed);
-    setAuthorNameState(trimmed);
-    // lync binds the author when the story client is built, and the open loom
-    // handles keep that author, so a name change only reaches new writes after
-    // a reload. Say so plainly rather than silently signing turns with the old
-    // name (the anon-id fallback keeps identities distinct meanwhile).
-    if (hasLiveStoryClient()) {
-      window.alert(
-        trimmed
-          ? `Saved. Reload to sign new turns as "${trimmed}".`
-          : "Saved. Reload to sign new turns with your anonymous id.",
-      );
-    }
-  }, [authorName]);
-
   // (select menu navigation now handled in useMenuSystem)
 
   const {
@@ -406,6 +383,32 @@ export const GamepadInterface = () => {
     setImportNotice(message);
     window.setTimeout(() => setImportNotice(null), 6000);
   }, []);
+  const editAuthorName = useCallback(() => {
+    setScreen("author");
+  }, [setScreen]);
+  const saveAuthorName = useCallback(
+    (input: string) => {
+      const trimmed = input.trim();
+      if (trimmed === authorName) {
+        setScreen("drawer");
+        showImportNotice("Author name unchanged.");
+        return;
+      }
+      setAuthorName(trimmed);
+      setAuthorNameState(trimmed);
+      setScreen("drawer");
+      showImportNotice(
+        hasLiveStoryClient()
+          ? trimmed
+            ? `Saved. Reload to sign new turns as "${trimmed}".`
+            : "Saved. Reload to sign new turns with your anonymous id."
+          : trimmed
+            ? `Saved. New turns will be signed as "${trimmed}".`
+            : "Saved. New turns will use your anonymous id.",
+      );
+    },
+    [authorName, setScreen, showImportNotice],
+  );
   const handleConversationImported = useCallback(
     (result: ImportedConversation) => {
       setCurrentLoomId(result.loomId);
@@ -546,9 +549,10 @@ export const GamepadInterface = () => {
     (key: string) => {
       const tree = trees[key];
       if (!tree) return;
-      downloadStoryTreeJson(key, tree);
+      const filename = downloadStoryTreeJson(key, tree);
+      showImportNotice(`Downloaded ${filename} — story tree JSON.`);
     },
-    [trees]
+    [showImportNotice, trees]
   );
 
   const handleExportThread = useCallback(
@@ -557,19 +561,27 @@ export const GamepadInterface = () => {
       if (!tree) return;
       const path =
         key === currentLoomId ? getCurrentPath() : getStoryPrimaryPath(tree);
-      downloadStoryThreadText(key, path);
+      const filename = downloadStoryThreadText(key, path);
+      showImportNotice(`Downloaded ${filename} — first-parent thread text.`);
     },
-    [currentLoomId, getCurrentPath, trees]
+    [currentLoomId, getCurrentPath, showImportNotice, trees]
   );
 
   const handleExportKept = useCallback(
     (key: string) => {
       const tree = trees[key];
       if (!tree) return;
-      if (hasRawLyncSources(tree.root)) downloadRawLyncCuration(key, tree);
-      else downloadKeptStoryJson(key, tree);
+      if (hasRawLyncSources(tree.root)) {
+        const filename = downloadRawLyncCuration(key, tree);
+        showImportNotice(
+          `Downloaded ${filename} — Lync curation patch. Merge it with the source .lync, then verify the combined graph.`,
+        );
+      } else {
+        const filename = downloadKeptStoryJson(key, tree);
+        showImportNotice(`Downloaded ${filename} — curated kept-turn JSON.`);
+      }
     },
-    [trees]
+    [showImportNotice, trees]
   );
 
   // KEEP (the swipe): toggle the kept state of the current turn. Feedback rides
@@ -639,9 +651,16 @@ export const GamepadInterface = () => {
 
   const handleShareStory = useCallback(
     async (key: string) => {
-      await copyText(createStoryShareUrl(key));
+      try {
+        await copyText(createStoryShareUrl(key));
+        showImportNotice("Copied story link ✓");
+      } catch (error) {
+        showImportNotice(
+          `Could not copy story link: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     },
-    [copyText]
+    [copyText, showImportNotice]
   );
 
   const handleShareThread = useCallback(
@@ -651,17 +670,31 @@ export const GamepadInterface = () => {
       const path =
         key === currentLoomId ? getCurrentPath() : getStoryPrimaryPath(tree);
       const turnId = path.at(-1)?.id ?? null;
-      await copyText(
-        turnId ? createStoryThreadShareUrl(key, turnId) : createStoryShareUrl(key)
-      );
+      try {
+        await copyText(
+          turnId ? createStoryThreadShareUrl(key, turnId) : createStoryShareUrl(key)
+        );
+        showImportNotice("Copied thread link ✓");
+      } catch (error) {
+        showImportNotice(
+          `Could not copy thread link: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     },
-    [copyText, currentLoomId, getCurrentPath, trees]
+    [copyText, currentLoomId, getCurrentPath, showImportNotice, trees]
   );
 
   const handleShareIndex = useCallback(async () => {
-    const index = await getStoryIndex();
-    await copyText(createStoryIndexShareUrl(index.id));
-  }, [copyText]);
+    try {
+      const index = await getStoryIndex();
+      await copyText(createStoryIndexShareUrl(index.id));
+      showImportNotice("Copied story-index link ✓");
+    } catch (error) {
+      showImportNotice(
+        `Could not copy story-index link: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }, [copyText, showImportNotice]);
 
   const handleStoryHighlight = useCallback(
     (index: number, column: number) => {
@@ -1073,7 +1106,7 @@ export const GamepadInterface = () => {
       // EDIT overlay — EditMenu owns keyboard via its own window listener.
       // Button taps reach it through a dedicated custom event so the global
       // keyboard hook does not recursively re-handle synthetic keydowns.
-      if (screen === "edit" || screen === "note") {
+      if (screen === "edit" || screen === "note" || screen === "author") {
         if (key === "Escape" || key === "`") {
           window.dispatchEvent(new CustomEvent(EDIT_CONTROL_EVENT, { detail: key }));
         }
@@ -1653,6 +1686,7 @@ export const GamepadInterface = () => {
                       setSelectedTreeColumn(0);
                     }}
                     onImportConversation={openConversationFilePicker}
+                    onImportFileChosen={handleConversationFileChosen}
                     onDelete={(key) => {
                       void handleDeleteTree(key);
                       if (selectedTreeIndex > 0) {
@@ -1770,6 +1804,16 @@ export const GamepadInterface = () => {
                 onCancel={() => setScreen(null)}
               />
             </MenuScreen>
+          ) : screen === "author" ? (
+            <MenuScreen>
+              <EditMenu
+                node={getCurrentPath()[currentDepth]}
+                initialText={authorName}
+                placeholder="Your name on shared stories…"
+                onSave={saveAuthorName}
+                onCancel={() => setScreen("drawer")}
+              />
+            </MenuScreen>
           ) : null}
 
           {/* Keep LOOM mounted; hide under the full-screen overlays (edit /
@@ -1853,7 +1897,12 @@ export const GamepadInterface = () => {
                   </span>
                 );
               }
-              if (screen === "edit" || screen === "menu" || screen === "note") {
+              if (
+                screen === "edit" ||
+                screen === "menu" ||
+                screen === "note" ||
+                screen === "author"
+              ) {
                 return isOffline ? (
                   <span className="text-theme-focused text-sm">⚡ Offline</span>
                 ) : null;

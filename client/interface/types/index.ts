@@ -1,4 +1,5 @@
 import type { AvailableModels, ModelId } from "../../../shared/models";
+import type { ChangeEvent } from "react";
 import type { LengthMode } from "../../../shared/lengthPresets";
 import type {
   ThemeClass,
@@ -123,6 +124,7 @@ export interface TreeListProps {
   onDelete?: (key: string) => void;
   onNew?: () => void;
   onImportConversation?: () => void;
+  onImportFileChosen?: (event: ChangeEvent<HTMLInputElement>) => void;
   onShareStory?: (key: string) => void;
   onShareThread?: (key: string) => void;
   onShareIndex?: () => void;
@@ -182,7 +184,7 @@ export interface ActiveControls {
  *   - "drawer" : configuration drawer with tabs (settings / models / stories)
  *   - "edit"   : full-screen text edit overlay on the current node
  */
-export type Screen = "drawer" | "edit" | "menu" | "note" | null;
+export type Screen = "drawer" | "edit" | "menu" | "note" | "author" | null;
 
 /** Which projection of the tree is visible when no overlay is open. */
 export type Projection = "loom" | "map" | "bin";

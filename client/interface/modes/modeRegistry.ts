@@ -7,6 +7,7 @@ export type ModeId =
   | "edit"
   | "menu"
   | "note"
+  | "author"
   | "drawer-tabs"
   | "drawer-settings"
   | "drawer-stories"
@@ -40,6 +41,12 @@ export const registeredModes: RegisteredMode[] = [
     title: "NOTE",
     hint: "START: SAVE • SELECT: CANCEL",
     matches: ({ screen }) => screen === "note",
+  },
+  {
+    id: "author",
+    title: "AUTHOR",
+    hint: "START: SAVE • SELECT: CANCEL",
+    matches: ({ screen }) => screen === "author",
   },
   {
     // One entry for every action-overlay. At runtime the action SHEET carries

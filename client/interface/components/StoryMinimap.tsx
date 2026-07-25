@@ -734,8 +734,6 @@ export const StoryMinimap = ({
             ? highlightedNode.text.split("\n")[0]
             : isSingleNode
             ? "A to branch from here"
-            : descendSettled && selectedSibling
-            ? selectedSibling.text.split("\n")[0]
             : highlightedNode.text.split("\n")[0]
         }
       />

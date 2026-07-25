@@ -24,7 +24,8 @@ export type Screen =
   // (turn / story / floor / delete-confirm). Its contents come from a Menu
   // descriptor held in Interface — see openMenu().
   | "menu"
-  | "note";
+  | "note"
+  | "author";
 
 export interface MenuParams {
   temperature: number;

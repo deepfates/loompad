@@ -109,6 +109,18 @@ async function openStoriesDrawer(page: Page) {
   await page.getByRole("tab", { name: "Stories" }).click();
 }
 
+async function focusFirstStoryLinkByKeyboard(page: Page) {
+  await page.keyboard.press("`");
+  await page.keyboard.press("ArrowUp");
+  await expect(page.locator(".mode-bar-title")).toHaveText("TABS");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
+}
+
 // Capture export downloads at the source: the app builds each export as a Blob
 // and hands it to URL.createObjectURL, so stash those Blobs to read their exact
 // bytes later. Mirrors captureClipboard; survives reloads (init scripts re-run).
@@ -792,6 +804,20 @@ async function setAuthorName(page: Page, name: string) {
   }, name);
 }
 
+async function setAuthorNameThroughUi(page: Page, name: string) {
+  await page.getByRole("button", { name: "SELECT" }).click();
+  await page.getByRole("button", { name: /^Author Name:/ }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("AUTHOR");
+  const editor = page.locator(".edit-textarea");
+  await editor.fill(name);
+  await editor.press("Escape");
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    `Saved. Reload to sign new turns as "${name}".`,
+  );
+  await page.reload();
+  await waitForStoryIndex(page);
+}
+
 interface AuthoredNode {
   nodeId: string | null;
   origin: string | null;
@@ -827,8 +853,13 @@ async function frontierNode(page: Page): Promise<AuthoredNode | undefined> {
 }
 
 async function toRootDepth(page: Page) {
-  // ArrowUp walks the cursor toward the root; it clamps at depth 0.
-  for (let i = 0; i < 4; i += 1) await page.keyboard.press("ArrowUp");
+  // Already-read ancestor spans exist only below depth 0. Stop as soon as
+  // there are none; another ArrowUp would intentionally rise to the LOOMS
+  // floor rather than clamp at the root.
+  const ancestors = page.locator(".story-text .story-node.opacity-80");
+  while ((await ancestors.count()) > 0) {
+    await page.keyboard.press("ArrowUp");
+  }
 }
 
 // Enumerate every child of the root with its authorship. At depth 0 the
@@ -1010,6 +1041,135 @@ test("keyboard-reachable Import conversation opens a synthetic conversation loom
   await expect(page.locator("body")).toContainText("Reached by keyboard alone?");
 });
 
+test("pointer Import Lync opens one chooser from a standalone control", async ({
+  page,
+}) => {
+  await mockGeneration(page, "Pointer import");
+  await page.goto("/");
+  await waitForStoryIndex(page);
+
+  const file = await writeSyntheticConversationFile({
+    title: "Synthetic Pointer Chat",
+    seed: "Reached by pointer alone?",
+    reply: "Yes — the visible Import Lync control owns the chooser.",
+  });
+
+  await openStoriesDrawer(page);
+  const importButton = page.getByRole("button", {
+    name: "Import Lync",
+    exact: true,
+  });
+  await expect(importButton).toHaveCount(1);
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    importButton.click(),
+  ]);
+  await chooser.setFiles(file);
+
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    'Imported "Synthetic Pointer Chat"',
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.locator("body")).toContainText("Reached by pointer alone?");
+});
+
+test("author name is edited in-app without a native dialog", async ({ page }) => {
+  await mockGeneration(page, "Author editor");
+  let nativeDialogs = 0;
+  page.on("dialog", async (dialog) => {
+    nativeDialogs += 1;
+    await dialog.dismiss();
+  });
+
+  await page.goto("/");
+  await waitForStoryIndex(page);
+  await page.getByRole("button", { name: "SELECT" }).click();
+  await page.getByRole("button", { name: "Author Name: anonymous" }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("AUTHOR");
+
+  const editor = page.locator(".edit-textarea");
+  await editor.fill("Ada");
+  await editor.press("Escape");
+
+  await expect(page.locator(".mode-bar-title")).toHaveText("SETTINGS");
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    'Saved. Reload to sign new turns as "Ada".',
+  );
+  await expect(
+    page.getByRole("button", { name: "Author Name: Ada" }),
+  ).toBeVisible();
+  expect(nativeDialogs).toBe(0);
+});
+
+test("keyboard share failure is narrated in the Stories drawer", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error("clipboard denied");
+        },
+      },
+    });
+  });
+  await mockGeneration(page, "Share failure");
+  await page.goto("/");
+  await waitForStoryIndex(page);
+  await focusFirstStoryLinkByKeyboard(page);
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    "Could not copy story link: clipboard denied",
+  );
+});
+
+test("MAP prose, source badge, and curation target one imported event", async ({
+  page,
+}) => {
+  await mockGeneration(page, "Map focus");
+  await page.goto("/");
+  await waitForStoryIndex(page);
+  await openStoriesDrawer(page);
+
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await chooser.setFiles(twitterCorpusFixture);
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /3 turns.*1 branch point.*2 annotations/,
+  );
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mode-bar-title")).toHaveText("MAP");
+
+  // The imported corpus has a synthetic title root; descend once to focus the
+  // first protocol event before comparing prose, badge, and curation.
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, TWITTER_ROOT);
+  await expect(page.locator(".minimap-minibuffer-text")).toHaveText(
+    "Which archive branch should we keep?",
+  );
+
+  await page.keyboard.press("k");
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    "Kept this turn",
+  );
+  await expect(page.locator(".story-curation-status__kept")).toBeVisible();
+
+  await page.keyboard.press("n");
+  const note = page.locator(".edit-textarea");
+  await note.fill("The prose and source badge identify this root.");
+  await note.press("Escape");
+  await expect(
+    page.getByText("The prose and source badge identify this root.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expectFocusedSource(page, TWITTER_ROOT);
+});
+
 test("a shared conversation ?ref= link opens the conversation in another context", async ({
   browser,
 }) => {
@@ -1108,11 +1268,9 @@ test("keyboard KEEP + ANNOTATE persist across reload and Export KEPT emits the k
   );
   await expect(page.locator(".story-curation-status__kept")).toBeVisible();
 
-  // ANNOTATE it — prompt-driven note, persisted as an annotation event, shown
-  // for the focused turn in the same status line.
-  page.once("dialog", (dialog) => dialog.accept("training-worthy seed"));
-  await page.keyboard.press("n");
-  await expect(page.locator(".navbar-minibuffer")).toContainText("Note saved");
+  // ANNOTATE it in the in-app note overlay, persisted as an annotation event,
+  // shown for the focused turn in the same status line.
+  await noteFocusedTurn(page, "training-worthy seed");
   await expect(page.locator(".story-curation-status__note")).toContainText(
     "training-worthy seed",
   );
@@ -1165,19 +1323,19 @@ test("two authors reconnect, co-curate an imported Twitter corpus, and export po
 }) => {
   const owner = await browser.newContext();
   const adaPage = await owner.newPage();
-  await setAuthorName(adaPage, "Ada");
   await captureClipboard(adaPage);
   await captureDownloads(adaPage);
   await mockGeneration(adaPage, "unused");
   await adaPage.goto("/");
   await waitForStoryIndex(adaPage);
+  await setAuthorNameThroughUi(adaPage, "Ada");
 
   // Ordinary product import: the fixture is generated from Splice's supported
   // Twitter archive shape and includes Curare's real annotation shape.
-  await focusImportConversationByKeyboard(adaPage);
+  await openStoriesDrawer(adaPage);
   const [chooser] = await Promise.all([
     adaPage.waitForEvent("filechooser"),
-    adaPage.keyboard.press("Enter"),
+    adaPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
   ]);
   await chooser.setFiles(twitterCorpusFixture);
   await expect(adaPage.locator(".navbar-minibuffer")).toContainText(
@@ -1203,16 +1361,20 @@ test("two authors reconnect, co-curate an imported Twitter corpus, and export po
     hasText: "twitter-corpus.lync",
   });
   await corpusRow.getByRole("button", { name: "Story link" }).click();
+  await expect(adaPage.locator(".navbar-minibuffer")).toContainText(
+    "Copied story link",
+  );
+  await expect.poll(() => readCapturedClipboard(adaPage)).not.toBe("");
   const sharedUrl = await readCapturedClipboard(adaPage);
   expect(referenceFromUrl(sharedUrl)?.loomId).toBeTruthy();
   await adaPage.keyboard.press("Escape");
 
   const guest = await browser.newContext();
   let gracePage = await guest.newPage();
-  await setAuthorName(gracePage, "Grace");
   await mockGeneration(gracePage, "unused");
   await gracePage.goto(sharedUrl);
   await waitForStoryIndex(gracePage);
+  await setAuthorNameThroughUi(gracePage, "Grace");
   await expect(gracePage.locator("body")).toContainText(
     "Which archive branch should we keep?",
   );
@@ -1231,7 +1393,6 @@ test("two authors reconnect, co-curate an imported Twitter corpus, and export po
   // A fresh page in Grace's browser context reconnects to the same loom and
   // receives Ada's durable mark + note before adding Grace's own curation.
   gracePage = await guest.newPage();
-  await setAuthorName(gracePage, "Grace");
   await mockGeneration(gracePage, "unused");
   await gracePage.goto(sharedUrl);
   await waitForStoryIndex(gracePage);
@@ -1266,6 +1427,9 @@ test("two authors reconnect, co-curate an imported Twitter corpus, and export po
   await adaPage.locator(".story-menu-item").filter({
     hasText: "twitter-corpus.lync",
   }).getByRole("button", { name: "Export KEPT" }).click();
+  await expect(adaPage.locator(".navbar-minibuffer")).toContainText(
+    /Lync curation patch.*Merge it with the source \.lync.*verify the combined graph/,
+  );
   const exportText = await adaPage.evaluate(async () => {
     const blob = window.__textileDownloads.at(-1);
     return blob ? await blob.text() : null;
