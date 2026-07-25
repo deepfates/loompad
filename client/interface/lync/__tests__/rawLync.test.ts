@@ -132,6 +132,21 @@ describe("raw .lync projection", () => {
     expect(turn?.meta.sourceId).toBe(id);
   });
 
+  it("keeps a multi-megabyte readable source exact in the imported story model", () => {
+    const id = "0197e6a0-4a09-7000-8000-000000000056";
+    const text = `BEGIN LARGE SOURCE\n${"exact-source-byte ".repeat(70_000)}END LARGE SOURCE`;
+    const input = {
+      ...event(id, [], "unused"),
+      kind: "ocr/document",
+      payload: { file: "combined.md", text, bytes: Buffer.byteLength(text) },
+    };
+
+    const projection = projectRawLyncFile(`${JSON.stringify(input)}\n`, "large.lync");
+    const turn = projection.snapshot.turns.find((candidate) => candidate.meta.sourceId === id);
+    expect(turn?.payload.text.length).toBe(text.length);
+    expect(turn?.payload.text).toBe(text);
+  });
+
   it("collapses unreadable tool steps to the nearest readable first-parent ancestor", () => {
     const a = "0197e6a0-4a09-7000-8000-000000000061";
     const tool = "0197e6a0-4a09-7000-8000-000000000062";

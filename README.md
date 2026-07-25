@@ -15,6 +15,11 @@ Unsafe unions (damaged or garbage lines, ID conflicts, missing parents, or graph
 cycles) fail closed with concrete reasons. Accepted nonconforming events remain
 readable and carry their warnings on the focused turn.
 
+Readable events above one MiB of text use an explicit bounded reader with
+FIRST/PREV/NEXT/LAST 65,536-character windows. This is presentation
+virtualization, not truncation: the exact complete source string remains in the
+story model, full-tree JSON, and source-targeted curation/export paths.
+
 To run the provider-free rehearsal against sibling Lync, Splice, and Curare
 source checkouts (nothing is published):
 

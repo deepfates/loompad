@@ -57,6 +57,77 @@ async function writeSyntheticConversationFile(opts: {
   return file;
 }
 
+/**
+ * Build the exact shape Splice's OCR importer emits when a page set also has
+ * one combined document. The large prose is generated at test time so Git
+ * does not carry a multi-megabyte fixture; every byte is synthetic.
+ */
+function writeSyntheticLargeOcrLyncFile(textBytes = 8 * 1024 * 1024): {
+  file: string;
+  text: string;
+  pageId: string;
+  documentId: string;
+} {
+  const setId = "0197e6a0-4a09-7000-8000-000000000071";
+  const pageId = "0197e6a0-4a09-7000-8000-000000000072";
+  const documentId = "0197e6a0-4a09-7000-8000-000000000073";
+  const prefix = "BEGIN SYNTHETIC LARGE OCR DOCUMENT\n";
+  const suffix = "\nEND SYNTHETIC LARGE OCR DOCUMENT";
+  const unit = "Exact synthetic OCR content remains available. ";
+  const fillerLength = textBytes - prefix.length - suffix.length;
+  const filler = unit
+    .repeat(Math.ceil(fillerLength / unit.length))
+    .slice(0, fillerLength);
+  const text = `${prefix}${filler}${suffix}`;
+  const author = {
+    actor: "ocr",
+    operator: "fixture",
+    imported_by: "splice/ocr-text-import@0.1",
+    source: "fixture://synthetic-large-ocr",
+  };
+  const events = [
+    {
+      v: 1,
+      id: setId,
+      kind: "ocr/set",
+      at: "1970-01-01T00:00:00.000Z",
+      author,
+      parents: [],
+      payload: {
+        locator: "synthetic-large-ocr",
+        pages: 1,
+        documents: ["synthetic-combined.md"],
+      },
+    },
+    {
+      v: 1,
+      id: pageId,
+      kind: "ocr/page",
+      at: "1970-01-01T00:00:00.000Z",
+      author,
+      parents: [setId],
+      payload: { page: 1, text: "A small sibling OCR page remains navigable." },
+    },
+    {
+      v: 1,
+      id: documentId,
+      kind: "ocr/document",
+      at: "1970-01-01T00:00:00.000Z",
+      author,
+      parents: [setId],
+      payload: {
+        file: "synthetic-combined.md",
+        text,
+        bytes: Buffer.byteLength(text, "utf8"),
+      },
+    },
+  ];
+  const dir = mkdtempSync(join(tmpdir(), "textile-large-ocr-"));
+  const file = join(dir, "large-ocr.lync");
+  writeFileSync(file, `${events.map(JSON.stringify).join("\n")}\n`, "utf8");
+  return { file, text, pageId, documentId };
+}
+
 // Drive the keyboard from the loom view to the Stories-drawer "Import
 // conversation" action (row 1, column 1) without touching the mouse.
 async function focusImportConversationByKeyboard(page: Page) {
@@ -132,6 +203,64 @@ async function captureDownloads(page: Page) {
       if (obj instanceof Blob) window.__textileDownloads.push(obj);
       return original(obj);
     };
+  });
+}
+
+async function captureLargeTextTiming(page: Page) {
+  await page.addInitScript(() => {
+    window.__textileLargeTextProbe = {
+      lastStoryMutationAt: 0,
+      rectCalls: 0,
+      rectTotalMs: 0,
+      rectMaxMs: 0,
+      longTasks: [],
+    };
+    const originalRect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function () {
+      const started = performance.now();
+      const rect = originalRect.call(this);
+      const elapsed = performance.now() - started;
+      if (
+        this instanceof HTMLElement &&
+        (this.hasAttribute("data-node-id") || this.classList.contains("story-text"))
+      ) {
+        const probe = window.__textileLargeTextProbe;
+        probe.rectCalls += 1;
+        probe.rectTotalMs += elapsed;
+        probe.rectMaxMs = Math.max(probe.rectMaxMs, elapsed);
+      }
+      return rect;
+    };
+    new MutationObserver((records) => {
+      if (
+        records.some((record) => {
+          const target = record.target;
+          return (
+            target instanceof Element &&
+            (target.matches(".story-text, .story-text *") ||
+              [...record.addedNodes].some(
+                (node) =>
+                  node instanceof Element &&
+                  node.matches(".story-text, .story-text *"),
+              ))
+          );
+        })
+      ) {
+        window.__textileLargeTextProbe.lastStoryMutationAt = performance.now();
+      }
+    }).observe(document, { childList: true, characterData: true, subtree: true });
+    try {
+      new PerformanceObserver((list) => {
+        window.__textileLargeTextProbe.longTasks.push(
+          ...list.getEntries().map((entry) => ({
+            startTime: entry.startTime,
+            duration: entry.duration,
+          })),
+        );
+      }).observe({ type: "longtask", buffered: true });
+    } catch {
+      // Long-task timing is supplementary; interaction assertions remain.
+    }
   });
 }
 
@@ -226,6 +355,14 @@ declare global {
   interface Window {
     __textileClipboardText: string;
     __textileDownloads: Blob[];
+    __textileLargeTextProbe: {
+      navigationStartedAt?: number;
+      lastStoryMutationAt: number;
+      rectCalls: number;
+      rectTotalMs: number;
+      rectMaxMs: number;
+      longTasks: Array<{ startTime: number; duration: number }>;
+    };
   }
 }
 
@@ -1071,6 +1208,202 @@ test("pointer Import Lync opens one chooser from a standalone control", async ({
   );
   await page.keyboard.press("Escape");
   await expect(page.locator("body")).toContainText("Reached by pointer alone?");
+});
+
+test("an 8 MiB OCR event keeps controls responsive and its exact source accessible", async ({
+  page,
+}) => {
+  await mockGeneration(page, "Large OCR");
+  await captureClipboard(page);
+  await captureDownloads(page);
+  await captureLargeTextTiming(page);
+  await page.goto("/");
+  await waitForStoryIndex(page);
+  const fixture = writeSyntheticLargeOcrLyncFile();
+
+  await openStoriesDrawer(page);
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  const importStartedAt = Date.now();
+  await chooser.setFiles(fixture.file);
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    'Imported "large-ocr.lync" — 2 turns',
+  );
+  const importedIn = Date.now() - importStartedAt;
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mode-bar-title")).toHaveText("LOOM");
+  await expect(page.locator(".story-node").last()).toHaveText(
+    "A small sibling OCR page remains navigable.",
+  );
+
+  await page.evaluate(() => {
+    window.__textileLargeTextProbe.navigationStartedAt = performance.now();
+  });
+  const openedAt = Date.now();
+  await page.keyboard.press("ArrowRight");
+  await page.getByRole("button", { name: "SELECT" }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("SETTINGS");
+  const openedIn = Date.now() - openedAt;
+  const probe = await page.evaluate(() => window.__textileLargeTextProbe);
+  console.log(
+    "large OCR timing",
+    JSON.stringify({
+      textBytes: fixture.text.length,
+      importedIn,
+      controlsIn: openedIn,
+      commitAfterNavigation:
+        probe.lastStoryMutationAt - (probe.navigationStartedAt ?? 0),
+      rectCalls: probe.rectCalls,
+      rectTotalMs: Math.round(probe.rectTotalMs),
+      rectMaxMs: Math.round(probe.rectMaxMs),
+      longTasks: probe.longTasks
+        .filter((task) => task.startTime >= (probe.navigationStartedAt ?? 0))
+        .map((task) => Math.round(task.duration)),
+    }),
+  );
+  expect(importedIn, "8 MiB import should report success within 2s").toBeLessThan(
+    2_000,
+  );
+  expect(
+    openedIn,
+    `8 MiB OCR prose should yield the mode controls within 500ms (observed ${openedIn}ms)`,
+  ).toBeLessThan(500);
+
+  // This is not truncation: the bounded native reader exposes the exact
+  // complete source value, including both sentinels and every character
+  // between them, without expanding those characters into wrapped DOM text.
+  await page.getByRole("button", { name: "START" }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("LOOM");
+  const sourceReader = page.locator(".story-large-text-area");
+  await expect(sourceReader).toHaveCount(1);
+  const firstWindow = await sourceReader.evaluate((node) => ({
+    length: (node as HTMLTextAreaElement).value.length,
+    start: (node as HTMLTextAreaElement).value.slice(0, 34),
+  }));
+  expect(firstWindow.length).toBeLessThan(fixture.text.length);
+  expect(firstWindow.start).toBe(fixture.text.slice(0, 34));
+  await page.getByRole("button", { name: "Last text page" }).click();
+  const lastWindow = await sourceReader.evaluate((node) => ({
+    end: (node as HTMLTextAreaElement).value.slice(-32),
+  }));
+  expect(lastWindow.end).toBe(fixture.text.slice(-32));
+  await page.getByRole("button", { name: "First text page" }).click();
+  await expect(sourceReader).toHaveAttribute(
+    "aria-label",
+    /^Source text characters 1 through /,
+  );
+
+  // Curation still targets the large visible source event while the bounded
+  // reader has focus; its native paging controls do not steal K/N.
+  await page.getByRole("button", { name: "Move down" }).click();
+  await expectFocusedSource(page, fixture.documentId);
+  await page.keyboard.press("k");
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    "Kept this turn",
+  );
+  await noteFocusedTurn(page, "Retain the complete OCR document.");
+
+  // MAP remains responsive and can switch away from the large document to its
+  // small sibling without loading a known source id directly.
+  await page.getByRole("button", {
+    name: "Start button: switch stories",
+    exact: true,
+  }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("MAP");
+  await page.getByRole("button", { name: "Move up" }).click();
+  await page.getByRole("button", { name: "Move left" }).click();
+  await page.getByRole("button", { name: "Move down" }).click();
+  await expectFocusedSource(page, fixture.pageId);
+  await expect(page.locator(".minimap-minibuffer-text")).toHaveText(
+    "A small sibling OCR page remains navigable.",
+  );
+
+  // Stories, sharing, full-tree export, and the curation-patch export all stay
+  // reachable. The tree JSON proves the complete multi-megabyte value stayed
+  // in Textile's data model even though the reader windows its presentation.
+  await page.getByRole("button", {
+    name: "Select button: open settings",
+    exact: true,
+  }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("STORIES");
+  const corpusRow = page.locator(".story-menu-item").filter({
+    hasText: "large-ocr.lync",
+  });
+  await corpusRow.getByRole("button", { name: "Story link" }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    "Copied story link",
+  );
+  await expect.poll(() => readCapturedClipboard(page)).not.toBe("");
+
+  await corpusRow.getByRole("button", { name: "Export JSON" }).click();
+  await expect.poll(() =>
+    page.evaluate(() => window.__textileDownloads.length),
+  ).toBe(1);
+  const treeExport = await page.evaluate(async () => {
+    const text = await window.__textileDownloads[0]!.text();
+    return {
+      length: text.length,
+      hasStart: text.includes("BEGIN SYNTHETIC LARGE OCR DOCUMENT"),
+      hasEnd: text.includes("END SYNTHETIC LARGE OCR DOCUMENT"),
+    };
+  });
+  expect(treeExport.length).toBeGreaterThan(fixture.text.length);
+  expect(treeExport.hasStart).toBe(true);
+  expect(treeExport.hasEnd).toBe(true);
+
+  await corpusRow.getByRole("button", { name: "Export KEPT" }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /Lync curation patch.*Merge it with the source \.lync/,
+  );
+  await expect.poll(() =>
+    page.evaluate(() => window.__textileDownloads.length),
+  ).toBe(2);
+  const patchFacts = await page.evaluate(async () => {
+    const text = await window.__textileDownloads[1]!.text();
+    const events = text
+      .trim()
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .map((line) => JSON.parse(line)) as Array<{
+        parents: string[];
+        payload: {
+          label: string;
+          text?: string;
+          chosen?: string[];
+          shown?: string[];
+        };
+      }>;
+    return {
+      count: events.length,
+      details: events.map((event) => ({
+        label: event.payload.label,
+        parents: event.parents,
+        text: event.payload.text,
+        chosen: event.payload.chosen,
+        shown: event.payload.shown,
+      })),
+      labels: events.map((event) => event.payload.label).sort(),
+      notes: events.flatMap((event) => event.payload.text ?? []),
+    };
+  });
+  expect(patchFacts.count).toBe(2);
+  expect(patchFacts.labels).toEqual(["note", "selection"]);
+  expect(patchFacts.notes).toEqual(["Retain the complete OCR document."]);
+  const selection = patchFacts.details.find(
+    (event) => event.label === "selection",
+  );
+  expect(selection?.chosen).toEqual([fixture.documentId]);
+  expect(new Set(selection?.shown)).toEqual(
+    new Set([fixture.pageId, fixture.documentId]),
+  );
+  expect(new Set(selection?.parents)).toEqual(
+    new Set([fixture.pageId, fixture.documentId]),
+  );
+  const note = patchFacts.details.find((event) => event.label === "note");
+  expect(note?.parents).toEqual([fixture.documentId]);
 });
 
 test("author name is edited in-app without a native dialog", async ({ page }) => {

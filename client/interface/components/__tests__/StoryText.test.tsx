@@ -108,4 +108,19 @@ describe("StoryText prose surface", () => {
     const detail = render([unknown], 0, "detail");
     expect(detail).toContain("story-tint--unknown");
   });
+
+  it("presents a multi-megabyte turn as an explicit bounded reader window", () => {
+    const large: StoryNode = {
+      ...unknown,
+      id: "large",
+      text: `BEGIN LARGE SOURCE\n${"x".repeat(1024 * 1024)}END LARGE SOURCE`,
+    };
+    const html = render([large], 0);
+    expect(html).toContain("complete source text · characters 1–65,536 of");
+    expect(html).toContain('aria-label="Last text page"');
+    expect(html).toContain('class="story-large-text-area"');
+    expect(html).toContain("BEGIN LARGE SOURCE");
+    expect(html).not.toContain("END LARGE SOURCE");
+    expect(html.length).toBeLessThan(80_000);
+  });
 });

@@ -4,6 +4,7 @@ import {
   getPrefersReducedMotion,
   isAtBottom,
 } from "../utils/scrolling";
+import { VIRTUAL_TEXT_THRESHOLD } from "../utils/largeText";
 
 type AlignMode = "nearest" | "top" | "center";
 type ScrollReason =
@@ -133,6 +134,25 @@ export function useScrollSync({
       if (!el) {
         // Nothing to do if the element isn't in DOM yet
         // Callers can retry on next frame if needed.
+        return;
+      }
+
+      // Very large turns render through StoryText's fixed-height native reader.
+      // Measuring the wrapper with getBoundingClientRect would still make the
+      // browser lay out the multi-megabyte control value synchronously. Its top
+      // offset is all this projection needs: the reader is deliberately taller
+      // than a normal turn, so top alignment is the correct result without a
+      // full wrapped-height query.
+      const sourceTextLength = Number(el.dataset.sourceTextLength ?? 0);
+      if (sourceTextLength > VIRTUAL_TEXT_THRESHOLD) {
+        const targetTop = Math.max(
+          0,
+          el.offsetTop - container.offsetTop - padding,
+        );
+        if (Math.abs(targetTop - container.scrollTop) > 1) {
+          setProgrammaticWindow();
+          container.scrollTop = targetTop;
+        }
         return;
       }
 
