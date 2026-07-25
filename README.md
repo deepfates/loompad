@@ -222,6 +222,9 @@ Project-owned implementation work is tracked in `.tickets/`; run `tk list`
 from this repository to inspect it. Cross-project corpus coordination remains
 in the workshop root ledger.
 
+The exact payload-to-prose contracts for Splice's raw event importers are in
+[the Splice raw-Lync presentation matrix](./docs/splice-raw-lync-presentations.md).
+
 ## License
 
 MIT

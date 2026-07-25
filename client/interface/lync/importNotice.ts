@@ -7,7 +7,16 @@ function count(value: number, singular: string, plural = `${singular}s`): string
 /** A compact import receipt that also teaches the raw-corpus interaction. */
 export function formatImportedConversationNotice(result: ImportedConversation): string {
   const summary = [
-    count(result.turnCount, "turn"),
+    ...(result.kind === "raw-lync"
+      ? [
+          count(result.sourceEventCount ?? result.turnCount, "source event"),
+          count(result.readableEventCount ?? result.turnCount, "readable event"),
+          count(result.structuralEventCount ?? 0, "structural event"),
+          result.unsupportedEventCount
+            ? `${count(result.unsupportedEventCount, "unsupported")} (${result.unsupportedKinds?.join(", ") || "unknown kind"})`
+            : "all presented",
+        ]
+      : [count(result.turnCount, "turn")]),
     ...(result.kind === "raw-lync"
       ? [
           count(result.branchPointCount ?? 0, "branch point"),

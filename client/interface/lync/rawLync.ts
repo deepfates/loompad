@@ -5,10 +5,18 @@ import {
 } from "@deepfates/lync/events";
 import type { ConversationLoomSnapshot, ConversationTurnMeta } from "./storyRuntime";
 import type { RawLyncTag } from "../types";
+import {
+  presentRawLyncEvent,
+  type RawLyncPresentation,
+} from "./rawLyncPresentation";
 
 export interface RawLyncProjection {
   snapshot: ConversationLoomSnapshot;
   sourceEventCount: number;
+  readableEventCount: number;
+  structuralEventCount: number;
+  unsupportedEventCount: number;
+  unsupportedKinds: string[];
   annotationCount: number;
   branchPointCount: number;
   selectedSourceCount: number;
@@ -37,19 +45,28 @@ export function projectRawLyncFile(
     .filter((event): event is LyncEventBody => Boolean(event && eligible.has(event.id)));
 
   const annotations = events.filter((event) => event.kind === "lync/annotation");
-  const content = events.filter(
-    (event) => event.kind !== "lync/annotation" && readableText(event.payload) !== null,
-  );
-  if (content.length === 0) {
-    throw new Error("No readable events in this .lync file (expected payload.text or payload.message).");
+  const sources = events.filter((event) => event.kind !== "lync/annotation");
+  const presentations = new Map<string, RawLyncPresentation>();
+  for (const event of sources) {
+    const presentation = presentRawLyncEvent(event);
+    if (presentation) presentations.set(event.id, presentation);
+  }
+  const presented = sources.filter((event) => presentations.has(event.id));
+  const unsupported = sources.filter((event) => !presentations.has(event.id));
+  const unsupportedKinds = [...new Set(unsupported.map((event) => event.kind))].sort();
+  if (presented.length === 0) {
+    const detail = unsupportedKinds.length
+      ? ` Unsupported kinds: ${unsupportedKinds.join(", ")}.`
+      : "";
+    throw new Error(`No presentable events in this .lync file.${detail}`);
   }
 
-  const contentIds = new Set(content.map((event) => event.id));
+  const presentedIds = new Set(presented.map((event) => event.id));
   const eventsById = new Map(events.map((event) => [event.id, event]));
   const navigationParents = new Map(
-    content.map((event) => [
+    presented.map((event) => [
       event.id,
-      nearestReadableFirstParent(event, eventsById, contentIds),
+      nearestPresentedFirstParent(event, eventsById, presentedIds),
     ]),
   );
   const warningsById = new Map(
@@ -63,9 +80,9 @@ export function projectRawLyncFile(
   for (const parent of navigationParents.values()) {
     if (parent) childCounts.set(parent, (childCounts.get(parent) ?? 0) + 1);
   }
-  const virtualId = `textile-raw-root:${content[0]!.id}`;
-  const createdAt = Math.min(...content.map(eventTime));
-  const loomId = `textile-raw:${content[0]!.id}`;
+  const virtualId = `textile-raw-root:${presented[0]!.id}`;
+  const createdAt = Math.min(...presented.map(eventTime));
+  const loomId = `textile-raw:${presented[0]!.id}`;
 
   const turns: ConversationLoomSnapshot["turns"] = [
     {
@@ -78,8 +95,9 @@ export function projectRawLyncFile(
     },
   ];
 
-  for (const event of orderByNavigationParent(content, navigationParents)) {
+  for (const event of orderByNavigationParent(presented, navigationParents)) {
     const navigationParent = navigationParents.get(event.id) ?? virtualId;
+    const presentation = presentations.get(event.id)!;
     const meta: ConversationTurnMeta = {
       role: rawRole(event),
       author: event.author.actor,
@@ -91,12 +109,13 @@ export function projectRawLyncFile(
       rawTags: tagsByTarget.get(event.id) ?? [],
       sourceSelected: selectedIds.has(event.id),
       sourceWarnings: warningsById.get(event.id) ?? [],
+      sourcePresentation: presentation.kind,
     };
     turns.push({
       id: event.id,
       loomId,
       parentId: navigationParent,
-      payload: { message: event.payload, text: readableText(event.payload)! },
+      payload: { message: event.payload, text: presentation.text },
       meta,
       createdAt: eventTime(event),
     });
@@ -111,10 +130,18 @@ export function projectRawLyncFile(
       },
       turns,
     },
-    sourceEventCount: content.length,
+    sourceEventCount: sources.length,
+    readableEventCount: presented.filter(
+      (event) => presentations.get(event.id)?.kind === "content",
+    ).length,
+    structuralEventCount: presented.filter(
+      (event) => presentations.get(event.id)?.kind === "structure",
+    ).length,
+    unsupportedEventCount: unsupported.length,
+    unsupportedKinds,
     annotationCount: annotations.length,
     branchPointCount: [...childCounts.values()].filter((count) => count > 1).length,
-    selectedSourceCount: content.filter((event) => selectedIds.has(event.id)).length,
+    selectedSourceCount: presented.filter((event) => selectedIds.has(event.id)).length,
     nonconformingCount: nonconforming.length,
     warnings: nonconforming.map(
       (line) => `${line.file}:${line.line} nonconforming: ${line.reason}`,
@@ -169,30 +196,6 @@ function rawRole(event: LyncEventBody): string {
   return "artifact";
 }
 
-function readableText(payload: Record<string, unknown>): string | null {
-  if (typeof payload.text === "string") return payload.text;
-  if (typeof payload.full_text === "string") return payload.full_text;
-  if (typeof payload.fullText === "string") return payload.fullText;
-  if (typeof payload.message === "string") return payload.message;
-  const message = payload.message;
-  if (message && typeof message === "object") {
-    const content = (message as { content?: unknown }).content;
-    if (typeof content === "string") return content;
-    if (Array.isArray(content)) {
-      const text = content
-        .map((block) =>
-          block && typeof block === "object" && typeof (block as { text?: unknown }).text === "string"
-            ? (block as { text: string }).text
-            : "",
-        )
-        .filter(Boolean)
-        .join("");
-      if (text) return text;
-    }
-  }
-  return null;
-}
-
 function clusterTagsByTarget(events: LyncEventBody[]): Map<string, RawLyncTag[]> {
   const result = new Map<string, RawLyncTag[]>();
   for (const event of events) {
@@ -227,7 +230,7 @@ function selectedSourceIds(events: LyncEventBody[]): Set<string> {
 }
 
 /** Collapse non-readable tool steps without changing which first-parent chain is followed. */
-function nearestReadableFirstParent(
+function nearestPresentedFirstParent(
   event: LyncEventBody,
   eventsById: Map<string, LyncEventBody>,
   readableIds: Set<string>,

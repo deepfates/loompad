@@ -10,6 +10,10 @@ import type {
 } from "../storyRuntime";
 
 const fixtureUrl = new URL("./fixtures/corpus-loop.lync", import.meta.url);
+const spliceKindsFixtureUrl = new URL(
+  "../../../../tests/e2e/fixtures/splice-source-kinds.lync",
+  import.meta.url,
+);
 const B = "0197e6a0-4a09-7000-8000-000000000002";
 const C = "0197e6a0-4a09-7000-8000-000000000003";
 const D = "0197e6a0-4a09-7000-8000-000000000004";
@@ -21,6 +25,9 @@ describe("raw .lync projection", () => {
       "corpus-loop.lync",
     );
     expect(projection.sourceEventCount).toBe(4);
+    expect(projection.readableEventCount).toBe(4);
+    expect(projection.structuralEventCount).toBe(0);
+    expect(projection.unsupportedEventCount).toBe(0);
     expect(projection.annotationCount).toBe(2);
     expect(projection.branchPointCount).toBe(1);
     expect(projection.selectedSourceCount).toBe(1);
@@ -163,9 +170,73 @@ describe("raw .lync projection", () => {
       .join("\n");
     const projection = projectRawLyncFile(`${input}\n`, "tools.lync");
     const turns = new Map(projection.snapshot.turns.map((turn) => [turn.id, turn]));
-    expect(projection.sourceEventCount).toBe(2);
+    expect(projection.sourceEventCount).toBe(3);
+    expect(projection.readableEventCount).toBe(2);
+    expect(projection.unsupportedEventCount).toBe(1);
+    expect(projection.unsupportedKinds).toEqual(["lync/artifact"]);
     expect(turns.get(b)?.parentId).toBe(a);
     expect(turns.get(b)?.meta.sourceParents).toEqual([tool]);
+  });
+
+  it("projects every Splice raw-converter source kind without recursive guessing", () => {
+    const projection = projectRawLyncFile(
+      readFileSync(spliceKindsFixtureUrl, "utf8"),
+      "splice-source-kinds.lync",
+    );
+    expect(projection.sourceEventCount).toBe(11);
+    expect(projection.readableEventCount).toBe(9);
+    expect(projection.structuralEventCount).toBe(2);
+    expect(projection.unsupportedEventCount).toBe(0);
+    expect(projection.unsupportedKinds).toEqual([]);
+
+    const sourceTurns = projection.snapshot.turns.filter((turn) => turn.meta.sourceId);
+    const kinds = sourceTurns.map((turn) => turn.meta.sourceKind);
+    expect(new Set(kinds)).toEqual(
+      new Set([
+        "twitter/tweet",
+        "twitter/like",
+        "bluesky/post",
+        "glowfic/thread",
+        "glowfic/post",
+        "ocr/set",
+        "ocr/page",
+        "ocr/document",
+        "twitter/tweet-embed",
+      ]),
+    );
+    expect(sourceTurns.find((turn) => turn.meta.sourceKind === "bluesky/post")?.payload.text)
+      .toBe("Bluesky prose lives inside the preserved source record.");
+    expect(sourceTurns.find((turn) => turn.meta.sourceKind === "twitter/tweet-embed")?.payload.text)
+      .toContain("Cached tweet prose is extracted from inert oEmbed HTML.");
+    expect(sourceTurns.find((turn) => turn.meta.sourceKind === "glowfic/post")?.payload.text)
+      .toContain("When Carissa Sevar opens her eyes again");
+    expect(sourceTurns.find((turn) => turn.meta.sourceKind === "glowfic/thread")?.meta.sourcePresentation)
+      .toBe("structure");
+    expect(sourceTurns.find((turn) => turn.meta.sourceKind === "ocr/set")?.meta.sourcePresentation)
+      .toBe("structure");
+
+    const tagged = sourceTurns.find((turn) => turn.meta.rawTags?.length);
+    expect(tagged?.meta.sourceKind).toBe("glowfic/post");
+    expect(tagged?.meta.rawTags?.map((tag) => tag.tag)).toEqual(["source-kind-proof"]);
+
+    const embed = sourceTurns.find((turn) => turn.meta.sourceKind === "twitter/tweet-embed");
+    const archiveTweet = sourceTurns.find(
+      (turn) =>
+        turn.meta.sourceKind === "twitter/tweet" &&
+        (turn.payload.message as { id?: string }).id === "1000000000000000001",
+    );
+    expect(embed?.meta.sourceParents).toEqual([archiveTweet?.meta.sourceId]);
+    expect(embed?.parentId).toBe(archiveTweet?.meta.sourceId);
+  });
+
+  it("fails closed with named kinds when every event is unsupported", () => {
+    const input = {
+      ...event("0197e6a0-4a09-7000-8000-000000000071", [], "unused"),
+      kind: "behold/entity-turn",
+      payload: { payload: { observation: "domain-owned shape" } },
+    };
+    expect(() => projectRawLyncFile(`${JSON.stringify(input)}\n`, "unknown.lync"))
+      .toThrow(/No presentable events.*behold\/entity-turn/);
   });
 });
 

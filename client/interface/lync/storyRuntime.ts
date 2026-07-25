@@ -446,6 +446,7 @@ export interface ConversationTurnMeta {
   rawTags?: RawLyncTag[];
   sourceSelected?: boolean;
   sourceWarnings?: string[];
+  sourcePresentation?: "content" | "structure";
 }
 /** A conversation loom's own meta: marks the profile + carries a title. */
 export interface ConversationLoomMeta {
@@ -530,6 +531,11 @@ export interface ImportedConversation {
   title: string;
   turnCount: number;
   kind?: "conversation" | "raw-lync";
+  sourceEventCount?: number;
+  readableEventCount?: number;
+  structuralEventCount?: number;
+  unsupportedEventCount?: number;
+  unsupportedKinds?: string[];
   annotationCount?: number;
   branchPointCount?: number;
   selectedSourceCount?: number;
@@ -598,7 +604,12 @@ export async function importRawLyncText(
   return {
     ...imported,
     kind: "raw-lync",
-    turnCount: projection.sourceEventCount,
+    turnCount: projection.readableEventCount + projection.structuralEventCount,
+    sourceEventCount: projection.sourceEventCount,
+    readableEventCount: projection.readableEventCount,
+    structuralEventCount: projection.structuralEventCount,
+    unsupportedEventCount: projection.unsupportedEventCount,
+    unsupportedKinds: projection.unsupportedKinds,
     annotationCount: projection.annotationCount,
     branchPointCount: projection.branchPointCount,
     selectedSourceCount: projection.selectedSourceCount,

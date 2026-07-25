@@ -9,6 +9,7 @@ export function RawLyncIndicator({ node }: { node: StoryNode | undefined }) {
   const detail = [
     `source ${node.sourceId}`,
     node.sourceKind,
+    node.sourcePresentation === "structure" ? "structural event" : null,
     node.sourceParents?.length ? `parents: ${node.sourceParents.join(", ")}` : "root event",
     tags.length ? `tags: ${tags.map((tag) => tag.tag).join(", ")}` : null,
     warnings.length ? `nonconforming: ${warnings.join(", ")}` : null,
@@ -22,6 +23,7 @@ export function RawLyncIndicator({ node }: { node: StoryNode | undefined }) {
         {extraParents.length
           ? ` · +${extraParents.length} parent${extraParents.length === 1 ? "" : "s"}`
           : ""}
+        {node.sourcePresentation === "structure" ? " · structure" : ""}
         {tags.length ? ` · ${tags.map((tag) => tag.tag).join(", ")}` : ""}
         {warnings.length ? ` · ⚠ ${warnings.length}` : ""}
       </span>

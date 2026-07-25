@@ -65,6 +65,7 @@ async function writeSyntheticConversationFile(opts: {
 function writeSyntheticLargeOcrLyncFile(textBytes = 8 * 1024 * 1024): {
   file: string;
   text: string;
+  setId: string;
   pageId: string;
   documentId: string;
 } {
@@ -125,7 +126,7 @@ function writeSyntheticLargeOcrLyncFile(textBytes = 8 * 1024 * 1024): {
   const dir = mkdtempSync(join(tmpdir(), "textile-large-ocr-"));
   const file = join(dir, "large-ocr.lync");
   writeFileSync(file, `${events.map(JSON.stringify).join("\n")}\n`, "utf8");
-  return { file, text, pageId, documentId };
+  return { file, text, setId, pageId, documentId };
 }
 
 // Drive the keyboard from the loom view to the Stories-drawer "Import
@@ -319,6 +320,9 @@ async function waitForStoryIndex(page: Page) {
 
 const twitterCorpusFixture = fileURLToPath(
   new URL("./fixtures/twitter-corpus.lync", import.meta.url),
+);
+const spliceSourceKindsFixture = fileURLToPath(
+  new URL("./fixtures/splice-source-kinds.lync", import.meta.url),
 );
 const TWITTER_ROOT = "3f91fb15-efa8-883a-bc73-7288e4712854";
 const TWITTER_PRESERVE = "42a289ef-1fba-8935-8555-4045f55868d4";
@@ -1229,7 +1233,7 @@ test("an 8 MiB OCR event keeps controls responsive and its exact source accessib
   const importStartedAt = Date.now();
   await chooser.setFiles(fixture.file);
   await expect(page.locator(".navbar-minibuffer")).toContainText(
-    'Imported "large-ocr.lync" — 2 turns',
+    /Imported "large-ocr\.lync" — 3 source events.*2 readable events.*1 structural event.*all presented/,
   );
   const importedIn = Date.now() - importStartedAt;
 
@@ -1239,6 +1243,8 @@ test("an 8 MiB OCR event keeps controls responsive and its exact source accessib
     "A small sibling OCR page remains navigable.",
   );
 
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, fixture.setId);
   await page.evaluate(() => {
     window.__textileLargeTextProbe.navigationStartedAt = performance.now();
   });
@@ -1471,7 +1477,7 @@ test("MAP prose, source badge, and curation target one imported event", async ({
   ]);
   await chooser.setFiles(twitterCorpusFixture);
   await expect(page.locator(".navbar-minibuffer")).toContainText(
-    /3 turns.*1 branch point.*2 annotations/,
+    /3 source events.*3 readable events.*all presented.*1 branch point.*2 annotations/,
   );
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
@@ -1501,6 +1507,212 @@ test("MAP prose, source badge, and curation target one imported event", async ({
     }),
   ).toBeVisible();
   await expectFocusedSource(page, TWITTER_ROOT);
+});
+
+test("every Splice raw-converter kind renders, focuses, curates, shares, and exports by source identity", async ({
+  browser,
+}) => {
+  const owner = await browser.newContext();
+  const page = await owner.newPage();
+  await mockGeneration(page, "unused");
+  await captureClipboard(page);
+  await captureDownloads(page);
+  await page.goto("/");
+  await waitForStoryIndex(page);
+
+  await openStoriesDrawer(page);
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await chooser.setFiles(spliceSourceKindsFixture);
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /11 source events.*9 readable events.*2 structural events.*all presented.*1 annotation/,
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mode-bar-title")).toHaveText("LOOM");
+  await page.getByRole("button", { name: "START" }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("MAP");
+
+  type MatrixNode = {
+    sourceId: string;
+    sourceKind: string;
+    sourceParents: string[];
+    sourcePresentation: "content" | "structure";
+    text: string;
+    path: number[];
+    steps: Array<{ index: number; sourceId: string }>;
+  };
+  const matrix = await page.evaluate(async () => {
+    const runtime = await import("/client/interface/lync/storyRuntime.ts");
+    const story = await import("/client/interface/lync/storyLoom.ts");
+    const entry = (await runtime.listStoryEntries()).find(
+      (candidate: { title?: string }) => candidate.title === "splice-source-kinds.lync",
+    );
+    if (!entry) throw new Error("Splice source-kind fixture was not registered");
+    const tree = await story.projectStoryTree(await runtime.openStoryLoom(entry.ref.loomId));
+    const result: MatrixNode[] = [];
+    const walk = (
+      node: typeof tree.root,
+      path: number[],
+      steps: Array<{ index: number; sourceId: string }>,
+    ) => {
+      if (node.sourceId && node.sourceKind) {
+        result.push({
+          sourceId: node.sourceId,
+          sourceKind: node.sourceKind,
+          sourceParents: node.sourceParents ?? [],
+          sourcePresentation: node.sourcePresentation ?? "content",
+          text: node.text,
+          path,
+          steps,
+        });
+      }
+      for (const [index, child] of (node.continuations ?? []).entries()) {
+        walk(child, [...path, index], [
+          ...steps,
+          { index, sourceId: child.sourceId ?? "" },
+        ]);
+      }
+    };
+    walk(tree.root, [], []);
+    return result;
+  });
+  expect(matrix).toHaveLength(11);
+  expect(new Set(matrix.map((node) => node.sourceKind))).toEqual(
+    new Set([
+      "twitter/tweet",
+      "twitter/like",
+      "bluesky/post",
+      "glowfic/thread",
+      "glowfic/post",
+      "ocr/set",
+      "ocr/page",
+      "ocr/document",
+      "twitter/tweet-embed",
+    ]),
+  );
+
+  // One representative of every exact kind is reached only through MAP's
+  // root/sibling/child controls. Each visible prose card, source badge, Keep,
+  // and Note operation therefore targets the same source event.
+  const representatives = [...new Map(matrix.map((node) => [node.sourceKind, node])).values()];
+  let focusedRouteDepth = 0;
+  for (const node of representatives) {
+    // Stop exactly at the virtual corpus root. One more Up would correctly
+    // rise to Textile's forest floor, which is a different projection.
+    for (let i = 0; i < focusedRouteDepth; i++) {
+      await page.getByRole("button", { name: "Move up" }).click();
+    }
+    await expect(page.locator('[aria-label^="source "]')).toHaveCount(0);
+    for (const step of node.steps) {
+      // Sibling selections persist by depth, so normalize to the left edge
+      // before replaying this root-relative route.
+      for (let i = 0; i < matrix.length; i++) {
+        await page.getByRole("button", { name: "Move left" }).click();
+      }
+      for (let i = 0; i < step.index; i++) {
+        await page.getByRole("button", { name: "Move right" }).click();
+      }
+      await page.getByRole("button", { name: "Move down" }).click();
+      await expectFocusedSource(page, step.sourceId);
+    }
+    focusedRouteDepth = node.path.length;
+    const focusedSummary = node.text.split("\n")[0] ?? node.text;
+    await expect(page.locator(".minimap-minibuffer-text")).toContainText(
+      focusedSummary.slice(0, Math.min(48, focusedSummary.length)),
+    );
+    await expect(page.locator('[aria-label^="source "]')).toHaveAttribute(
+      "aria-label",
+      new RegExp(node.sourceKind.replace("/", "\\/")),
+    );
+    if (node.sourcePresentation === "structure") {
+      await expect(page.locator('[aria-label^="source "]')).toHaveAttribute(
+        "aria-label",
+        /structural event/,
+      );
+    }
+    await page.keyboard.press("k");
+    await expect(page.locator(".navbar-minibuffer")).toContainText("Kept this turn");
+    await noteFocusedTurn(page, `Source-kind proof: ${node.sourceKind}`);
+    await expectFocusedSource(page, node.sourceId);
+  }
+
+  await openStoriesDrawer(page);
+  const corpusRow = page.locator(".story-menu-item").filter({
+    hasText: "splice-source-kinds.lync",
+  });
+  await corpusRow.getByRole("button", { name: "Story link" }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText("Copied story link");
+  await expect.poll(() => readCapturedClipboard(page)).not.toBe("");
+  const sharedUrl = await readCapturedClipboard(page);
+
+  await corpusRow.getByRole("button", { name: "Export JSON" }).click();
+  await expect.poll(() => page.evaluate(() => window.__textileDownloads.length)).toBe(1);
+  const treeFacts = await page.evaluate(async () => {
+    const raw = await window.__textileDownloads[0]!.text();
+    const parsed = JSON.parse(raw) as { tree: import("../../client/interface/types").StoryNode };
+    const nodes: import("../../client/interface/types").StoryNode[] = [];
+    const walk = (node: import("../../client/interface/types").StoryNode) => {
+      if (node.sourceId) nodes.push(node);
+      for (const child of node.continuations ?? []) walk(child);
+    };
+    walk(parsed.tree);
+    return nodes.map((node) => ({
+      sourceId: node.sourceId,
+      sourceKind: node.sourceKind,
+      sourceParents: node.sourceParents,
+      actor: node.actor,
+      tags: node.rawTags?.map((tag) => tag.tag) ?? [],
+      text: node.text,
+    }));
+  });
+  expect(treeFacts).toHaveLength(11);
+  expect(new Set(treeFacts.map((node) => node.sourceKind))).toEqual(
+    new Set(matrix.map((node) => node.sourceKind)),
+  );
+  expect(treeFacts.find((node) => node.sourceKind === "glowfic/post")?.tags).toContain(
+    "source-kind-proof",
+  );
+  for (const source of matrix) {
+    expect(treeFacts.find((node) => node.sourceId === source.sourceId)?.sourceParents)
+      .toEqual(source.sourceParents);
+  }
+
+  await corpusRow.getByRole("button", { name: "Export KEPT" }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText(/Lync curation patch/);
+  await expect.poll(() => page.evaluate(() => window.__textileDownloads.length)).toBe(2);
+  const patchFacts = await page.evaluate(async () => {
+    const raw = await window.__textileDownloads[1]!.text();
+    return raw.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)) as Array<{
+      parents: string[];
+      payload: { label: string; chosen?: string[]; text?: string };
+    }>;
+  });
+  expect(patchFacts).toHaveLength(representatives.length * 2);
+  expect(new Set(patchFacts.filter((event) => event.payload.label === "selection")
+    .flatMap((event) => event.payload.chosen ?? []))).toEqual(
+    new Set(representatives.map((node) => node.sourceId)),
+  );
+  expect(new Set(patchFacts.filter((event) => event.payload.label === "note")
+    .flatMap((event) => event.parents))).toEqual(
+    new Set(representatives.map((node) => node.sourceId)),
+  );
+
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await mockGeneration(guestPage, "unused");
+  await guestPage.goto(sharedUrl);
+  await waitForStoryIndex(guestPage);
+  await expect(guestPage.locator("body")).toContainText("OCR set: textile-source-kind-fixture");
+  const sharedOcrSet = representatives.find((node) => node.sourceKind === "ocr/set");
+  if (!sharedOcrSet) throw new Error("OCR set representative missing");
+  await guestPage.keyboard.press("ArrowDown");
+  await expectFocusedSource(guestPage, sharedOcrSet.sourceId);
+  await expect(guestPage.getByText("Source-kind proof: ocr/set", { exact: true })).toBeVisible();
+
+  await owner.close();
+  await guest.close();
 });
 
 test("a shared conversation ?ref= link opens the conversation in another context", async ({
@@ -1672,7 +1884,7 @@ test("two authors reconnect, co-curate an imported Twitter corpus, and export po
   ]);
   await chooser.setFiles(twitterCorpusFixture);
   await expect(adaPage.locator(".navbar-minibuffer")).toContainText(
-    /3 turns.*1 branch point.*2 annotations/,
+    /3 source events.*3 readable events.*all presented.*1 branch point.*2 annotations/,
   );
   await adaPage.keyboard.press("Escape");
 
