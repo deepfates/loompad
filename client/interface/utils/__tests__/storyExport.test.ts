@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import {
   buildKeptStoryExport,
+  buildRawLyncCurationEvents,
+  buildRawLyncNoteEvents,
   buildRawLyncSelectionEvents,
   collectKeptEntries,
   hasRawLyncSources,
@@ -135,5 +137,48 @@ describe("raw Lync selection export", () => {
       },
     };
     expect(buildRawLyncSelectionEvents(tree)).toEqual([]);
+  });
+
+  it("exports human notes against exact source ids with portable authorship", () => {
+    const source = "0197e6a0-4a09-7000-8000-000000000001";
+    const note = "0197e6a0-4a09-7000-8000-00000000000f";
+    const tree: { root: StoryNode } = {
+      root: {
+        id: "virtual",
+        text: "corpus",
+        origin: "unknown",
+        continuations: [
+          {
+            id: "reminted-import-id",
+            sourceId: source,
+            text: "Source text",
+            origin: "unknown",
+            annotations: [
+              {
+                id: note,
+                text: "Retain the provenance example.",
+                actor: "Grace",
+                via: "textile-browser",
+                createdAt: Date.parse("2026-07-06T04:10:16Z"),
+              },
+            ],
+            continuations: [],
+          },
+        ],
+      },
+    };
+
+    expect(buildRawLyncNoteEvents(tree)).toEqual([
+      {
+        v: 1,
+        id: note,
+        kind: "lync/annotation",
+        at: "2026-07-06T04:10:16.000Z",
+        author: { actor: "Grace", via: "textile-browser" },
+        parents: [source],
+        payload: { label: "note", text: "Retain the provenance example." },
+      },
+    ]);
+    expect(buildRawLyncCurationEvents(tree)).toEqual(buildRawLyncNoteEvents(tree));
   });
 });

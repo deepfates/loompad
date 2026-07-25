@@ -12,18 +12,20 @@ import { spawnSync } from "node:child_process";
 import { createTestLoomClient } from "@deepfates/lync/client/testing";
 import { projectRawLyncFile } from "../client/interface/lync/rawLync";
 import {
+  appendAnnotation,
   appendKeepMark,
   projectStoryTree,
   type ReadableLoom,
 } from "../client/interface/lync/storyLoom";
 import type { StoryLoom } from "../client/interface/lync/storyTypes";
-import { buildRawLyncSelectionEvents } from "../client/interface/utils/storyExport";
+import { buildRawLyncCurationEvents } from "../client/interface/utils/storyExport";
 import type { StoryNode } from "../client/interface/types";
 
 const SEED = 42;
 const SELECTION_AT = "2026-07-01T12:03:00.000Z";
 const FIXTURE_OPERATOR = "corpus-rehearsal";
 const FIXTURE_SOURCE_REF = "fixture://corpus-loop-twitter";
+const FIXTURE_NOTE = "Retain this branch because its provenance is useful.";
 const here = dirname(fileURLToPath(import.meta.url));
 const textileRoot = resolve(here, "..");
 const checkoutParent = resolve(textileRoot, "..");
@@ -92,8 +94,9 @@ try {
   const curareSecond = join(temp, "curare-second");
   const annotations = join(curareFirst, "source.lync.annotations.lync");
   const annotated = join(temp, "annotated.lync");
-  const selections = join(temp, "textile-selections.lync");
+  const curation = join(temp, "textile-curation.lync");
   const corpus = join(temp, "corpus.lync");
+  const archive = join(temp, "corpus.md");
   const training = join(temp, "training");
   const trainingReplay = join(temp, "training-replay");
 
@@ -196,8 +199,16 @@ try {
     true,
     { actor: "corpus-rehearsal", via: "textile-app-layer" },
   );
+  const noteTurn = await appendAnnotation(
+    loom as unknown as StoryLoom,
+    decision.chosen.id,
+    FIXTURE_NOTE,
+    { actor: "corpus-reviewer", via: "textile-app-layer" },
+  );
   const afterSelection = await projectStoryTree(loom as unknown as ReadableLoom);
-  const selectionEvents = buildRawLyncSelectionEvents(afterSelection);
+  const curationEvents = buildRawLyncCurationEvents(afterSelection);
+  const selectionEvents = curationEvents.filter((event) => event.payload.label === "selection");
+  const noteEvents = curationEvents.filter((event) => event.payload.label === "note");
   if (selectionEvents.length !== 1) {
     throw new Error(`Textile app-layer selection exported ${selectionEvents.length} events, expected one`);
   }
@@ -209,13 +220,24 @@ try {
   ) {
     throw new Error("Textile selection did not target the projected source siblings");
   }
-  writeFileSync(selections, `${JSON.stringify(selection)}\n`);
+  const note = noteEvents[0];
+  if (
+    noteEvents.length !== 1 ||
+    note?.id !== noteTurn.id ||
+    note?.parents[0] !== decision.chosen.sourceId ||
+    note?.author.actor !== "corpus-reviewer" ||
+    note?.payload.label !== "note" ||
+    note.payload.text !== FIXTURE_NOTE
+  ) {
+    throw new Error("Textile note did not retain its author, text, and exact source target");
+  }
+  writeFileSync(curation, `${curationEvents.map((event) => JSON.stringify(event)).join("\n")}\n`);
   loom.close();
 
   run(
     "Lync final union",
     "node",
-    ["bin/lync.js", "merge", source, annotations, selections, "-o", corpus],
+    ["bin/lync.js", "merge", source, annotations, curation, "-o", corpus],
     roots.lync,
   );
   run("Lync final verification", "node", ["bin/lync.js", "verify", corpus], roots.lync);
@@ -227,6 +249,17 @@ try {
   }
   if (finalTurns.find((turn) => turn.meta.sourceId === decision.rejected.sourceId)?.meta.sourceSelected) {
     throw new Error("Textile final projection selected the rejected source branch");
+  }
+
+  run(
+    "Splice archive export",
+    "npm",
+    ["run", "start", "--", "lync", "markdown", "--source", corpus, "--out", archive],
+    roots.splice,
+  );
+  const archiveText = readFileSync(archive, "utf8");
+  if (!archiveText.includes(FIXTURE_NOTE) || !archiveText.includes("corpus-reviewer")) {
+    throw new Error("Splice readable archive did not retain Textile's human-authored note");
   }
 
   const exportArgs = (out: string) => [
@@ -261,6 +294,8 @@ try {
     curareClusters: clusterReport.clusters.length,
     seed: clusterReport.seed,
     textileSelection: selection.payload,
+    textileNote: note.payload,
+    archive: "Splice Markdown retained the note and actor",
     sftRows: stats.sft_rows,
     preferenceRows: stats.preference_rows,
   }, null, 2));

@@ -148,13 +148,16 @@ export const downloadKeptStoryJson = (
   triggerDownload(filename, JSON.stringify(payload, null, 2), "application/json");
 };
 
-export interface RawLyncSelectionEvent {
+interface RawLyncAnnotationEvent {
   v: 1;
   id: string;
   kind: "lync/annotation";
   at: string;
   author: { actor: string; via?: string };
   parents: string[];
+}
+
+export interface RawLyncSelectionEvent extends RawLyncAnnotationEvent {
   payload: {
     label: "selection";
     chosen: string[];
@@ -162,6 +165,15 @@ export interface RawLyncSelectionEvent {
     basis: "human pick";
   };
 }
+
+export interface RawLyncNoteEvent extends RawLyncAnnotationEvent {
+  payload: {
+    label: "note";
+    text: string;
+  };
+}
+
+export type RawLyncCurationEvent = RawLyncSelectionEvent | RawLyncNoteEvent;
 
 /** True when a tree is Textile's projection of protocol-level source events. */
 export const hasRawLyncSources = (root: StoryNode): boolean => {
@@ -207,16 +219,59 @@ export const buildRawLyncSelectionEvents = (
   return result;
 };
 
-/** Download raw-corpus keeps as newline-delimited, Splice-compatible events. */
-export const downloadRawLyncSelections = (
+/**
+ * Export human notes as protocol annotations on the exact source events they
+ * describe. The note turn's id/time/author are retained, while its parent is
+ * translated from Textile's imported turn id back to the portable source id.
+ */
+export const buildRawLyncNoteEvents = (
+  tree: { root: StoryNode },
+): RawLyncNoteEvent[] => {
+  const result: RawLyncNoteEvent[] = [];
+  const walk = (node: StoryNode) => {
+    if (node.sourceId) {
+      for (const note of node.annotations ?? []) {
+        result.push({
+          v: 1,
+          id: note.id,
+          kind: "lync/annotation",
+          at: new Date(note.createdAt).toISOString(),
+          author: {
+            actor: note.actor ?? "unknown",
+            ...(note.via ? { via: note.via } : {}),
+          },
+          parents: [node.sourceId],
+          payload: { label: "note", text: note.text },
+        });
+      }
+    }
+    for (const child of node.continuations ?? []) walk(child);
+  };
+  walk(tree.root);
+  return result;
+};
+
+/** Portable raw-corpus curation patch: selections plus human-authored notes. */
+export const buildRawLyncCurationEvents = (
+  tree: { root: StoryNode },
+): RawLyncCurationEvent[] => [
+  ...buildRawLyncSelectionEvents(tree),
+  ...buildRawLyncNoteEvents(tree),
+];
+
+/** Download raw-corpus keeps and notes as newline-delimited Lync events. */
+export const downloadRawLyncCuration = (
   key: string,
   tree: { root: StoryNode },
 ): void => {
-  const events = buildRawLyncSelectionEvents(tree);
+  const events = buildRawLyncCurationEvents(tree);
   const body = events.map((event) => JSON.stringify(event)).join("\n");
   triggerDownload(
-    `${sanitizeForFilename(key)}-selections.lync`,
+    `${sanitizeForFilename(key)}-curation.lync`,
     body ? `${body}\n` : "",
     "application/x-lync+jsonl",
   );
 };
+
+/** @deprecated Use downloadRawLyncCuration. */
+export const downloadRawLyncSelections = downloadRawLyncCuration;

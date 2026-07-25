@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { createMemoryEventStore } from "@deepfates/lync/memory-log";
 import { createLyncLooms } from "@deepfates/lync/looms";
@@ -72,10 +73,8 @@ async function focusImportConversationByKeyboard(page: Page) {
   await expect(page.locator(".navbar-minibuffer")).toContainText("Sort");
   await page.keyboard.press("ArrowDown"); // row 1: + New Story
   await expect(page.locator(".navbar-minibuffer")).toContainText("+ New Story");
-  await page.keyboard.press("ArrowRight"); // row 1, column 1: Import conversation
-  await expect(page.locator(".navbar-minibuffer")).toContainText(
-    "Import conversation",
-  );
+  await page.keyboard.press("ArrowRight"); // row 1, column 1: Import Lync/conversation
+  await expect(page.locator(".navbar-minibuffer")).toContainText("Import Lync");
 }
 
 async function mockGeneration(page: Page, prefix: string) {
@@ -175,6 +174,40 @@ async function waitForStoryIndex(page: Page) {
     "data-story-ready",
     "true",
   );
+}
+
+const twitterCorpusFixture = fileURLToPath(
+  new URL("./fixtures/twitter-corpus.lync", import.meta.url),
+);
+const TWITTER_ROOT = "3f91fb15-efa8-883a-bc73-7288e4712854";
+const TWITTER_PRESERVE = "42a289ef-1fba-8935-8555-4045f55868d4";
+const TWITTER_DISCARD = "2f8cbf1a-0ab5-8071-b066-3ca06fa5bb04";
+
+async function expectFocusedSource(page: Page, sourceId: string) {
+  await expect(page.locator('[aria-label^="source "]')).toHaveAttribute(
+    "aria-label",
+    new RegExp(`source ${sourceId}`),
+  );
+}
+
+async function focusTwitterBranch(page: Page, branch: "preserve" | "discard") {
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, TWITTER_ROOT);
+  if (branch === "discard") await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(
+    page,
+    branch === "preserve" ? TWITTER_PRESERVE : TWITTER_DISCARD,
+  );
+}
+
+async function noteFocusedTurn(page: Page, note: string) {
+  await page.keyboard.press("n");
+  const textarea = page.locator(".edit-textarea");
+  await expect(textarea).toBeVisible();
+  await textarea.fill(note);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".navbar-minibuffer")).toContainText("Note saved");
 }
 
 declare global {
@@ -1125,4 +1158,142 @@ test("keyboard KEEP + ANNOTATE persist across reload and Export KEPT emits the k
   ]);
 
   await context.close();
+});
+
+test("two authors reconnect, co-curate an imported Twitter corpus, and export portable source annotations", async ({
+  browser,
+}) => {
+  const owner = await browser.newContext();
+  const adaPage = await owner.newPage();
+  await setAuthorName(adaPage, "Ada");
+  await captureClipboard(adaPage);
+  await captureDownloads(adaPage);
+  await mockGeneration(adaPage, "unused");
+  await adaPage.goto("/");
+  await waitForStoryIndex(adaPage);
+
+  // Ordinary product import: the fixture is generated from Splice's supported
+  // Twitter archive shape and includes Curare's real annotation shape.
+  await focusImportConversationByKeyboard(adaPage);
+  const [chooser] = await Promise.all([
+    adaPage.waitForEvent("filechooser"),
+    adaPage.keyboard.press("Enter"),
+  ]);
+  await chooser.setFiles(twitterCorpusFixture);
+  await expect(adaPage.locator(".navbar-minibuffer")).toContainText(
+    /3 turns.*1 branch point.*2 annotations/,
+  );
+  await adaPage.keyboard.press("Escape");
+
+  // The owner can traverse both sides of the causal fork before sharing it.
+  await adaPage.keyboard.press("ArrowDown");
+  await expectFocusedSource(adaPage, TWITTER_ROOT);
+  await adaPage.keyboard.press("ArrowRight");
+  await expect(adaPage.locator("body")).toContainText(
+    "discards provenance for convenience",
+  );
+  await adaPage.keyboard.press("ArrowLeft");
+  await expect(adaPage.locator("body")).toContainText(
+    "preserves provenance and context",
+  );
+  await adaPage.keyboard.press("ArrowUp");
+
+  await openStoriesDrawer(adaPage);
+  const corpusRow = adaPage.locator(".story-menu-item").filter({
+    hasText: "twitter-corpus.lync",
+  });
+  await corpusRow.getByRole("button", { name: "Story link" }).click();
+  const sharedUrl = await readCapturedClipboard(adaPage);
+  expect(referenceFromUrl(sharedUrl)?.loomId).toBeTruthy();
+  await adaPage.keyboard.press("Escape");
+
+  const guest = await browser.newContext();
+  let gracePage = await guest.newPage();
+  await setAuthorName(gracePage, "Grace");
+  await mockGeneration(gracePage, "unused");
+  await gracePage.goto(sharedUrl);
+  await waitForStoryIndex(gracePage);
+  await expect(gracePage.locator("body")).toContainText(
+    "Which archive branch should we keep?",
+  );
+  await focusTwitterBranch(gracePage, "discard");
+  await expect(gracePage.locator("body")).toContainText(
+    "discards provenance for convenience",
+  );
+
+  // Disconnect Grace. Ada curates while the second client is absent.
+  await gracePage.close();
+  await focusTwitterBranch(adaPage, "preserve");
+  await adaPage.keyboard.press("k");
+  await noteFocusedTurn(adaPage, "Keep the provenance-bearing branch.");
+  await expect(adaPage.locator(".story-curation-status__kept")).toBeVisible();
+
+  // A fresh page in Grace's browser context reconnects to the same loom and
+  // receives Ada's durable mark + note before adding Grace's own curation.
+  gracePage = await guest.newPage();
+  await setAuthorName(gracePage, "Grace");
+  await mockGeneration(gracePage, "unused");
+  await gracePage.goto(sharedUrl);
+  await waitForStoryIndex(gracePage);
+  await expect(gracePage.locator("body")).toContainText(
+    "Which archive branch should we keep?",
+  );
+  await focusTwitterBranch(gracePage, "preserve");
+  await expect(
+    gracePage.getByText("Keep the provenance-bearing branch.", { exact: true }),
+  ).toBeVisible();
+  await gracePage.keyboard.press("ArrowUp");
+  await gracePage.keyboard.press("ArrowRight");
+  await gracePage.keyboard.press("ArrowDown");
+  await expectFocusedSource(gracePage, TWITTER_DISCARD);
+  await gracePage.keyboard.press("k");
+  await noteFocusedTurn(gracePage, "Archive the contrast as a negative example.");
+
+  // Ada converges on Grace's exact source-targeted curation without refresh.
+  await adaPage.keyboard.press("ArrowUp");
+  await adaPage.keyboard.press("ArrowRight");
+  await adaPage.keyboard.press("ArrowDown");
+  await expectFocusedSource(adaPage, TWITTER_DISCARD);
+  await expect(
+    adaPage.getByText("Archive the contrast as a negative example.", { exact: true }),
+  ).toBeVisible();
+  await expect(adaPage.locator(".story-curation-status__kept")).toBeVisible();
+
+  // The ordinary Export KEPT action emits a portable curation patch. Each
+  // event retains the human actor and points to protocol source ids, never the
+  // reminted Textile import ids.
+  await openStoriesDrawer(adaPage);
+  await adaPage.locator(".story-menu-item").filter({
+    hasText: "twitter-corpus.lync",
+  }).getByRole("button", { name: "Export KEPT" }).click();
+  const exportText = await adaPage.evaluate(async () => {
+    const blob = window.__textileDownloads.at(-1);
+    return blob ? await blob.text() : null;
+  });
+  expect(exportText).not.toBeNull();
+  const events = (exportText ?? "")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line)) as Array<{
+      kind: string;
+      author: { actor: string };
+      parents: string[];
+      payload: { label: string; text?: string; chosen?: string[] };
+    }>;
+  expect(events).toHaveLength(4);
+  expect(new Set(events.map((event) => event.author.actor))).toEqual(
+    new Set(["Ada", "Grace"]),
+  );
+  expect(events.every((event) => event.kind === "lync/annotation")).toBe(true);
+  expect(events.every((event) => event.parents.every((id) =>
+    [TWITTER_PRESERVE, TWITTER_DISCARD].includes(id),
+  ))).toBe(true);
+  expect(events.filter((event) => event.payload.label === "note").map((event) => event.payload.text).sort()).toEqual([
+    "Archive the contrast as a negative example.",
+    "Keep the provenance-bearing branch.",
+  ]);
+
+  await owner.close();
+  await guest.close();
 });

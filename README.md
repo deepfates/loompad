@@ -9,8 +9,8 @@
 
 Textile opens raw `.lync` event unions directly. Its reader follows only the
 first parent as a tree, while retaining source IDs, extra DAG parents, and
-Curare cluster annotations. Keeps export as standard `lync/annotation`
-selection events for Splice.
+Curare cluster annotations. Keeps and human notes export as standard
+source-targeting `lync/annotation` events for Splice.
 Unsafe unions (damaged or garbage lines, ID conflicts, missing parents, or graph
 cycles) fail closed with concrete reasons. Accepted nonconforming events remain
 readable and carry their warnings on the focused turn.
@@ -48,8 +48,10 @@ surface and press `K`; the successful Keep is visible as `Kept this turn ✓`
 and `✓kept`. Import `corpus.lync` instead when you want to inspect the final
 verified union with its selection already present.
 
-**Export KEPT** downloads an annotation patch, not a standalone corpus. `lync
-verify` accepts its selection event, while graph inspection is expected to
+**Export KEPT** downloads a curation annotation patch, not a standalone corpus.
+It contains new selections and human-authored notes, retaining each writer and
+targeting exact source event ids. `lync verify` accepts those events, while
+graph inspection is expected to
 report dangling source parents because the source turns remain in
 `annotated.lync`. Merge the export with that retained annotated corpus, then
 verify the merged union when you need a self-contained graph.

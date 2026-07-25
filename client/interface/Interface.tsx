@@ -56,7 +56,7 @@ import {
 } from "./utils/storyMeta";
 import {
   downloadKeptStoryJson,
-  downloadRawLyncSelections,
+  downloadRawLyncCuration,
   hasRawLyncSources,
   downloadStoryThreadText,
   downloadStoryTreeJson,
@@ -566,7 +566,7 @@ export const GamepadInterface = () => {
     (key: string) => {
       const tree = trees[key];
       if (!tree) return;
-      if (hasRawLyncSources(tree.root)) downloadRawLyncSelections(key, tree);
+      if (hasRawLyncSources(tree.root)) downloadRawLyncCuration(key, tree);
       else downloadKeptStoryJson(key, tree);
     },
     [trees]
