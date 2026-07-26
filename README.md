@@ -85,11 +85,11 @@ inventing content. Actor names remain provenance; Textile does not infer
 user/assistant roles or a training perspective. See
 [the kept-context artifact contract](docs/kept-context-export.md).
 
-To inspect that synthetic fixture in the running interface, start Textile with
-`bun run dev`, open `http://localhost:5173`, then use **Settings → Stories →
-Import Lync** to choose
-`client/interface/lync/__tests__/fixtures/corpus-loop.lync`. The import opens in
-LOOM; press **START** to show its branch map.
+To inspect a synthetic typed-DAG fixture in the running interface, start
+Textile with `bun run dev`, open `http://localhost:5173`, then use **Settings →
+Stories → Import Lync** to choose `tests/e2e/fixtures/dag-links.lync`. The
+import opens in LOOM; press **START** to show its branch map, then follow the
+solid additional-parent, dashed pointer, and dotted annotation legend in MAP.
 
 <p align="center">
   <img src="client/assets/screenshot-1.png" width="300" alt="textile reading view" />
@@ -108,10 +108,12 @@ selection graphs, timelines, program/model traces, resident lives, and world
 histories. Those views should compose with Textile's small tactile interface;
 they should not be flattened into one overloaded universal tree.
 
-For imported raw corpora, the typed LINKS sheet is the current direct DAG
-navigation surface. It does not redraw MAP: MAP still shows the useful
-first-parent tree, and the owner-held visual language for cross-tree causal
-strings remains a separate design question.
+For imported raw corpora, the typed LINKS sheet is the direct DAG navigation
+surface. MAP keeps the useful first-parent tree geometry and adds a passive
+typed relation layer: solid cross-strings are additional causal parents,
+dashed strings are named pointers, and dotted node halos are annotation
+targets. Incident relations strengthen around the focused node, but the edges
+do not accept focus or input; LINKS remains the explicit navigation door.
 
 ## What's a loom?
 
@@ -151,6 +153,7 @@ It connects to [OpenRouter](https://openrouter.ai/), so you can use whatever mod
 | Enter | Generate |
 | Backspace | Open actions for the current node |
 | Escape | Toggle minimap |
+| L | Open typed Lync links for the focused source |
 | ` | Open settings |
 
 Same mappings on the touchscreen d-pad.

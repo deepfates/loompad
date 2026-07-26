@@ -1062,6 +1062,82 @@ button.story-source-status:focus-visible {
   white-space: nowrap;
 }
 
+.minimap-relation-legend {
+  display: flex;
+  justify-content: center;
+  gap: 1.25ch;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0.72;
+}
+
+.minimap-relation-legend__causal {
+  color: var(--theme-focused-foreground);
+}
+
+.minimap-relation-legend__pointer {
+  color: var(--theme-text);
+}
+
+.minimap-relation-legend__annotation {
+  color: var(--theme-border);
+}
+
+.minimap-cross-relation,
+.minimap-cross-edge,
+.minimap-pointer-target,
+.minimap-annotation-target {
+  pointer-events: none;
+}
+
+.minimap-cross-edge {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.minimap-cross-edge--additional-parent {
+  stroke: var(--theme-focused-foreground);
+  stroke-width: 1.1;
+  opacity: 0.46;
+}
+
+.minimap-cross-edge--pointer {
+  stroke: var(--theme-text);
+  stroke-width: 0.9;
+  stroke-dasharray: 3 2.5;
+  opacity: 0.38;
+}
+
+.minimap-cross-edge--connected {
+  stroke-width: 1.4;
+  opacity: 0.92;
+}
+
+.minimap-pointer-target {
+  fill: var(--theme-background);
+  stroke: var(--theme-text);
+  stroke-width: 0.8;
+  opacity: 0.5;
+}
+
+.minimap-pointer-target--connected {
+  opacity: 1;
+}
+
+.minimap-annotation-target {
+  stroke: var(--theme-border);
+  stroke-width: 0.8;
+  stroke-dasharray: 1 2;
+  opacity: 0.45;
+}
+
+.minimap-annotation-target--connected {
+  stroke: var(--theme-text);
+  stroke-width: 1;
+  opacity: 0.85;
+}
+
 .minimap-node.generating {
   animation: pulse 1s infinite;
 }

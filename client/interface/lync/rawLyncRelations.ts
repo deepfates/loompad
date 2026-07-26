@@ -18,6 +18,100 @@ export interface RawLyncRelation {
   targetPath?: StoryNode[];
 }
 
+export interface RawLyncMapRelation {
+  id: string;
+  kind: "additional-parent" | "pointer";
+  fromNodeId: string;
+  toNodeId: string;
+  label: string;
+}
+
+export interface RawLyncMapAnnotation {
+  nodeId: string;
+  sourceId: string;
+  labels: string[];
+  annotationIds: string[];
+}
+
+export interface RawLyncMapModel {
+  relations: RawLyncMapRelation[];
+  annotations: RawLyncMapAnnotation[];
+}
+
+/**
+ * Typed passive MAP layer. Only envelope-declared non-first parents and the
+ * exact base Lync annotation/pointer pacts participate; payloads are never
+ * searched recursively for relation-looking fields.
+ */
+export function rawLyncMapModel(root: StoryNode): RawLyncMapModel {
+  const paths = sourcePaths(root);
+  const relations: RawLyncMapRelation[] = [];
+  const annotations = new Map<string, RawLyncMapAnnotation>();
+
+  for (const [sourceId, path] of [...paths.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const child = path.at(-1)!;
+    for (const [index, parentId] of (child.sourceParents ?? []).entries()) {
+      if (index === 0) continue;
+      const parent = paths.get(parentId)?.at(-1);
+      if (!parent) continue;
+      relations.push({
+        id: `additional-parent:${sourceId}:${index}:${parentId}`,
+        kind: "additional-parent",
+        fromNodeId: parent.id,
+        toNodeId: child.id,
+        label: `${sourceId} cites ${parentId} as causal parent ${index + 1}.`,
+      });
+    }
+  }
+
+  for (const record of [...(root.sourceArchive?.records ?? [])]
+    .sort((a, b) => a.id.localeCompare(b.id))) {
+    const kind = typeof record.envelope.kind === "string" ? record.envelope.kind : "";
+    if (kind === "lync/annotation") {
+      const label = stringField(record.payload, "label") ?? "untyped";
+      for (const targetId of stringArray(record.envelope.parents)) {
+        const target = paths.get(targetId)?.at(-1);
+        if (!target) continue;
+        const existing = annotations.get(target.id) ?? {
+          nodeId: target.id,
+          sourceId: targetId,
+          labels: [],
+          annotationIds: [],
+        };
+        existing.labels.push(label);
+        existing.annotationIds.push(record.id);
+        annotations.set(target.id, existing);
+      }
+      continue;
+    }
+    if (kind !== "lync/pointer") continue;
+    const targetId = stringField(record.payload, "target");
+    if (!targetId) continue;
+    const pointer = paths.get(record.id)?.at(-1);
+    const target = paths.get(targetId)?.at(-1);
+    if (!pointer || !target) continue;
+    const name = stringField(record.payload, "name") ?? "unnamed";
+    relations.push({
+      id: `pointer:${record.id}:${targetId}`,
+      kind: "pointer",
+      fromNodeId: pointer.id,
+      toNodeId: target.id,
+      label: `Named pointer ${name} targets ${targetId}; this is not a causal edge.`,
+    });
+  }
+
+  return {
+    relations,
+    annotations: [...annotations.values()]
+      .map((annotation) => ({
+        ...annotation,
+        labels: [...annotation.labels].sort(),
+        annotationIds: [...annotation.annotationIds].sort(),
+      }))
+      .sort((a, b) => a.sourceId.localeCompare(b.sourceId)),
+  };
+}
+
 /**
  * Build the focused event's typed relation list without changing Textile's
  * first-parent tree projection. Envelope parents remain causal edges;

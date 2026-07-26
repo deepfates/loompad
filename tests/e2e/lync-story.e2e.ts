@@ -2260,6 +2260,26 @@ test("typed Lync links traverse an additional causal parent and return to its ch
   );
   await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000004");
 
+  // MAP adds only a passive typed visual layer. The synthesis remains the
+  // exact focus while its additional causal input, named pointer, and
+  // annotation targets receive distinct treatments; LINKS still navigates.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mode-bar-title")).toHaveText("MAP");
+  await expect(page.locator('[data-relation-kind="additional-parent"]')).toHaveCount(1);
+  await expect(page.locator('[data-relation-kind="pointer"]')).toHaveCount(1);
+  await expect(page.locator('[data-relation-kind="annotation"]')).toHaveCount(3);
+  await expect(page.locator(".minimap-cross-edge--connected")).toHaveCount(2);
+  await expect(page.locator(".minimap-annotation-target--connected")).toHaveCount(1);
+  await expect(page.locator(".minimap-relation-legend")).toContainText("parent+");
+  await expect(page.locator(".minimap-relation-legend")).toContainText("pointer");
+  await expect(page.locator(".minimap-relation-legend")).toContainText("annotated");
+  expect(await page.locator("[data-relation-kind]").evaluateAll((elements) =>
+    elements.every((element) => getComputedStyle(element).pointerEvents === "none")
+  )).toBe(true);
+  await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000004");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mode-bar-title")).toHaveText("LOOM");
+
   // L opens typed relations without changing the MAP focus model. Parent 2 is
   // visibly additional, while the Curare annotation is named separately.
   await page.keyboard.press("l");

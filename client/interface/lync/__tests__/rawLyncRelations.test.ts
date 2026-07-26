@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { StoryNode } from "../../types";
-import { rawLyncRelationsFor } from "../rawLyncRelations";
+import { rawLyncMapModel, rawLyncRelationsFor } from "../rawLyncRelations";
 
 const node = (
   id: string,
@@ -90,5 +90,33 @@ describe("raw Lync focused relations", () => {
     const target = pointerRelations.find((relation) => relation.kind === "pointer-target");
     expect(target?.targetPath?.at(-1)?.sourceId).toBe("D");
     expect(target?.detail).toContain("not a causal-parent edge");
+  });
+
+  it("builds a passive typed MAP model without duplicating the first-parent tree", () => {
+    const map = rawLyncMapModel(root);
+    expect(map.relations).toEqual([
+      {
+        id: "additional-parent:D:1:C",
+        kind: "additional-parent",
+        fromNodeId: "turn:C",
+        toNodeId: "turn:D",
+        label: "D cites C as causal parent 2.",
+      },
+      {
+        id: "pointer:P:D",
+        kind: "pointer",
+        fromNodeId: "turn:P",
+        toNodeId: "turn:D",
+        label: "Named pointer reading targets D; this is not a causal edge.",
+      },
+    ]);
+    expect(map.annotations).toEqual([
+      {
+        nodeId: "turn:D",
+        sourceId: "D",
+        labels: ["score"],
+        annotationIds: ["ANN"],
+      },
+    ]);
   });
 });

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { hierarchy } from "d3-hierarchy";
 import { flextree } from "d3-flextree";
 import type { StoryNode } from "../types";
+import { rawLyncMapModel } from "../lync/rawLyncRelations";
 
 type LayoutStoryNode = {
   data: StoryNode;
@@ -225,11 +226,30 @@ function useEdges(root: StoryNode) {
 /**
  * Terminal-style minibuffer at bottom of map
  */
-const Minibuffer = ({ text }: { text: string }) => (
+const Minibuffer = ({
+  text,
+  relationKinds,
+}: {
+  text: string;
+  relationKinds: { additionalParent: boolean; pointer: boolean; annotation: boolean };
+}) => (
   <div className="minimap-minibuffer">
     <div className="minimap-minibuffer-text">
       {text || "Navigate with arrow keys • A to generate • B to edit"}
     </div>
+    {relationKinds.additionalParent || relationKinds.pointer || relationKinds.annotation ? (
+      <div className="minimap-relation-legend" aria-label="Map relation legend">
+        {relationKinds.additionalParent ? (
+          <span className="minimap-relation-legend__causal">╱ parent+</span>
+        ) : null}
+        {relationKinds.pointer ? (
+          <span className="minimap-relation-legend__pointer">╌ pointer</span>
+        ) : null}
+        {relationKinds.annotation ? (
+          <span className="minimap-relation-legend__annotation">⋯ annotated</span>
+        ) : null}
+      </div>
+    ) : null}
   </div>
 );
 
@@ -263,6 +283,7 @@ export const StoryMinimap = ({
   const [descendSettled, setDescendSettled] = useState(entry !== "descend");
   const coords = useCoords(root);
   const edges = useEdges(root);
+  const rawMap = useMemo(() => rawLyncMapModel(root), [root]);
   const viewportRef = useRef<HTMLDivElement>(null);
   const lastHighlightedNodeRef = useRef<string | null>(null);
 
@@ -660,6 +681,91 @@ export const StoryMinimap = ({
               );
             })}
 
+            {/* Passive typed source relations. These never receive pointer or
+                keyboard input: LINKS remains the explicit navigation door. */}
+            {rawMap.relations.map((relation) => {
+              const from = coords[relation.fromNodeId];
+              const to = coords[relation.toNodeId];
+              if (!from || !to) return null;
+              const fromX = from.x + effectiveRootOffset;
+              const toX = to.x + effectiveRootOffset;
+              const fromY = (isSingleNode && !isFloor ? SINGLE_NODE_Y : from.y)
+                + from.nodeHeight / 2;
+              const toY = (isSingleNode && !isFloor ? SINGLE_NODE_Y : to.y)
+                + to.nodeHeight / 2;
+              const direction = toX >= fromX ? 1 : -1;
+              const startX = fromX + direction * (NODE_WIDTH / 2 + 1);
+              const endX = toX - direction * (NODE_WIDTH / 2 + 1);
+              const sag = Math.min(18, 4 + Math.abs(endX - startX) * 0.18);
+              const controlX = (startX + endX) / 2;
+              const controlY = (fromY + toY) / 2 + sag;
+              const connected = relation.fromNodeId === highlightedNode.id
+                || relation.toNodeId === highlightedNode.id;
+              return (
+                <g
+                  key={relation.id}
+                  className="minimap-cross-relation"
+                  data-relation-kind={relation.kind}
+                  data-from-node-id={relation.fromNodeId}
+                  data-to-node-id={relation.toNodeId}
+                  aria-hidden="true"
+                  pointerEvents="none"
+                >
+                  <title>{relation.label}</title>
+                  <path
+                    d={`M${startX},${fromY} Q${controlX},${controlY} ${endX},${toY}`}
+                    className={`minimap-cross-edge minimap-cross-edge--${relation.kind}${
+                      connected ? " minimap-cross-edge--connected" : ""
+                    }`}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  {relation.kind === "pointer" ? (
+                    <circle
+                      className={`minimap-pointer-target${
+                        connected ? " minimap-pointer-target--connected" : ""
+                      }`}
+                      cx={endX}
+                      cy={toY}
+                      r={2.2}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ) : null}
+                </g>
+              );
+            })}
+
+            {/* Annotations have no visible source node of their own. A dotted
+                target halo says "relation here" without inventing one. */}
+            {rawMap.annotations.map((annotation) => {
+              const target = coords[annotation.nodeId];
+              if (!target) return null;
+              const y = isSingleNode && !isFloor ? SINGLE_NODE_Y : target.y;
+              return (
+                <rect
+                  key={`annotation:${annotation.nodeId}`}
+                  className={`minimap-annotation-target${
+                    annotation.nodeId === highlightedNode.id
+                      ? " minimap-annotation-target--connected"
+                      : ""
+                  }`}
+                  data-relation-kind="annotation"
+                  data-target-node-id={annotation.nodeId}
+                  x={target.x + effectiveRootOffset - NODE_WIDTH / 2 - 3}
+                  y={y - 3}
+                  width={NODE_WIDTH + 6}
+                  height={target.nodeHeight + 6}
+                  rx={NODE_RADIUS + 2}
+                  ry={NODE_RADIUS + 2}
+                  fill="none"
+                  pointerEvents="none"
+                  vectorEffect="non-scaling-stroke"
+                  aria-hidden="true"
+                >
+                  <title>{`Annotations: ${annotation.labels.join(", ")}`}</title>
+                </rect>
+              );
+            })}
+
             {/* Nodes */}
             {Object.entries(coords).map(([id, c]) => {
               const node = c.path[c.path.length - 1];
@@ -736,6 +842,13 @@ export const StoryMinimap = ({
             ? "A to branch from here"
             : highlightedNode.text.split("\n")[0]
         }
+        relationKinds={{
+          additionalParent: rawMap.relations.some(
+            (relation) => relation.kind === "additional-parent",
+          ),
+          pointer: rawMap.relations.some((relation) => relation.kind === "pointer"),
+          annotation: rawMap.annotations.length > 0,
+        }}
       />
     </div>
   );

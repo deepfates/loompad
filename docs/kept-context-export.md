@@ -55,6 +55,7 @@ required.
 ## Current boundary
 
 This is a portable contextual conversation artifact, not a training-row
-projection. It does not choose a mind/perspective, assign model roles, turn
-comparison siblings into negative examples, or resolve Textile's separate
-first-parent-only navigation limitation.
+projection. It does not choose a mind/perspective, assign model roles, or turn
+comparison siblings into negative examples. Textile's reading column remains a
+first-parent path, while MAP passively shows typed cross-relations and LINKS
+provides explicit non-first-parent and pointer traversal.

@@ -30,9 +30,10 @@ kind by name.
 
 Presentation is a view, never an import rewrite. Event ids, every parent,
 actor axes, the complete payload, cluster tags, and conformance warnings remain
-on the projected turn and full-tree export. Textile navigation still follows
-only the nearest presented `parents[0]`; additional parents remain visible on
-the source badge. That is a current navigation limitation, not a claim that
+on the projected turn and full-tree export. Textile's reading path still follows
+the nearest presented `parents[0]`; additional parents are visible on the
+source control, drawn as passive typed MAP strings, and directly traversable
+through LINKS. That projection choice is not a claim that
 the Lync graph is a tree.
 
 The implementation uses explicit kind presenters plus the existing small

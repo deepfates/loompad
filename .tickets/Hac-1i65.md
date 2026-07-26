@@ -1,6 +1,6 @@
 ---
 id: Hac-1i65
-status: open
+status: closed
 deps: []
 links: [tex-qit3, tex-3au2]
 created: 2026-07-25T18:35:56Z
@@ -11,7 +11,7 @@ tags: [corpus, textile, lync, dag, navigation, pointers]
 ---
 # Textile: navigate non-first-parent Lync causal links
 
-A separate corpus-navigation gap from Hac-i3qe. Lync preserves every ordered parent and its branch-tree/context views retain the DAG, but Textile raw import projects each readable source event into a Loom turn with navigationParent resolved only from event.parents[0]. Later source parents survive only as meta.sourceParents and meta.extraParentIds, so they remain auditable/exportable but are not reachable as causal edges through the reading interface. The real browser audit therefore exercised a first-parent tree projection, not arbitrary Lync-pointer or DAG navigation. This does not invalidate the working two-client synchronization and curation loop, and that narrow shared-curation ticket does not complete the broader corpus endpoint. The workshop direction explicitly names arbitrary Lync pointers and DAG views beyond first-parent trees; the exact focus and navigation idiom remains an owner-held UX decision.
+This was a separate corpus-navigation gap from Hac-i3qe. Lync preserves every ordered parent and its branch-tree/context views retain the DAG, but Textile raw import projected each readable source event into a Loom turn with navigationParent resolved only from event.parents[0]. Later source parents survived only as meta.sourceParents and meta.extraParentIds, so they were auditable/exportable but not reachable as causal edges through the reading interface. The original real browser audit therefore exercised a first-parent tree projection, not arbitrary Lync-pointer or DAG navigation. This did not invalidate the working two-client synchronization and curation loop, and that narrow shared-curation ticket did not complete the broader corpus endpoint.
 
 ## Design
 
@@ -41,7 +41,30 @@ source, returned through the child edge, traversed the pointer out and back,
 inspected the Curare annotation distinction, and verified the kept-context
 manifest still targets the reached source.
 
-This ticket remains open only at its broader owner-held visual boundary: MAP
-still draws the first-parent tree and does not yet render or focus cross-tree
-causal strings. The direct typed navigation above is intentionally not a
-surrogate MAP focus decision.
+## Closure evidence
+
+MAP now preserves the deliberate first-parent node geometry while drawing a
+passive typed relation layer. A solid sagging string connects every readable
+non-first causal parent to its child; a dashed string and target ring connect
+the exact `lync/pointer` event to `payload.target`; annotation targets receive
+a dotted halo instead of an invented annotation node. A same-size legend names
+all three treatments. Incident relations strengthen when their node is focused,
+but paths have `pointer-events: none` and acquire no keyboard or pointer focus.
+LINKS remains the explicit navigation door.
+
+The real in-app browser established the before/after product result on
+`dag-links.lync`: the baseline tree hid the synthesis fan-in; the new view made
+the additional parent and pointer visibly converge on the focused synthesis,
+with its annotation halo distinguishable at the map's actual scale. The exact
+source focus remained unchanged until LINKS followed parent 2, then returned
+through the causal child. DOM inspection found one additional-parent string,
+one pointer string, three annotation targets, and no interactive relation
+element. The Chromium regression repeats MAP inspection plus the full
+navigation/curation/export path. Unit tests reject first-parent duplication and
+derive relations only from envelope parents and exact `lync/annotation` and
+`lync/pointer` pacts—never recursive payload shape.
+
+Focusable edges remain a possible evidence-driven interaction improvement, not
+part of this ticket. The reading column and ordinary arrow navigation continue
+to use the first-parent projection; this closure does not claim one universal
+graph projection for every future domain pact.
