@@ -43,7 +43,7 @@ import {
   scrollMenuItemElIntoView,
 } from "./utils/scrolling";
 
-import type { DrawerTab } from "./types";
+import type { DrawerTab, StoryNode } from "./types";
 import type { ModelId } from "../../shared/models";
 import {
   orderKeysReverseChronological,
@@ -82,6 +82,10 @@ import {
   type ImportedConversation,
 } from "./lync/storyRuntime";
 import { formatImportedConversationNotice } from "./lync/importNotice";
+import {
+  rawLyncRelationsFor,
+  type RawLyncRelation,
+} from "./lync/rawLyncRelations";
 import { getRegisteredMode } from "./modes/modeRegistry";
 import { AuthorshipIndicator } from "./components/AuthorshipIndicator";
 import { CurationIndicator } from "./components/CurationIndicator";
@@ -117,6 +121,7 @@ const SETTINGS_ROW_LABELS = [
 // (cursor). Growing textile to act on other object types is another builder
 // like this one; the ActionMenu primitive and the key handling stay put.
 const TURN_ACTIONS = ["keep", "note", "edit"] as const;
+type TurnActionId = (typeof TURN_ACTIONS)[number] | "links";
 
 // What ⌫ does on a focused turn in the loom. "menu" = menu-first (⌫ opens the
 // action sheet; edit is a row inside it); "edit" = edit-first (⌫ jumps straight
@@ -172,8 +177,13 @@ interface Menu {
 
 const DEFAULT_MENU_HINT = "↕: MOVE • ↵: CHOOSE • START: CLOSE";
 
-function buildTurnActions(node: { kept?: boolean } | undefined): MenuAction[] {
-  return TURN_ACTIONS.map((id) => ({
+function buildTurnActions(
+  node: { kept?: boolean; sourceId?: string } | undefined,
+): MenuAction[] {
+  const ids: TurnActionId[] = node?.sourceId
+    ? ["keep", "note", "links", "edit"]
+    : [...TURN_ACTIONS];
+  return ids.map((id) => ({
     id,
     label: id === "keep" ? (node?.kept ? "un-keep" : "keep") : id,
   }));
@@ -653,10 +663,63 @@ export const GamepadInterface = () => {
     [annotateCurrentNode, showImportNotice, setScreen],
   );
 
+  const activateRawLyncRelation = useCallback(
+    (relation: RawLyncRelation) => {
+      if (!relation.targetPath) {
+        showImportNotice(relation.detail);
+        setScreen(null);
+        return;
+      }
+      setSelectionByPath(relation.targetPath);
+      setProjection("loom");
+      setScreen(null);
+      const target = relation.targetPath.at(-1);
+      if (target) {
+        requestAnimationFrame(() => {
+          queueScroll({
+            nodeId: target.id,
+            reason: "raw-lync-link",
+            priority: 95,
+          });
+        });
+      }
+      showImportNotice(relation.detail);
+    },
+    [queueScroll, setProjection, setScreen, setSelectionByPath, showImportNotice],
+  );
+
+  const openRawLyncLinks = useCallback(
+    (node: StoryNode | undefined) => {
+      if (!node?.sourceId) {
+        showImportNotice("This turn has no raw Lync source relations.");
+        return;
+      }
+      const relations = rawLyncRelationsFor(storyTree.root, node);
+      const actions: MenuAction[] = relations.map((relation) => ({
+        id: relation.id,
+        label: relation.label,
+      }));
+      if (actions.length === 0) {
+        showImportNotice(`Source ${node.sourceId} has no held relations.`);
+        return;
+      }
+      openMenu({
+        title: "LYNC LINKS",
+        hint: "causal edges, annotations, and pointers stay distinct",
+        actions,
+        onActivate: (index) => {
+          const relation = relations[index];
+          if (relation) activateRawLyncRelation(relation);
+        },
+      });
+    },
+    [activateRawLyncRelation, openMenu, showImportNotice, storyTree.root],
+  );
+
   // Activate a row of the per-turn action menu by its stable action id.
   const activateTurnAction = useCallback(
-    async (index: number) => {
-      switch (TURN_ACTIONS[index]) {
+    async (action: TurnActionId, node: StoryNode | undefined) => {
+      switch (action) {
         case "keep":
           await handleKeepAction();
           setScreen(null);
@@ -664,12 +727,15 @@ export const GamepadInterface = () => {
         case "note":
           setScreen("note");
           break;
+        case "links":
+          openRawLyncLinks(node);
+          break;
         case "edit":
           setScreen("edit");
           break;
       }
     },
-    [handleKeepAction, setScreen],
+    [handleKeepAction, openRawLyncLinks, setScreen],
   );
 
   const copyText = useCallback(async (text: string) => {
@@ -1332,6 +1398,14 @@ export const GamepadInterface = () => {
         openNote();
         return;
       }
+      if (key === "l" || key === "L") {
+        openRawLyncLinks(
+          projection === "map"
+            ? highlightedNode
+            : getCurrentPath()[currentDepth],
+        );
+        return;
+      }
 
       // Tree view: projection "loom" or "map".
       if (projection === "map") {
@@ -1396,10 +1470,15 @@ export const GamepadInterface = () => {
           setScreen("edit");
           return;
         }
+        const node = getCurrentPath()[currentDepth];
+        const actions = buildTurnActions(node);
         openMenu({
           title: "TURN",
-          actions: buildTurnActions(getCurrentPath()[currentDepth]),
-          onActivate: (i) => void activateTurnAction(i),
+          actions,
+          onActivate: (i) => {
+            const action = actions[i]?.id as TurnActionId | undefined;
+            if (action) void activateTurnAction(action, node);
+          },
         });
         return;
       }
@@ -1424,6 +1503,7 @@ export const GamepadInterface = () => {
       drawerTab,
       expandedModel,
       openNote,
+      openRawLyncLinks,
       handleKeepAction,
       activateFloorAction,
       menu,
@@ -1974,13 +2054,19 @@ export const GamepadInterface = () => {
                     (path[currentDepth], same as EDIT), so its curation state is
                     narrated for THAT node — a property of focus, not chrome. */}
                 <CurationIndicator node={getCurrentPath()[currentDepth]} />
-                <RawLyncIndicator node={getCurrentPath()[currentDepth]} />
+                <RawLyncIndicator
+                  node={getCurrentPath()[currentDepth]}
+                  onOpenLinks={() => openRawLyncLinks(getCurrentPath()[currentDepth])}
+                />
               </div>
             ) : null}
             {screen === null && projection === "map" ? (
               <div className="story-focus-cluster story-focus-cluster--map">
                 <CurationIndicator node={highlightedNode} />
-                <RawLyncIndicator node={highlightedNode} />
+                <RawLyncIndicator
+                  node={highlightedNode}
+                  onOpenLinks={() => openRawLyncLinks(highlightedNode)}
+                />
               </div>
             ) : null}
             <LyncSyncIndicator status={lyncSyncStatus} />

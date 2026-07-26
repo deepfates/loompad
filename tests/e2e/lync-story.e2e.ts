@@ -399,6 +399,9 @@ const spliceSourceKindsFixture = fileURLToPath(
 const oxfordResidentFixture = fileURLToPath(
   new URL("./fixtures/oxford-aster-human-semantic-v1.lync", import.meta.url),
 );
+const dagLinksFixture = fileURLToPath(
+  new URL("./fixtures/dag-links.lync", import.meta.url),
+);
 const TWITTER_ROOT = "3f91fb15-efa8-883a-bc73-7288e4712854";
 const TWITTER_PRESERVE = "42a289ef-1fba-8935-8555-4045f55868d4";
 const TWITTER_DISCARD = "2f8cbf1a-0ab5-8071-b066-3ca06fa5bb04";
@@ -2226,6 +2229,102 @@ test("two authors reconnect, co-curate a Twitter corpus, and reopen portable kep
   await owner.close();
   await guest.close();
   await reopenedContext.close();
+});
+
+test("typed Lync links traverse an additional causal parent and return to its child", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await captureDownloads(page);
+  await mockGeneration(page, "unused");
+  await page.goto("/");
+  await waitForStoryIndex(page);
+
+  await openStoriesDrawer(page);
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await chooser.setFiles(dagLinksFixture);
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /5 source events.*4 readable events.*1 structural event.*all presented.*1 branch point.*2 annotations/,
+  );
+  await page.keyboard.press("Escape");
+
+  // Discover the fan-in synthesis through ordinary first-parent reading.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("body")).toContainText(
+    "A synthesis depends on both branches.",
+  );
+  await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000004");
+
+  // L opens typed relations without changing the MAP focus model. Parent 2 is
+  // visibly additional, while the Curare annotation is named separately.
+  await page.keyboard.press("l");
+  await expect(page.locator(".action-sheet-title")).toHaveText("LYNC LINKS");
+  await expect(page.getByRole("menuitem", { name: /parent 1.*Branch A/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /parent 2 · additional.*Branch B/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /annotation · cluster/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /incoming pointer · current-synthesis/ })).toBeVisible();
+
+  await page.getByRole("menuitem", { name: /parent 2 · additional.*Branch B/ }).click();
+  await expect(page.locator("body")).toContainText("Branch B proposes competition.");
+  await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000003");
+
+  // Curation still targets the exact source reached through the non-tree edge.
+  await page.keyboard.press("k");
+  await noteFocusedTurn(page, "Keep the second causal input.");
+
+  // The cited parent exposes the synthesis as a child using it in position 2,
+  // which supplies the explicit return path rather than silently snapping back.
+  await page.getByRole("button", { name: /source .*Open typed Lync links/i }).click();
+  await page.getByRole("menuitem", { name: /child · uses this as parent 2.*synthesis/i }).click();
+  await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000004");
+
+  // A standard lync/pointer is a named, non-causal relation. Traverse to its
+  // structural event and follow payload.target back to the same synthesis.
+  await page.keyboard.press("l");
+  await page.getByRole("menuitem", { name: /incoming pointer · current-synthesis/ }).click();
+  await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000007");
+  await expect(page.locator("body")).toContainText("Lync pointer: current-synthesis");
+  await page.keyboard.press("l");
+  await page.getByRole("menuitem", { name: /pointer current-synthesis.*synthesis/i }).click();
+  await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000004");
+
+  // The annotation row explains its non-causal meaning and does not navigate.
+  await page.keyboard.press("l");
+  await page.getByRole("menuitem", { name: /annotation · cluster/ }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    "it is not a causal parent",
+  );
+  await expect(page.locator("body")).toContainText(
+    "A synthesis depends on both branches.",
+  );
+  await expect(page.locator(".navbar-minibuffer")).toBeHidden({ timeout: 8_000 });
+  await expectFocusedSource(page, "0197e6a0-4a09-7000-8000-000000000004");
+
+  // Existing source-targeted export keeps the event reached through parent 2,
+  // its note, and exact causal ancestry.
+  await openStoriesDrawer(page);
+  const corpusRow = page.locator(".story-menu-item").filter({
+    hasText: "dag-links.lync",
+  });
+  await corpusRow.getByRole("button", { name: "Export KEPT" }).click();
+  const exportText = await page.evaluate(async () => {
+    const blob = window.__textileDownloads.at(-1);
+    return blob ? await blob.text() : null;
+  });
+  const manifest = parseKeptContextMarkdown(exportText ?? "");
+  expect(manifest.keptTargets.map((target) => target.sourceId)).toContain(
+    "0197e6a0-4a09-7000-8000-000000000003",
+  );
+  expect(manifest.curationPatch.some((event) =>
+    event.parents.includes("0197e6a0-4a09-7000-8000-000000000003") &&
+    event.payload.label === "note" &&
+    event.payload.text === "Keep the second causal input."
+  )).toBe(true);
 });
 
 test("same-title Stories action exports the exact visible kept loom and source set", async ({

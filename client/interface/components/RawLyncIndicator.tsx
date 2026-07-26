@@ -1,7 +1,13 @@
 import type { StoryNode } from "../types";
 
-/** Quiet proof that the focused turn still carries its raw corpus context. */
-export function RawLyncIndicator({ node }: { node: StoryNode | undefined }) {
+/** Quiet proof and one explicit door into the focused source event's links. */
+export function RawLyncIndicator({
+  node,
+  onOpenLinks,
+}: {
+  node: StoryNode | undefined;
+  onOpenLinks?: () => void;
+}) {
   if (!node?.sourceId) return null;
   const extraParents = node.extraParentIds ?? [];
   const tags = node.rawTags ?? [];
@@ -16,9 +22,8 @@ export function RawLyncIndicator({ node }: { node: StoryNode | undefined }) {
   ]
     .filter(Boolean)
     .join(" · ");
-  return (
-    <span className="story-curation-status" aria-label={detail} title={detail}>
-      <span className="story-curation-status__note">
+  const label = (
+    <span className="story-source-status__label">
         lync {node.sourceId.slice(-8)}
         {extraParents.length
           ? ` · +${extraParents.length} parent${extraParents.length === 1 ? "" : "s"}`
@@ -26,7 +31,22 @@ export function RawLyncIndicator({ node }: { node: StoryNode | undefined }) {
         {node.sourcePresentation === "structure" ? " · structure" : ""}
         {tags.length ? ` · ${tags.map((tag) => tag.tag).join(", ")}` : ""}
         {warnings.length ? ` · ⚠ ${warnings.length}` : ""}
-      </span>
+        {onOpenLinks ? " · links" : ""}
+    </span>
+  );
+  return onOpenLinks ? (
+    <button
+      type="button"
+      className="story-curation-status story-source-status"
+      aria-label={`${detail}. Open typed Lync links.`}
+      title={`${detail} · open links (L)`}
+      onClick={onOpenLinks}
+    >
+      {label}
+    </button>
+  ) : (
+    <span className="story-curation-status story-source-status" aria-label={detail} title={detail}>
+      {label}
     </span>
   );
 }

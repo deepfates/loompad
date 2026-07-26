@@ -424,6 +424,40 @@ describe("raw .lync projection", () => {
     expect(embed?.parentId).toBe(archiveTweet?.id);
   });
 
+  it("presents the exact base Lync pointer pact as structure", () => {
+    const rootId = "0197e6a0-4a09-7000-8000-0000000000a1";
+    const pointerId = "0197e6a0-4a09-7000-8000-0000000000a2";
+    const lines = [
+      {
+        v: 1,
+        id: rootId,
+        kind: "notes/text",
+        at: "2026-07-06T04:10:00Z",
+        author: { actor: "researcher" },
+        parents: [],
+        payload: { text: "Readable target" },
+      },
+      {
+        v: 1,
+        id: pointerId,
+        kind: "lync/pointer",
+        at: "2026-07-06T04:10:01Z",
+        author: { actor: "researcher" },
+        parents: [rootId],
+        payload: { name: "current", target: rootId },
+      },
+    ];
+    const projection = projectRawLyncFile(`${lines.map(JSON.stringify).join("\n")}\n`);
+    expect(projection.sourceEventCount).toBe(2);
+    expect(projection.readableEventCount).toBe(1);
+    expect(projection.structuralEventCount).toBe(1);
+    expect(projection.unsupportedKinds).toEqual([]);
+    const pointer = projection.snapshot.turns.find((turn) => turn.meta.sourceId === pointerId);
+    expect(pointer?.payload.text).toContain("Lync pointer: current");
+    expect(pointer?.payload.text).toContain(`Target: ${rootId}`);
+    expect(pointer?.meta.sourcePresentationContract).toBe("lync/pointer");
+  });
+
   it("presents the exact Oxford resident fixture and reconstructs unchanged source events", async () => {
     const raw = readFileSync(oxfordResidentFixtureUrl, "utf8");
     expect(Buffer.byteLength(raw)).toBe(6_743);

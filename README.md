@@ -9,7 +9,10 @@
 
 Textile opens raw `.lync` event unions directly. Its reader follows only the
 first parent as a tree, while retaining source IDs, extra DAG parents, and
-Curare cluster annotations. Keeps and human notes on raw events export as
+Curare cluster annotations. The focused `lync` source control (or `L`) opens a
+typed LINKS sheet: every held causal parent and child is directly traversable,
+while annotation targets and standard named `lync/pointer` targets are labeled
+as different relations. Keeps and human notes on raw events export as
 standard source-targeting `lync/annotation` records inside a portable
 kept-context Markdown artifact. A kept Textile-authored fork or revision stays
 a named Textile turn with its origin loom/turn identity, source-parent chain,
@@ -104,6 +107,11 @@ relations such as Text Machines' derive/extend/splice moves, evaluation and
 selection graphs, timelines, program/model traces, resident lives, and world
 histories. Those views should compose with Textile's small tactile interface;
 they should not be flattened into one overloaded universal tree.
+
+For imported raw corpora, the typed LINKS sheet is the current direct DAG
+navigation surface. It does not redraw MAP: MAP still shows the useful
+first-parent tree, and the owner-held visual language for cross-tree causal
+strings remains a separate design question.
 
 ## What's a loom?
 

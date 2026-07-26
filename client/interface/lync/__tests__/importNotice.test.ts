@@ -21,7 +21,7 @@ describe("raw Lync import notice", () => {
         warnings: [],
       }),
     ).toBe(
-      'Imported "corpus.lync" — 4 source events · 3 readable events · 1 structural event · all presented · 1 branch point · 3 annotations · 1 selected source · conforming — START opens map · ↓ selects child · ←/→ compare siblings · focus reading surface + K to Keep',
+      'Imported "corpus.lync" — 4 source events · 3 readable events · 1 structural event · all presented · 1 branch point · 3 annotations · 1 selected source · conforming — START opens map · L opens typed links · ↓ selects child · ←/→ compare siblings · focus reading surface + K to Keep',
     );
   });
 

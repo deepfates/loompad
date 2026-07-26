@@ -62,6 +62,7 @@ export function presentRawLyncEvent(
   }
   const known = splicePresenters[event.kind];
   if (known) return known(event.payload);
+  if (event.kind === "lync/pointer") return lyncPointer(event.payload);
   return genericPresentation(event.payload);
 }
 
@@ -101,6 +102,17 @@ function ocrSet(payload: Record<string, unknown>): RawLyncPresentation {
     min === null || max === null ? null : `Page range: ${min}–${max}`,
   ].filter((line): line is string => line !== null);
   return { text: lines.join("\n"), kind: "structure", contract: "splice/ocr-text-import" };
+}
+
+function lyncPointer(payload: Record<string, unknown>): RawLyncPresentation | null {
+  const name = stringField(payload, "name");
+  const target = stringField(payload, "target");
+  if (!name || !target) return null;
+  return {
+    text: `Lync pointer: ${name}\nTarget: ${target}`,
+    kind: "structure",
+    contract: "lync/pointer",
+  };
 }
 
 function genericPresentation(payload: Record<string, unknown>): RawLyncPresentation | null {
