@@ -9,8 +9,11 @@
 
 Textile opens raw `.lync` event unions directly. Its reader follows only the
 first parent as a tree, while retaining source IDs, extra DAG parents, and
-Curare cluster annotations. Keeps and human notes export as standard
-source-targeting `lync/annotation` events for Splice.
+Curare cluster annotations. Keeps and human notes on raw events export as
+standard source-targeting `lync/annotation` records inside a portable
+kept-context Markdown artifact. A kept Textile-authored fork or revision stays
+a named Textile turn with its origin loom/turn identity, source-parent chain,
+and revision link; it is never mislabeled as the raw event it extends.
 Unsafe unions (damaged or garbage lines, ID conflicts, missing parents, or graph
 cycles) fail closed with concrete reasons. Accepted nonconforming events remain
 readable and carry their warnings on the focused turn.
@@ -18,7 +21,7 @@ readable and carry their warnings on the focused turn.
 Readable events above one MiB of text use an explicit bounded reader with
 FIRST/PREV/NEXT/LAST 65,536-character windows. This is presentation
 virtualization, not truncation: the exact complete source string remains in the
-story model, full-tree JSON, and source-targeted curation/export paths.
+story model, full-tree JSON, and kept-context export paths.
 
 Textile also reads the exact Behold `org.behold.inhabitant.v1` profile through
 a non-mutating, profile-aware presentation adapter. It presents the safe
@@ -59,13 +62,25 @@ surface and press `K`; the successful Keep is visible as `Kept this turn ✓`
 and `✓kept`. Import `corpus.lync` instead when you want to inspect the final
 verified union with its selection already present.
 
-**Export KEPT** downloads a curation annotation patch, not a standalone corpus.
-It contains new selections and human-authored notes, retaining each writer and
-targeting exact source event ids. `lync verify` accepts those events, while
-graph inspection is expected to
-report dangling source parents because the source turns remain in
-`annotated.lync`. Merge the export with that retained annotated corpus, then
-verify the merged union when you need a self-contained graph.
+**Export KEPT** downloads one self-contained Markdown artifact. Its readable
+sections contain every explicitly kept target and its full causal ancestry;
+the first-parent path is the primary reading order and additional parents are
+named separately. Siblings that were merely visible during a Keep remain only
+in the embedded curation patch and are not promoted into the conversation.
+The Stories action is bound by loom ID rather than title, so duplicate titles
+cannot redirect the export away from the visible K/N state.
+
+The same file embeds a deterministic `textile/kept-context` machine manifest
+with exact source lines, ordered parent roles, kept Textile turns, keep/note
+attribution, original source annotations, comparison-only references, and
+explicit partial/drop reports. Import the `.md` through **Import Lync** to
+reopen export-eligible context with its raw and Textile keeps/notes in a fresh
+browser. Critical, no-train, and
+suppressed bodies are never carried: only their envelopes and reasons appear,
+and such a partial artifact refuses source reconstruction instead of leaking or
+inventing content. Actor names remain provenance; Textile does not infer
+user/assistant roles or a training perspective. See
+[the kept-context artifact contract](docs/kept-context-export.md).
 
 To inspect that synthetic fixture in the running interface, start Textile with
 `bun run dev`, open `http://localhost:5173`, then use **Settings → Stories →

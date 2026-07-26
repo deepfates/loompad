@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { createMemoryEventStore } from "@deepfates/lync/memory-log";
 import { createLyncLooms } from "@deepfates/lync/looms";
+import { parseKeptContextMarkdown } from "../../client/interface/utils/storyExport";
 
 // Build a SYNTHETIC conversation-loom snapshot file (splice's session→loom
 // adapter shape: turns carry payload.message + payload.text, meta.role/author),
@@ -127,6 +128,77 @@ function writeSyntheticLargeOcrLyncFile(textBytes = 8 * 1024 * 1024): {
   const file = join(dir, "large-ocr.lync");
   writeFileSync(file, `${events.map(JSON.stringify).join("\n")}\n`, "utf8");
   return { file, text, setId, pageId, documentId };
+}
+
+function writeSyntheticPolicyLyncFile(): string {
+  const events = [
+    {
+      v: 1,
+      id: "policy-target",
+      kind: "twitter/tweet",
+      at: "2026-07-06T04:10:00Z",
+      author: { actor: "alice" },
+      parents: [],
+      payload: { full_text: "PRIVATE TARGET BODY MUST NOT LEAK" },
+    },
+    {
+      v: 1,
+      id: "policy-critical",
+      kind: "future/embargo",
+      at: "2026-07-06T04:10:01Z",
+      author: { actor: "alice" },
+      parents: ["policy-target"],
+      payload: { reason: "PRIVATE CRITICAL BODY MUST NOT LEAK" },
+      critical: true,
+    },
+    {
+      v: 1,
+      id: "policy-no-train",
+      kind: "lync/annotation",
+      at: "2026-07-06T04:10:02Z",
+      author: { actor: "curator" },
+      parents: ["policy-target"],
+      payload: {
+        label: "no-train",
+        privateReason: "PRIVATE POLICY BODY MUST NOT LEAK",
+      },
+    },
+  ];
+  const dir = mkdtempSync(join(tmpdir(), "textile-policy-"));
+  const file = join(dir, "policy.lync");
+  writeFileSync(file, `${events.map(JSON.stringify).join("\n")}\n`, "utf8");
+  return file;
+}
+
+function writeSameTitleRawLyncCorpora(): {
+  first: string;
+  second: string;
+  firstId: string;
+  secondRootId: string;
+  secondId: string;
+} {
+  const firstId = "0197e6a0-4a09-7000-8000-000000000091";
+  const secondRootId = "0197e6a0-4a09-7000-8000-000000000092";
+  const secondId = "0197e6a0-4a09-7000-8000-000000000093";
+  const event = (id: string, text: string, parents: string[] = []) => ({
+    v: 1,
+    id,
+    kind: "twitter/tweet",
+    at: "2026-07-26T08:00:00.000Z",
+    author: { actor: "same-title-fixture" },
+    parents,
+    payload: { full_text: text },
+  });
+  const firstDir = mkdtempSync(join(tmpdir(), "textile-same-title-a-"));
+  const secondDir = mkdtempSync(join(tmpdir(), "textile-same-title-b-"));
+  const first = join(firstDir, "same-title.lync");
+  const second = join(secondDir, "same-title.lync");
+  writeFileSync(first, `${JSON.stringify(event(firstId, "Wrong same-title corpus."))}\n`, "utf8");
+  writeFileSync(second, `${[
+    event(secondRootId, "Context for the visible same-title corpus."),
+    event(secondId, "Original visible same-title corpus.", [secondRootId]),
+  ].map(JSON.stringify).join("\n")}\n`, "utf8");
+  return { first, second, firstId, secondRootId, secondId };
 }
 
 // Drive the keyboard from the loom view to the Stories-drawer "Import
@@ -1330,7 +1402,7 @@ test("an 8 MiB OCR event keeps controls responsive and its exact source accessib
     "A small sibling OCR page remains navigable.",
   );
 
-  // Stories, sharing, full-tree export, and the curation-patch export all stay
+  // Stories, sharing, full-tree export, and the kept-context export all stay
   // reachable. The tree JSON proves the complete multi-megabyte value stayed
   // in Textile's data model even though the reader windows its presentation.
   await page.getByRole("button", {
@@ -1365,54 +1437,71 @@ test("an 8 MiB OCR event keeps controls responsive and its exact source accessib
 
   await corpusRow.getByRole("button", { name: "Export KEPT" }).click();
   await expect(page.locator(".navbar-minibuffer")).toContainText(
-    /Lync curation patch.*Merge it with the source \.lync/,
+    /self-contained kept-context Markdown.*1 kept target.*2 causal source events/,
   );
   await expect.poll(() =>
     page.evaluate(() => window.__textileDownloads.length),
   ).toBe(2);
-  const patchFacts = await page.evaluate(async () => {
+  const keptFacts = await page.evaluate(async ({ setId, pageId, documentId }) => {
     const text = await window.__textileDownloads[1]!.text();
-    const events = text
-      .trim()
-      .split("\n")
-      .filter((line) => line.trim().length > 0)
-      .map((line) => JSON.parse(line)) as Array<{
+    const startMarker = "<!-- textile-kept-manifest:v1";
+    const endMarker = "textile-kept-manifest:end -->";
+    const encoded = text
+      .slice(text.lastIndexOf(startMarker) + startMarker.length, text.lastIndexOf(endMarker))
+      .replace(/\s+/g, "");
+    const binary = atob(encoded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const manifest = JSON.parse(new TextDecoder().decode(bytes)) as {
+      keptTargets: Array<{ sourceId: string }>;
+      eventOrder: string[];
+      comparisonOnlyReferences: string[];
+      events: Array<{ id: string; sourceLine?: string }>;
+      curationPatch: Array<{
         parents: string[];
-        payload: {
-          label: string;
-          text?: string;
-          chosen?: string[];
-          shown?: string[];
-        };
+        payload: { label: string; text?: string; chosen?: string[]; shown?: string[] };
       }>;
-    return {
-      count: events.length,
-      details: events.map((event) => ({
-        label: event.payload.label,
-        parents: event.parents,
-        text: event.payload.text,
-        chosen: event.payload.chosen,
-        shown: event.payload.shown,
-      })),
-      labels: events.map((event) => event.payload.label).sort(),
-      notes: events.flatMap((event) => event.payload.text ?? []),
     };
+    const selection = manifest.curationPatch.find((event) => event.payload.label === "selection");
+    return {
+      keptTargets: manifest.keptTargets.map((target) => target.sourceId),
+      eventOrder: manifest.eventOrder,
+      comparisonOnlyReferences: manifest.comparisonOnlyReferences,
+      chosen: selection?.payload.chosen,
+      shown: selection?.payload.shown,
+      selectionParents: selection?.parents,
+      notes: manifest.curationPatch
+        .filter((event) => event.payload.label === "note")
+        .map((event) => event.payload.text),
+      noteParents: manifest.curationPatch.find((event) => event.payload.label === "note")?.parents,
+      hasFullDocument:
+        text.includes("BEGIN SYNTHETIC LARGE OCR DOCUMENT") &&
+        text.includes("END SYNTHETIC LARGE OCR DOCUMENT") &&
+        manifest.events.find((event) => event.id === documentId)?.sourceLine?.includes(
+          "END SYNTHETIC LARGE OCR DOCUMENT",
+        ),
+      idsMatch: manifest.eventOrder[0] === setId && manifest.eventOrder[1] === documentId,
+      excludesPageBody: !text.includes("A small sibling OCR page remains navigable."),
+    };
+  }, {
+    setId: fixture.setId,
+    pageId: fixture.pageId,
+    documentId: fixture.documentId,
   });
-  expect(patchFacts.count).toBe(2);
-  expect(patchFacts.labels).toEqual(["note", "selection"]);
-  expect(patchFacts.notes).toEqual(["Retain the complete OCR document."]);
-  const selection = patchFacts.details.find(
-    (event) => event.label === "selection",
-  );
-  expect(selection?.chosen).toEqual([fixture.documentId]);
-  expect(new Set(selection?.shown)).toEqual(
+  expect(keptFacts.keptTargets).toEqual([fixture.documentId]);
+  expect(keptFacts.eventOrder).toEqual([fixture.setId, fixture.documentId]);
+  expect(keptFacts.comparisonOnlyReferences).toEqual([fixture.pageId]);
+  expect(keptFacts.notes).toEqual(["Retain the complete OCR document."]);
+  expect(keptFacts.chosen).toEqual([fixture.documentId]);
+  expect(new Set(keptFacts.shown)).toEqual(
     new Set([fixture.pageId, fixture.documentId]),
   );
-  expect(new Set(selection?.parents)).toEqual(
+  expect(keptFacts.hasFullDocument).toBe(true);
+  expect(keptFacts.idsMatch).toBe(true);
+  expect(keptFacts.excludesPageBody).toBe(true);
+  expect(new Set(keptFacts.selectionParents)).toEqual(
     new Set([fixture.pageId, fixture.documentId]),
   );
-  const note = patchFacts.details.find((event) => event.label === "note");
-  expect(note?.parents).toEqual([fixture.documentId]);
+  expect(keptFacts.noteParents).toEqual([fixture.documentId]);
 });
 
 test("author name is edited in-app without a native dialog", async ({ page }) => {
@@ -1683,24 +1772,26 @@ test("every Splice raw-converter kind renders, focuses, curates, shares, and exp
   }
 
   await corpusRow.getByRole("button", { name: "Export KEPT" }).click();
-  await expect(page.locator(".navbar-minibuffer")).toContainText(/Lync curation patch/);
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /self-contained kept-context Markdown.*9 kept targets.*11 causal source events/,
+  );
   await expect.poll(() => page.evaluate(() => window.__textileDownloads.length)).toBe(2);
-  const patchFacts = await page.evaluate(async () => {
-    const raw = await window.__textileDownloads[1]!.text();
-    return raw.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)) as Array<{
-      parents: string[];
-      payload: { label: string; chosen?: string[]; text?: string };
-    }>;
-  });
-  expect(patchFacts).toHaveLength(representatives.length * 2);
-  expect(new Set(patchFacts.filter((event) => event.payload.label === "selection")
+  const keptText = await page.evaluate(async () =>
+    window.__textileDownloads[1]!.text(),
+  );
+  const keptManifest = parseKeptContextMarkdown(keptText);
+  expect(keptManifest.events).toHaveLength(matrix.length);
+  expect(keptManifest.keptTargets).toHaveLength(representatives.length);
+  expect(new Set(keptManifest.curationPatch.filter((event) => event.payload.label === "selection")
     .flatMap((event) => event.payload.chosen ?? []))).toEqual(
     new Set(representatives.map((node) => node.sourceId)),
   );
-  expect(new Set(patchFacts.filter((event) => event.payload.label === "note")
+  expect(new Set(keptManifest.curationPatch.filter((event) => event.payload.label === "note")
     .flatMap((event) => event.parents))).toEqual(
     new Set(representatives.map((node) => node.sourceId)),
   );
+  expect(keptManifest.curationPatch.some((event) => event.payload.label === "cluster"))
+    .toBe(true);
 
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
@@ -1935,7 +2026,7 @@ test("keyboard KEEP + ANNOTATE persist across reload and Export KEPT emits the k
   await context.close();
 });
 
-test("two authors reconnect, co-curate an imported Twitter corpus, and export portable source annotations", async ({
+test("two authors reconnect, co-curate a Twitter corpus, and reopen portable kept context", async ({
   browser,
 }) => {
   const owner = await browser.newContext();
@@ -2037,44 +2128,386 @@ test("two authors reconnect, co-curate an imported Twitter corpus, and export po
   ).toBeVisible();
   await expect(adaPage.locator(".story-curation-status__kept")).toBeVisible();
 
-  // The ordinary Export KEPT action emits a portable curation patch. Each
-  // event retains the human actor and points to protocol source ids, never the
-  // reminted Textile import ids.
+  // Export KEPT emits useful Markdown plus a machine manifest. Causal source
+  // events and current curation retain source identity; no chat role is guessed.
   await openStoriesDrawer(adaPage);
   await adaPage.locator(".story-menu-item").filter({
     hasText: "twitter-corpus.lync",
   }).getByRole("button", { name: "Export KEPT" }).click();
   await expect(adaPage.locator(".navbar-minibuffer")).toContainText(
-    /Lync curation patch.*Merge it with the source \.lync.*verify the combined graph/,
+    /self-contained kept-context Markdown.*2 kept targets.*3 causal source events/,
   );
   const exportText = await adaPage.evaluate(async () => {
     const blob = window.__textileDownloads.at(-1);
     return blob ? await blob.text() : null;
   });
   expect(exportText).not.toBeNull();
-  const events = (exportText ?? "")
-    .trim()
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line)) as Array<{
-      kind: string;
-      author: { actor: string };
-      parents: string[];
-      payload: { label: string; text?: string; chosen?: string[] };
-    }>;
-  expect(events).toHaveLength(4);
-  expect(new Set(events.map((event) => event.author.actor))).toEqual(
+  const manifest = parseKeptContextMarkdown(exportText ?? "");
+  expect(manifest.keptTargets.map((target) => target.sourceId)).toEqual([
+    TWITTER_DISCARD,
+    TWITTER_PRESERVE,
+  ]);
+  expect(manifest.eventOrder).toEqual([
+    TWITTER_ROOT,
+    TWITTER_DISCARD,
+    TWITTER_PRESERVE,
+  ]);
+  expect(manifest.semantics.actorRoles).toBe("not-inferred");
+  const humanCuration = manifest.curationPatch.filter((event) =>
+    ["Ada", "Grace"].includes(event.author.actor),
+  );
+  expect(humanCuration).toHaveLength(4);
+  expect(new Set(humanCuration.map((event) => event.author.actor))).toEqual(
     new Set(["Ada", "Grace"]),
   );
-  expect(events.every((event) => event.kind === "lync/annotation")).toBe(true);
-  expect(events.every((event) => event.parents.every((id) =>
+  expect(humanCuration.every((event) => event.kind === "lync/annotation")).toBe(true);
+  expect(humanCuration.every((event) => event.parents.every((id) =>
     [TWITTER_PRESERVE, TWITTER_DISCARD].includes(id),
   ))).toBe(true);
-  expect(events.filter((event) => event.payload.label === "note").map((event) => event.payload.text).sort()).toEqual([
+  expect(humanCuration.filter((event) => event.payload.label === "note").map((event) => event.payload.text).sort()).toEqual([
     "Archive the contrast as a negative example.",
     "Keep the provenance-bearing branch.",
   ]);
+  expect(exportText).toContain("Which archive branch should we keep?");
+  expect(exportText).toContain("preserves provenance and context");
+  expect(exportText).toContain("discards provenance for convenience");
+
+  // A third, fresh browser has no original archive. It imports the downloaded
+  // Markdown file, sees both keeps and notes, then can export the same causal set.
+  const exportDir = mkdtempSync(join(tmpdir(), "textile-kept-context-"));
+  const exportFile = join(exportDir, "twitter-kept-context.md");
+  writeFileSync(exportFile, exportText ?? "", "utf8");
+  const reopenedContext = await browser.newContext();
+  const reopenedPage = await reopenedContext.newPage();
+  await captureDownloads(reopenedPage);
+  await mockGeneration(reopenedPage, "unused");
+  await reopenedPage.goto("/");
+  await waitForStoryIndex(reopenedPage);
+  await openStoriesDrawer(reopenedPage);
+  const [reopenChooser] = await Promise.all([
+    reopenedPage.waitForEvent("filechooser"),
+    reopenedPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await reopenChooser.setFiles(exportFile);
+  await expect(reopenedPage.locator(".navbar-minibuffer")).toContainText(
+    /3 source events.*3 readable events.*all presented.*2 selected sources/,
+  );
+  await reopenedPage.keyboard.press("Escape");
+  await focusTwitterBranch(reopenedPage, "preserve");
+  await expect(reopenedPage.locator(".story-curation-status__kept")).toBeVisible();
+  await expect(reopenedPage.getByText("Keep the provenance-bearing branch.", { exact: true }))
+    .toBeVisible();
+  await reopenedPage.keyboard.press("ArrowUp");
+  await reopenedPage.keyboard.press("ArrowRight");
+  await reopenedPage.keyboard.press("ArrowDown");
+  await expectFocusedSource(reopenedPage, TWITTER_DISCARD);
+  await expect(reopenedPage.locator(".story-curation-status__kept")).toBeVisible();
+  await expect(reopenedPage.getByText("Archive the contrast as a negative example.", { exact: true }))
+    .toBeVisible();
+
+  await openStoriesDrawer(reopenedPage);
+  const reopenedRow = reopenedPage.locator(".story-menu-item").filter({
+    hasText: "twitter-kept-context.md",
+  });
+  await reopenedRow.getByRole("button", { name: "Export KEPT" }).click();
+  await expect(reopenedPage.locator(".navbar-minibuffer")).toContainText(
+    /2 kept targets.*3 causal source events/,
+  );
+  const reexportText = await reopenedPage.evaluate(async () => {
+    const blob = window.__textileDownloads.at(-1);
+    return blob ? await blob.text() : null;
+  });
+  const reexport = parseKeptContextMarkdown(reexportText ?? "");
+  expect(reexport.eventOrder).toEqual(manifest.eventOrder);
+  expect(reexport.keptTargets.map((target) => target.sourceId)).toEqual(
+    manifest.keptTargets.map((target) => target.sourceId),
+  );
 
   await owner.close();
   await guest.close();
+  await reopenedContext.close();
+});
+
+test("same-title Stories action exports the exact visible kept loom and source set", async ({
+  browser,
+}) => {
+  test.setTimeout(60_000);
+  const fixture = writeSameTitleRawLyncCorpora();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await captureClipboard(page);
+  await captureDownloads(page);
+  await mockGeneration(page, "unused");
+  await page.goto("/");
+  await waitForStoryIndex(page);
+
+  const importFile = async (file: string) => {
+    await openStoriesDrawer(page);
+    const [chooser] = await Promise.all([
+      page.waitForEvent("filechooser"),
+      page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    ]);
+    await chooser.setFiles(file);
+    await expect(page.locator(".navbar-minibuffer")).toContainText(
+      'Imported "same-title.lync"',
+    );
+    await page.keyboard.press("Escape");
+  };
+
+  await importFile(fixture.first);
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, fixture.firstId);
+  await page.keyboard.press("ArrowUp");
+  await openStoriesDrawer(page);
+  const firstCurrentRow = page.locator(".story-menu-item.story-menu-item--current").filter({
+    hasText: "same-title.lync",
+  });
+  await firstCurrentRow.getByRole("button", { name: "Story link" }).click();
+  await expect.poll(() => readCapturedClipboard(page)).not.toBe("");
+  const firstLoomId = referenceFromUrl(await readCapturedClipboard(page))?.loomId;
+  expect(firstLoomId).toBeTruthy();
+  await page.keyboard.press("Escape");
+
+  await importFile(fixture.second);
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, fixture.secondRootId);
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, fixture.secondId);
+  await expect(page.locator("body")).toContainText("Original visible same-title corpus.");
+  await page.keyboard.press("Backspace");
+  await page.getByRole("menuitem", { name: "edit", exact: true }).click();
+  await page.locator(".edit-textarea").fill("Visible kept same-title revision.");
+  await page.getByRole("button", { name: "START" }).click();
+  await expect(page.locator(".edit-textarea")).toHaveCount(0);
+  await expect(page.locator("body")).toContainText("Visible kept same-title revision.");
+  await expect(page.locator('[aria-label^="source "]')).toHaveCount(0);
+  await page.keyboard.press("k");
+  await noteFocusedTurn(page, "This note belongs only to the visible second loom.");
+  await expect(page.locator(".story-curation-status__kept")).toBeVisible();
+  await expect(page.getByText(
+    "This note belongs only to the visible second loom.",
+    { exact: true },
+  )).toBeVisible();
+
+  // Both rows have the exact same title. The current-row marker, not a title
+  // search or first-match fallback, binds Story link and Export KEPT to the
+  // immutable loom projection that owns the visible K/N state.
+  await openStoriesDrawer(page);
+  const sameTitleRows = page.locator(".story-menu-item").filter({
+    hasText: "same-title.lync",
+  });
+  await expect(sameTitleRows).toHaveCount(2);
+  const exactCurrentRow = page.locator(".story-menu-item.story-menu-item--current").filter({
+    hasText: "same-title.lync",
+  });
+  await expect(exactCurrentRow).toHaveCount(1);
+  await exactCurrentRow.getByRole("button", { name: "Story link" }).click();
+  await expect.poll(async () =>
+    referenceFromUrl(await readCapturedClipboard(page))?.loomId,
+  ).not.toBe(firstLoomId);
+  const visibleLoomId = referenceFromUrl(await readCapturedClipboard(page))?.loomId;
+  expect(visibleLoomId).toBeTruthy();
+  expect(visibleLoomId).not.toBe(firstLoomId);
+
+  await exactCurrentRow.getByRole("button", { name: "Export JSON" }).click();
+  const visibleRootTurnId = await page.evaluate(async () => {
+    const raw = await window.__textileDownloads.at(-1)?.text();
+    return raw ? (JSON.parse(raw) as { tree: { id: string } }).tree.id : null;
+  });
+  expect(visibleRootTurnId).toBeTruthy();
+
+  await exactCurrentRow.getByRole("button", { name: "Export KEPT" }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /1 kept target.*2 causal source events.*1 Textile turn/,
+  );
+  const exported = await page.evaluate(async () =>
+    window.__textileDownloads.at(-1)?.text(),
+  );
+  const manifest = parseKeptContextMarkdown(exported ?? "");
+  expect(manifest.storyIdentity).toEqual({
+    loomId: visibleLoomId,
+    rootTurnId: visibleRootTurnId,
+    visibleSourceEventIds: [fixture.secondRootId, fixture.secondId],
+    exportedSourceEventIds: [fixture.secondRootId, fixture.secondId],
+  });
+  expect(manifest.keptTargets).toEqual([]);
+  expect(manifest.localKeptTargets).toHaveLength(1);
+  expect(manifest.localTurns).toHaveLength(1);
+  expect(manifest.localTurns[0]).toEqual(expect.objectContaining({
+    originLoomId: visibleLoomId,
+    parent: { kind: "source-event", id: fixture.secondRootId },
+    text: "Visible kept same-title revision.",
+    role: "revision",
+    revisesRef: { kind: "source-event", id: fixture.secondId },
+    notes: [expect.objectContaining({
+      text: "This note belongs only to the visible second loom.",
+    })],
+  }));
+  expect(manifest.targetDownsets).toEqual([{
+    target: manifest.localTurns[0]!.turnId,
+    ids: [fixture.secondRootId, fixture.secondId],
+  }]);
+  expect(exported).toContain("Visible kept same-title revision.");
+  expect(exported).toContain("Original visible same-title corpus.");
+  expect(exported).not.toContain("Wrong same-title corpus.");
+
+  const exportDir = mkdtempSync(join(tmpdir(), "textile-same-title-reopen-"));
+  const exportFile = join(exportDir, "same-title-kept-context.md");
+  writeFileSync(exportFile, exported ?? "", "utf8");
+  const reopened = await browser.newContext();
+  const reopenedPage = await reopened.newPage();
+  await captureDownloads(reopenedPage);
+  await mockGeneration(reopenedPage, "unused");
+  await reopenedPage.goto("/");
+  await waitForStoryIndex(reopenedPage);
+  await openStoriesDrawer(reopenedPage);
+  const [chooser] = await Promise.all([
+    reopenedPage.waitForEvent("filechooser"),
+    reopenedPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await chooser.setFiles(exportFile);
+  await expect(reopenedPage.locator(".navbar-minibuffer")).toContainText(
+    /2 source events.*1 kept Textile turn/,
+  );
+  await reopenedPage.keyboard.press("Escape");
+  await reopenedPage.keyboard.press("ArrowDown");
+  await expectFocusedSource(reopenedPage, fixture.secondRootId);
+  await reopenedPage.keyboard.press("ArrowRight");
+  await reopenedPage.keyboard.press("ArrowDown");
+  await expect(reopenedPage.locator("body")).toContainText(
+    "Visible kept same-title revision.",
+  );
+  await expect(reopenedPage.locator(".story-curation-status__kept")).toBeVisible();
+  await expect(reopenedPage.getByText(
+    "This note belongs only to the visible second loom.",
+    { exact: true },
+  )).toBeVisible();
+  await expect(reopenedPage.locator("body")).not.toContainText("Wrong same-title corpus.");
+
+  await openStoriesDrawer(reopenedPage);
+  const reopenedCurrentRow = reopenedPage
+    .locator(".story-menu-item.story-menu-item--current")
+    .filter({ hasText: "same-title-kept-context.md" });
+  await expect(reopenedCurrentRow).toHaveCount(1);
+  await reopenedCurrentRow.getByRole("button", { name: "Export KEPT" }).click();
+  await expect(reopenedPage.locator(".navbar-minibuffer")).toContainText(
+    /1 kept target.*2 causal source events.*1 Textile turn/,
+  );
+  const reexported = await reopenedPage.evaluate(async () =>
+    window.__textileDownloads.at(-1)?.text(),
+  );
+  const reopenedManifest = parseKeptContextMarkdown(reexported ?? "");
+  expect(reopenedManifest.localTurns).toHaveLength(1);
+  expect(reopenedManifest.localTurns[0]).toEqual(expect.objectContaining({
+    turnId: manifest.localTurns[0]!.turnId,
+    originLoomId: visibleLoomId,
+    parent: { kind: "source-event", id: fixture.secondRootId },
+    revisesRef: { kind: "source-event", id: fixture.secondId },
+    keepEvent: expect.objectContaining({ id: manifest.localTurns[0]!.keepEvent!.id }),
+    notes: [expect.objectContaining({
+      id: manifest.localTurns[0]!.notes[0]!.id,
+      text: "This note belongs only to the visible second loom.",
+    })],
+  }));
+
+  await context.close();
+  await reopened.close();
+});
+
+test("policy-withheld bodies never cross share, export, or fresh-reopen boundaries", async ({
+  browser,
+}) => {
+  const policyFile = writeSyntheticPolicyLyncFile();
+  const owner = await browser.newContext();
+  const ownerPage = await owner.newPage();
+  await captureClipboard(ownerPage);
+  await captureDownloads(ownerPage);
+  await mockGeneration(ownerPage, "unused");
+  await ownerPage.goto("/");
+  await waitForStoryIndex(ownerPage);
+  await openStoriesDrawer(ownerPage);
+  const [chooser] = await Promise.all([
+    ownerPage.waitForEvent("filechooser"),
+    ownerPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await chooser.setFiles(policyFile);
+  await expect(ownerPage.locator(".navbar-minibuffer")).toContainText(
+    /2 source events.*0 readable events.*2 structural events.*all presented.*1 annotation/,
+  );
+  await ownerPage.keyboard.press("Escape");
+  await expect(ownerPage.locator("body")).toContainText("Payload withheld");
+  await expect(ownerPage.locator("body")).not.toContainText("PRIVATE");
+
+  await openStoriesDrawer(ownerPage);
+  const policyRow = ownerPage.locator(".story-menu-item").filter({ hasText: "policy.lync" });
+  await policyRow.getByRole("button", { name: "Story link" }).click();
+  await expect.poll(() => readCapturedClipboard(ownerPage)).not.toBe("");
+  const sharedUrl = await readCapturedClipboard(ownerPage);
+
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await mockGeneration(guestPage, "unused");
+  await guestPage.goto(sharedUrl);
+  await waitForStoryIndex(guestPage);
+  await expect(guestPage.locator("body")).toContainText("Payload withheld");
+  await expect(guestPage.locator("body")).not.toContainText("PRIVATE");
+  const sharedState = await guestPage.evaluate(async () => {
+    const runtime = await import("/client/interface/lync/storyRuntime.ts");
+    const story = await import("/client/interface/lync/storyLoom.ts");
+    const entry = (await runtime.listStoryEntries()).find(
+      (candidate: { title?: string }) => candidate.title === "policy.lync",
+    );
+    if (!entry) throw new Error("Shared policy corpus missing");
+    return JSON.stringify(
+      await story.projectStoryTree(await runtime.openStoryLoom(entry.ref.loomId)),
+    );
+  });
+  expect(sharedState).not.toContain("PRIVATE");
+
+  await ownerPage.keyboard.press("Escape");
+  await ownerPage.getByRole("button", { name: "START" }).click();
+  await ownerPage.keyboard.press("ArrowDown");
+  await expectFocusedSource(ownerPage, "policy-target");
+  await ownerPage.keyboard.press("k");
+  await openStoriesDrawer(ownerPage);
+  await policyRow.getByRole("button", { name: "Export KEPT" }).click();
+  await expect(ownerPage.locator(".navbar-minibuffer")).toContainText(
+    /1 kept target.*1 causal source event.*PARTIAL/,
+  );
+  const exportText = await ownerPage.evaluate(async () =>
+    window.__textileDownloads.at(-1)?.text(),
+  );
+  expect(exportText).toBeTruthy();
+  expect(exportText).not.toContain("PRIVATE");
+  const manifest = parseKeptContextMarkdown(exportText ?? "");
+  expect(manifest.events[0]?.payload).toBeUndefined();
+  expect(manifest.events[0]?.payloadState).toBe("critical-suppressed-and-no-train");
+  expect(manifest.policyEvents.map((event) => event.id)).toEqual([
+    "policy-critical",
+    "policy-no-train",
+  ]);
+  expect(manifest.policyEvents.every((event) => event.payload === undefined)).toBe(true);
+
+  const exportDir = mkdtempSync(join(tmpdir(), "textile-policy-export-"));
+  const exportFile = join(exportDir, "policy-kept-context.md");
+  writeFileSync(exportFile, exportText ?? "", "utf8");
+  const fresh = await browser.newContext();
+  const freshPage = await fresh.newPage();
+  await mockGeneration(freshPage, "unused");
+  await freshPage.goto("/");
+  await waitForStoryIndex(freshPage);
+  await openStoriesDrawer(freshPage);
+  const [freshChooser] = await Promise.all([
+    freshPage.waitForEvent("filechooser"),
+    freshPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await freshChooser.setFiles(exportFile);
+  await expect(freshPage.locator(".navbar-minibuffer")).toContainText(
+    /Import failed: Kept context cannot be reopened as source.*intentionally withheld/,
+  );
+  await expect(freshPage.locator("body")).not.toContainText("PRIVATE");
+
+  await owner.close();
+  await guest.close();
+  await fresh.close();
 });

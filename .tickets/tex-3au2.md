@@ -1,27 +1,46 @@
 ---
 id: tex-3au2
-status: open
+status: closed
 deps: []
 links: [Hac-1i65, tex-qit3]
 created: 2026-07-25T23:19:40Z
 type: feature
 priority: 2
 assignee: deepfates
-tags: [corpus, textile, export, lync, context, provenance, candidate]
+tags: [corpus, textile, export, lync, context, provenance]
 ---
 # Textile: export kept material with self-contained causal context
 
-Export KEPT for a raw Lync import is intentionally only a portable annotation patch whose parents live in the original archive. The full-tree JSON is a lossy Textile StoryNode projection, and Splice Markdown renders a whole held event set rather than a selected contextual subset. A person or model therefore cannot currently take selected material away with the context and provenance needed to understand it without retaining the original .lync file.
+Export KEPT for a raw Lync import previously emitted only a portable annotation patch whose parents lived in the original archive. The full-tree JSON was a lossy Textile StoryNode projection, and Splice Markdown rendered a whole held event set rather than a selected contextual subset. A person or model therefore could not take selected material away with the context and provenance needed to understand it without retaining the original `.lync` file.
 
-Grounded import limitation: projectRawLyncFile parses the canonical source only in memory, builds a reminted conversation Loom, and looms.import remints its root and turns. The synced projection retains presented text, source id/kind/parents, raw payload under the turn message, actor/via, and some folded tags/selections. It does not retain canonical carried bytes, unsupported source events, most source annotations, full author axes, critical state, or the original at spelling. StoryNode drops still more of the turn payload. A self-contained provenance artifact must be built from a lossless persisted source-event representation, not reverse-engineered from StoryNode.
+The implementation now carries a content-bound source archive as hidden Loom turns, separate from the visible presentation. Export is built from those exact records rather than reverse-engineering source bodies from StoryNode. Policy-withheld records carry only envelopes and reasons before sync.
 
 ## Design
 
-Candidate artifact boundary, pending owner ratification of Keep versus Prefer meaning: preserve the current positive kept set without treating visible siblings as rejected examples. Emit one portable bundle with a machine-readable event/curation manifest plus Markdown. For each kept target, the Markdown presents the explicit first-parent reading path that matches Textile navigation and separately names every additional causal parent. The manifest carries the deduplicated all-parent downset, exact source ids, ordered parents, kind, source time, full author axes, raw payload or canonical carried line, keep/note provenance, presentation contract, suppression/drop report, and partial obstacles. Order by causal topology; use stable id only to order concurrent incomparable events, never as chronology. Preserve attributed actors and do not infer ChatML roles or a training perspective.
+The ratified boundary preserves the positive kept set without treating visible siblings as rejected examples. One Markdown download contains readable paths and an embedded machine manifest. For each kept target, the Markdown presents the explicit first-parent reading path that matches Textile navigation and separately names every additional causal parent. The manifest carries the deduplicated all-parent downset, exact source ids and lines, ordered parents, kind, source time, full author axes, keep/note provenance, presentation contract, suppression/drop report, and partial obstacles. Causal topology orders the events; stable id orders only ready incomparable events, never chronology. Attributed actors remain provenance and no ChatML role or training perspective is inferred.
 
-The generic bundle builder should consume original view-eligible Lync events and a domain-owned presenter registry. Lync owns downset/obstacle semantics, concrete source packages own readable payload projections, and Textile owns which durable keeps/notes the user selected and the download interaction. Behold EntityTurn readability remains a Behold-owned presenter decision, not a special importer or recursive payload guess.
+A kept Textile-authored fork/revision inside a raw corpus remains a Textile
+turn with immutable origin loom/turn identity and an explicit source/local
+parent and revision link. Its source ancestors still use the same all-parent
+downset. The menu binds the visible reader, current Stories row, download, and
+manifest through one loom-id/root/source-set action target; titles are never
+identity.
+
+The bundle consumes each event's original, export-eligible source record and the domain-owned presentation already selected at import. Textile owns the durable keeps/notes and download/reopen interaction. No generic presentation package was introduced without a second concrete consumer. Behold EntityTurn readability remains governed by its ratified profile-aware presentation pact, not recursive payload guessing.
 
 ## Acceptance Criteria
 
-A real raw import is curated in one browser, observed in a second synced browser, and exported from either without access to the original input file. The artifact opens as useful Markdown and machine-readable data; each kept target has an explicit first-parent conversation path and a complete all-parent causal downset, with every source id resolvable inside the bundle or a loud partial/refusal report. Full provenance axes, ordered parent roles when known, source payload, timestamps, notes, and keep authorship survive. Critical suppression and no-train obligations are honored with a complete drop report. Unknown kinds remain present as honest structural records and use no recursive text guessing. No user/assistant role or model perspective is inferred for generic events. Tests cover multiple kept targets with shared context, a multi-parent target, a missing parent, a suppressed event, an unsupported kind, and deterministic output under shuffled input. Before implementation, the owner decides whether siblings shown when K was pressed belong in the default artifact; that decision must not be smuggled in through the existing selection patch.
+A real raw import is curated in one browser, observed in a second synced browser, and exported from either without access to the original input file. The artifact opens as useful Markdown and machine-readable data; each kept target has an explicit first-parent conversation path and a complete all-parent causal downset, with every source id resolvable inside the bundle or a loud partial/refusal report. Full provenance axes, ordered parent roles, exact source lines, timestamps, notes, and keep authorship survive. Critical suppression and no-train obligations are honored with a complete drop report and no body leakage. Unknown kinds remain present as honest structural records and use no recursive text guessing. No user/assistant role or model perspective is inferred for generic events. Tests cover multiple kept targets with shared context, a multi-parent target, a missing parent, a suppressed event, an unsupported kind, deterministic output under shuffled input, two synced curators, a clean browser reopen/re-export, an 8 MiB OCR event, every Splice source kind, and adversarial policy sharing/refusal. Siblings shown during K remain in the curation patch only and are not promoted into kept content.
 
+## Closure evidence
+
+- Chromium: two authors disconnected/reconnected around shared curation; a third clean context imported the downloaded Markdown without the original archive, saw both keeps and notes, and re-exported the same three-event causal set.
+- Chromium: one kept 8 MiB OCR document exported exact full text with its `ocr/set` ancestor while the readable page sibling remained comparison-only and its body was absent.
+- Chromium: all 11 events across every actual Splice source kind imported/rendered/focused/curated/shared/exported; 9 explicit kind representatives were kept.
+- Adversarial Chromium: critical, no-train, and suppressed bodies were absent from owner UI, shared second-browser state, Markdown, and manifest; fresh source reconstruction refused loudly.
+- Persisted-profile Chromium: the exact previously failing kept human revision now exports 1 target with 2 raw ancestors and 1 Textile turn; a duplicate-title regression reopens that prose, keep, note, parent, and revision target in a clean context.
+- Unit regressions cover all-parent downsets, multi-parent roles, missing ancestors, unsupported structures, deterministic permutation behavior, carried curation, fresh reopen, and policy reapplication to legacy records.
+
+The persisted-browser defect found during the in-app audit is resolved in
+`tex-7j4m`; it established that portable local turns are part of this artifact
+contract, not a migration-only exception.

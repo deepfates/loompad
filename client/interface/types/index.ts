@@ -59,6 +59,15 @@ export interface StoryNode {
   via?: string;
   /** Present only for model turns; absent marks a human/unknown turn. */
   generatedBy?: StoryGeneratedBy;
+  /** Original loom role; carried for honest portable local-turn projection. */
+  turnRole?: string;
+  revises?: string;
+  /** Stable origin identity for a Textile-authored turn reopened from an artifact. */
+  portableTurnId?: string;
+  portableOriginLoomId?: string;
+  /** Stable identity of the sibling this local revision explicitly revises. */
+  revisesSourceId?: string;
+  revisesPortableTurnId?: string;
   /**
    * Whether this turn is KEPT for export — resolved from the latest `mark`
    * turn in the fold. Undefined when never marked. Set only when marked so the
@@ -85,6 +94,8 @@ export interface StoryNode {
   sourceLoomProfile?: string;
   /** The exact source event reconstructed from its preserved envelope + payload. */
   sourceEvent?: Record<string, unknown>;
+  /** Lossless raw corpus carried through hidden synced turns for portable export. */
+  sourceArchive?: import("../lync/rawLyncArchiveTypes").RawLyncSourceArchive;
   /** The newest positive Textile keep event, used as the selection event id. */
   keepMark?: { id: string; createdAt: number; actor?: string; via?: string };
 }

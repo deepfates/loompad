@@ -22,6 +22,9 @@ export function formatImportedConversationNotice(result: ImportedConversation): 
           count(result.branchPointCount ?? 0, "branch point"),
           count(result.annotationCount ?? 0, "annotation"),
           count(result.selectedSourceCount ?? 0, "selected source"),
+          ...(result.selectedLocalTurnCount
+            ? [count(result.selectedLocalTurnCount, "kept Textile turn")]
+            : []),
           result.nonconformingCount
             ? `${count(result.nonconformingCount, "nonconforming record")} (${result.warnings?.join("; ")})`
             : "conforming",

@@ -1,6 +1,7 @@
 import {
   parseLyncFiles,
   type LyncEventBody,
+  type LyncLineDiagnostic,
   type LyncParseResult,
 } from "@deepfates/lync/events";
 import type { ConversationLoomSnapshot, ConversationTurnMeta } from "./storyRuntime";
@@ -9,6 +10,21 @@ import {
   presentRawLyncEvent,
   type RawLyncPresentation,
 } from "./rawLyncPresentation";
+import type {
+  RawLyncCarriedCurationEvent,
+  RawLyncCarriedKeep,
+  RawLyncPayloadState,
+  RawLyncPortableLocalTurn,
+  RawLyncSourceArchiveMeta,
+  RawLyncSourceRecord,
+} from "./rawLyncArchiveTypes";
+
+export interface RawLyncProjectionOptions {
+  initialSelectedSourceIds?: string[];
+  carriedCuration?: RawLyncCarriedCurationEvent[];
+  carriedKeeps?: RawLyncCarriedKeep[];
+  carriedLocalTurns?: RawLyncPortableLocalTurn[];
+}
 
 export interface RawLyncProjection {
   snapshot: ConversationLoomSnapshot;
@@ -20,6 +36,7 @@ export interface RawLyncProjection {
   annotationCount: number;
   branchPointCount: number;
   selectedSourceCount: number;
+  selectedLocalTurnCount: number;
   nonconformingCount: number;
   warnings: string[];
 }
@@ -34,25 +51,30 @@ export interface RawLyncProjection {
 export function projectRawLyncFile(
   text: string,
   filename = "Imported Lync corpus",
+  options: RawLyncProjectionOptions = {},
 ): RawLyncProjection {
   const bytes = new TextEncoder().encode(text);
   const parsed = parseLyncFiles([{ file: filename, bytes }]);
   assertSafeProjection(parsed);
-  const nonconforming = parsed.lines.filter((line) => line.class === "nonconforming");
-  const eligible = new Set(parsed.viewEligibleIds);
-  const events = parsed.lines
-    .map((line) => line.event)
-    .filter((event): event is LyncEventBody => Boolean(event && eligible.has(event.id)));
+  const heldLines = heldSourceLines(parsed);
+  const nonconforming = heldLines.filter((line) => line.class === "nonconforming");
+  const events = heldLines.map((line) => line.event!);
 
   const annotations = events.filter((event) => event.kind === "lync/annotation");
   const sources = events.filter((event) => event.kind !== "lync/annotation");
   const eventsById = new Map(events.map((event) => [event.id, event]));
+  const suppressedBy = criticalSuppressorsByTarget(events, parsed);
+  const noTrainBy = noTrainAnnotationsByTarget(annotations, parsed);
   const loomProfiles = declaredLoomProfiles(sources, eventsById);
   const presentations = new Map<string, RawLyncPresentation>();
   for (const event of sources) {
-    const presentation = presentRawLyncEvent(event, {
-      loomProfile: loomProfiles.get(event.id),
-    });
+    const policy = policyState(event, suppressedBy, noTrainBy);
+    const presentation = policy === "available"
+      ? presentRawLyncEvent(event, { loomProfile: loomProfiles.get(event.id) })
+      : withheldPresentation(event, policy, [
+          ...(suppressedBy.get(event.id) ?? []),
+          ...(noTrainBy.get(event.id) ?? []),
+        ]);
     if (presentation) presentations.set(event.id, presentation);
   }
   const presented = sources.filter((event) => presentations.has(event.id));
@@ -64,6 +86,17 @@ export function projectRawLyncFile(
       : "";
     throw new Error(`No presentable events in this .lync file.${detail}`);
   }
+
+  const archivedIds = contentBoundArchiveIds(
+    presented.map((event) => event.id),
+    eventsById,
+    annotations,
+    suppressedBy,
+    noTrainBy,
+  );
+  const sourceRecords = heldLines
+    .filter((line) => archivedIds.has(line.id!))
+    .map((line) => sourceRecordFor(line, suppressedBy, noTrainBy));
 
   const presentedIds = new Set(presented.map((event) => event.id));
   const navigationParents = new Map(
@@ -79,6 +112,7 @@ export function projectRawLyncFile(
   );
   const tagsByTarget = clusterTagsByTarget(annotations);
   const selectedIds = selectedSourceIds(annotations);
+  for (const id of options.initialSelectedSourceIds ?? []) selectedIds.add(id);
   const childCounts = new Map<string, number>();
   for (const parent of navigationParents.values()) {
     if (parent) childCounts.set(parent, (childCounts.get(parent) ?? 0) + 1);
@@ -87,21 +121,59 @@ export function projectRawLyncFile(
   const createdAt = Math.min(...presented.map(eventTime));
   const loomId = `textile-raw:${presented[0]!.id}`;
 
+  const archiveMeta: RawLyncSourceArchiveMeta = {
+    schemaVersion: 1,
+    sourceName: filename,
+    partial: false,
+    obstacles: [],
+    suppressedPayloadIds: [...suppressedBy.keys()].sort(),
+    noTrainTargetIds: [...noTrainBy.keys()].sort(),
+    policyEventIds: [...new Set([
+      ...[...suppressedBy.values()].flat(),
+      ...[...noTrainBy.values()].flat(),
+    ])].sort(),
+    carriedCuration: [...(options.carriedCuration ?? [])],
+    carriedKeeps: [...(options.carriedKeeps ?? [])],
+    diagnostics: [],
+  };
   const turns: ConversationLoomSnapshot["turns"] = [
     {
       id: virtualId,
       loomId,
       parentId: null,
       payload: { message: filename, text: filename },
-      meta: { role: "corpus", author: "textile", rawVirtual: true },
+      meta: {
+        role: "corpus",
+        author: "textile",
+        rawVirtual: true,
+        sourceArchive: archiveMeta,
+      },
       createdAt,
     },
   ];
 
+  for (const record of sourceRecords) {
+    const author = record.envelope.author as
+      | { actor?: unknown; via?: unknown }
+      | undefined;
+    turns.push({
+      id: `textile-raw-source:${record.id}`,
+      loomId,
+      parentId: virtualId,
+      payload: { message: record, text: "" },
+      meta: {
+        role: "raw-source",
+        author: typeof author?.actor === "string" ? author.actor : "unknown",
+        via: typeof author?.via === "string" ? author.via : undefined,
+        rawSource: true,
+      },
+      createdAt: eventTime(eventsById.get(record.id)!),
+    });
+  }
+
   for (const event of orderByNavigationParent(presented, navigationParents)) {
     const navigationParent = navigationParents.get(event.id) ?? virtualId;
     const presentation = presentations.get(event.id)!;
-    const { payload: _sourcePayload, ...sourceEnvelope } = event;
     const meta: ConversationTurnMeta = {
       role: rawRole(event),
       author: event.author.actor,
@@ -119,15 +191,37 @@ export function projectRawLyncFile(
       sourcePresentationSections: presentation.sections,
       sourcePresentationDiagnostics: presentation.diagnostics,
       sourceLoomProfile: loomProfiles.get(event.id),
-      sourceEnvelope,
     };
     turns.push({
       id: event.id,
       loomId,
       parentId: navigationParent,
-      payload: { message: event.payload, text: presentation.text },
+      payload: { message: presentation.text, text: presentation.text },
       meta,
       createdAt: eventTime(event),
+    });
+  }
+
+  for (const local of options.carriedLocalTurns ?? []) {
+    turns.push({
+      id: local.turnId,
+      loomId,
+      parentId: local.parent?.id ?? virtualId,
+      payload: { message: local.text, text: local.text },
+      meta: {
+        role: local.role ?? "prose",
+        author: local.actor ?? "unknown",
+        via: local.via,
+        generatedBy: local.generatedBy,
+        revises: local.revises,
+        portableRole: local.role,
+        portableRevises: local.revisesRef,
+        portableTurnId: local.turnId,
+        portableOriginLoomId: local.originLoomId,
+        portableKeep: local.keepEvent,
+        portableNotes: local.notes,
+      },
+      createdAt: local.keepEvent ? Date.parse(local.keepEvent.at) : createdAt,
     });
   }
 
@@ -152,10 +246,179 @@ export function projectRawLyncFile(
     annotationCount: annotations.length,
     branchPointCount: [...childCounts.values()].filter((count) => count > 1).length,
     selectedSourceCount: presented.filter((event) => selectedIds.has(event.id)).length,
+    selectedLocalTurnCount: (options.carriedLocalTurns ?? []).filter(
+      (turn) => turn.keepEvent,
+    ).length,
     nonconformingCount: nonconforming.length,
     warnings: nonconforming.map(
       (line) => `${line.file}:${line.line} nonconforming: ${line.reason}`,
     ),
+  };
+}
+
+function heldSourceLines(parsed: LyncParseResult): LyncLineDiagnostic[] {
+  const eligible = new Set(parsed.viewEligibleIds);
+  const held = new Map<string, LyncLineDiagnostic>();
+  for (const line of parsed.lines) {
+    if (!line.id || !line.event || !eligible.has(line.id)) continue;
+    const existing = held.get(line.id);
+    if (!existing || compareHeldLines(line, existing) < 0) held.set(line.id, line);
+  }
+  return [...held.values()].sort((a, b) => a.id!.localeCompare(b.id!));
+}
+
+function compareHeldLines(a: LyncLineDiagnostic, b: LyncLineDiagnostic): number {
+  const richness = (line: LyncLineDiagnostic) =>
+    (line.hasSig || line.sig ? 2 : 0) + (line.hasDigest || line.digest ? 1 : 0);
+  const richnessDifference = richness(b) - richness(a);
+  if (richnessDifference !== 0) return richnessDifference;
+  return decodeLine(a).localeCompare(decodeLine(b));
+}
+
+function decodeLine(line: LyncLineDiagnostic): string {
+  return new TextDecoder("utf-8", { fatal: true }).decode(line.bytes);
+}
+
+function sourceRecordFor(
+  line: LyncLineDiagnostic,
+  suppressedBy: Map<string, string[]>,
+  noTrainBy: Map<string, string[]>,
+): RawLyncSourceRecord {
+  const event = line.event!;
+  const { payload, ...envelope } = event;
+  const payloadState = policyState(event, suppressedBy, noTrainBy);
+  const withheldBy = [...new Set([
+    ...(event.critical === true ? [event.id] : []),
+    ...(event.kind === "lync/annotation" && event.payload.label === "no-train"
+      ? [event.id]
+      : []),
+    ...(suppressedBy.get(event.id) ?? []),
+    ...(noTrainBy.get(event.id) ?? []),
+  ])].sort();
+  return {
+    id: event.id,
+    envelope,
+    ...(payloadState === "available" ? { payload, sourceLine: decodeLine(line) } : {}),
+    classification: line.class === "nonconforming" ? "nonconforming" : "accepted",
+    nonconformingReasons: [...(line.nonconformingReasons ?? [])],
+    payloadState,
+    withheldBy,
+  };
+}
+
+function policyState(
+  event: LyncEventBody,
+  suppressedBy: Map<string, string[]>,
+  noTrainBy: Map<string, string[]>,
+): RawLyncPayloadState {
+  if (event.critical === true) return "critical-policy";
+  if (event.kind === "lync/annotation" && event.payload.label === "no-train") {
+    return "no-train-policy";
+  }
+  const id = event.id;
+  const suppressed = suppressedBy.has(id);
+  const noTrain = noTrainBy.has(id);
+  if (suppressed && noTrain) return "critical-suppressed-and-no-train";
+  if (suppressed) return "critical-suppressed";
+  if (noTrain) return "no-train";
+  return "available";
+}
+
+function criticalSuppressorsByTarget(
+  events: LyncEventBody[],
+  parsed: LyncParseResult,
+): Map<string, string[]> {
+  const suppressed = new Set(parsed.suppression.suppressedPayloadIds);
+  const result = new Map<string, string[]>();
+  for (const event of events) {
+    if (event.critical !== true) continue;
+    for (const parent of event.parents) {
+      if (!suppressed.has(parent)) continue;
+      const ids = result.get(parent) ?? [];
+      ids.push(event.id);
+      result.set(parent, ids);
+    }
+  }
+  for (const ids of result.values()) ids.sort();
+  return result;
+}
+
+function contentBoundArchiveIds(
+  presentedIds: string[],
+  eventsById: Map<string, LyncEventBody>,
+  annotations: LyncEventBody[],
+  suppressedBy: Map<string, string[]>,
+  noTrainBy: Map<string, string[]>,
+): Set<string> {
+  const retained = new Set<string>();
+  const stack = [...presentedIds];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (retained.has(id)) continue;
+    retained.add(id);
+    for (const parent of eventsById.get(id)?.parents ?? []) stack.push(parent);
+  }
+  for (const annotation of annotations) {
+    if (annotation.parents.some((parent) => retained.has(parent))) {
+      retained.add(annotation.id);
+    }
+  }
+  for (const policyMap of [suppressedBy, noTrainBy]) {
+    for (const [target, ids] of policyMap) {
+      if (!retained.has(target)) continue;
+      for (const id of ids) retained.add(id);
+    }
+  }
+  return retained;
+}
+
+function noTrainAnnotationsByTarget(
+  annotations: LyncEventBody[],
+  parsed: LyncParseResult,
+): Map<string, string[]> {
+  const suppressed = new Set(parsed.suppression.suppressedPayloadIds);
+  const result = new Map<string, string[]>();
+  for (const event of annotations) {
+    if (suppressed.has(event.id) || event.payload.label !== "no-train") continue;
+    for (const parent of event.parents) {
+      const ids = result.get(parent) ?? [];
+      ids.push(event.id);
+      result.set(parent, ids);
+    }
+  }
+  for (const ids of result.values()) ids.sort();
+  return result;
+}
+
+function withheldPresentation(
+  event: LyncEventBody,
+  state: RawLyncPayloadState,
+  by: string[],
+): RawLyncPresentation {
+  const reason = state.includes("critical-suppressed")
+    ? "critical source suppression"
+    : state === "critical-policy"
+      ? "the source event's critical policy"
+      : state === "no-train-policy"
+        ? "the source event's no-train policy"
+        : "a no-train annotation";
+  return {
+    text: `Payload withheld by ${reason}.\nSource kind: ${event.kind}\nSource id: ${event.id}`,
+    kind: "structure",
+    contract: "lync/policy-withheld",
+    source: {
+      id: event.id,
+      parents: [...event.parents],
+      author: {
+        actor: event.author.actor,
+        ...(typeof event.author.via === "string" ? { via: event.author.via } : {}),
+      },
+      kind: event.kind,
+    },
+    diagnostics: by.map((sourcePath) => ({
+      code: state,
+      sourcePath: `policy-event:${sourcePath}`,
+    })),
   };
 }
 

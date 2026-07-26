@@ -386,7 +386,7 @@ export const TreeListMenu = ({
               <input
                 type="file"
                 className="story-import-control__input"
-                accept="application/x-lync+jsonl,.lync,.jsonl,application/json,.json"
+                accept="application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
                 aria-label="Import Lync"
                 onChange={onImportFileChosen}
               />

@@ -4,6 +4,11 @@ import { readFileSync } from "node:fs";
 import { createTestLoomClient } from "@deepfates/lync/client/testing";
 import { projectRawLyncFile } from "../rawLync";
 import { projectStoryTree, type ReadableLoom } from "../storyLoom";
+import {
+  buildRawLyncKeptContextArtifact,
+  keptContextImportSource,
+  parseKeptContextMarkdown,
+} from "../../utils/storyExport";
 import type {
   ConversationLoomMeta,
   ConversationTurnMeta,
@@ -68,6 +73,114 @@ describe("raw .lync projection", () => {
     expect(d?.extraParentIds).toEqual([C]);
     expect(d?.rawTags?.map((tag) => tag.tag)).toEqual(["cooperation"]);
     expect(all.find((node) => node.sourceId === B)?.kept).toBe(true);
+  });
+
+  it("reopens a kept-context artifact with only its causal context and carried keep provenance", async () => {
+    const projection = projectRawLyncFile(readFileSync(fixtureUrl, "utf8"), "corpus-loop.lync");
+    const looms = createTestLoomClient<
+      ConversationTurnPayload,
+      ConversationLoomMeta,
+      ConversationTurnMeta
+    >().looms;
+    const imported = await looms.import(projection.snapshot);
+    const tree = await projectStoryTree(
+      (await looms.open(imported.id)) as unknown as ReadableLoom,
+    );
+    const originallyKept = flatten(tree.root).find((node) => node.sourceId === B)!;
+    originallyKept.annotations = [{
+      id: "portable-note",
+      text: "Portable note survives the fresh reopen.",
+      actor: "curator",
+      via: "textile-browser",
+      createdAt: Date.parse("2026-07-06T04:10:20Z"),
+    }];
+    const artifact = buildRawLyncKeptContextArtifact("corpus-loop.lync", tree);
+    const manifest = parseKeptContextMarkdown(artifact.markdown);
+    expect(manifest.keptTargets.map((target) => target.sourceId)).toEqual([B]);
+    expect(manifest.eventOrder).toEqual([
+      "0197e6a0-4a09-7000-8000-000000000001",
+      B,
+    ]);
+    expect(manifest.comparisonOnlyReferences).toEqual([C]);
+
+    const reopened = keptContextImportSource(manifest);
+    const reopenedProjection = projectRawLyncFile(reopened.text, "reopened.md", {
+      initialSelectedSourceIds: reopened.selectedSourceIds,
+      carriedCuration: reopened.carriedCuration,
+      carriedKeeps: reopened.carriedKeeps,
+    });
+    expect(reopenedProjection.sourceEventCount).toBe(2);
+    expect(reopenedProjection.selectedSourceCount).toBe(1);
+    const reopenedImport = await looms.import(reopenedProjection.snapshot);
+    const reopenedTree = await projectStoryTree(
+      (await looms.open(reopenedImport.id)) as unknown as ReadableLoom,
+    );
+    const reopenedNodes = flatten(reopenedTree.root);
+    expect(reopenedNodes.find((node) => node.sourceId === B)?.kept).toBe(true);
+    expect(reopenedNodes.find((node) => node.sourceId === B)?.annotations).toContainEqual({
+      id: "portable-note",
+      text: "Portable note survives the fresh reopen.",
+      actor: "curator",
+      via: "textile-browser",
+      createdAt: Date.parse("2026-07-06T04:10:20Z"),
+    });
+    expect(reopenedNodes.some((node) => node.sourceId === C)).toBe(false);
+    expect(reopenedNodes.some((node) => node.sourceId === D)).toBe(false);
+    expect(reopenedTree.root.sourceArchive?.carriedKeeps).toEqual(reopened.carriedKeeps);
+    expect(reopenedTree.root.sourceArchive?.carriedCuration).toEqual(reopened.carriedCuration);
+  });
+
+  it("reopens a kept Textile turn under its exact source parent", async () => {
+    const projection = projectRawLyncFile(readFileSync(fixtureUrl, "utf8"), "local-turn.md", {
+      carriedLocalTurns: [{
+        turnId: "portable-local-revision",
+        originLoomId: "lync:original-textile-loom",
+        parent: { kind: "source-event", id: B },
+        text: "A human alternative extending the imported source.",
+        role: "revision",
+        revises: "original-internal-turn",
+        actor: "Ada",
+        via: "textile-browser",
+        keepEvent: {
+          id: "portable-local-keep",
+          at: "2026-07-26T08:01:00.000Z",
+          author: { actor: "Ada", via: "textile-browser" },
+        },
+        notes: [{
+          id: "portable-local-note",
+          text: "Preserve the local fork identity.",
+          actor: "Ada",
+          via: "textile-browser",
+          createdAt: Date.parse("2026-07-26T08:02:00.000Z"),
+        }],
+      }],
+    });
+    expect(projection.selectedLocalTurnCount).toBe(1);
+    const looms = createTestLoomClient<
+      ConversationTurnPayload,
+      ConversationLoomMeta,
+      ConversationTurnMeta
+    >().looms;
+    const imported = await looms.import(projection.snapshot);
+    const tree = await projectStoryTree(
+      (await looms.open(imported.id)) as unknown as ReadableLoom,
+    );
+    const sourceParent = flatten(tree.root).find((node) => node.sourceId === B)!;
+    const local = sourceParent.continuations?.find(
+      (node) => node.portableTurnId === "portable-local-revision",
+    );
+    expect(local).toEqual(expect.objectContaining({
+      text: "A human alternative extending the imported source.",
+      actor: "Ada",
+      via: "textile-browser",
+      turnRole: "revision",
+      portableOriginLoomId: "lync:original-textile-loom",
+      kept: true,
+    }));
+    expect(local?.annotations).toContainEqual(expect.objectContaining({
+      id: "portable-local-note",
+      text: "Preserve the local fork identity.",
+    }));
   });
 
   it("fails closed on garbage and damaged physical lines", () => {
@@ -159,6 +272,80 @@ describe("raw .lync projection", () => {
     expect(turn?.payload.text).toBe(text);
   });
 
+  it("keeps critical, no-train, suppressed, and unrelated bodies out of the synced archive", () => {
+    const target = {
+      ...event("policy-target", [], "unused"),
+      kind: "twitter/tweet",
+      author: { actor: "alice" },
+      payload: { full_text: "DO NOT LEAK TARGET" },
+    };
+    const critical = {
+      ...event("policy-critical", ["policy-target"], "DO NOT LEAK CRITICAL"),
+      kind: "future/embargo",
+      author: { actor: "alice" },
+      critical: true,
+    };
+    const noTrain = {
+      ...event("policy-no-train", ["policy-target"], "unused"),
+      kind: "lync/annotation",
+      author: { actor: "curator" },
+      payload: { label: "no-train", privateReason: "DO NOT LEAK POLICY" },
+    };
+    const unrelated = {
+      ...event("unrelated", [], "DO NOT LEAK UNRELATED"),
+      kind: "domain/unsupported",
+      payload: { opaque: "DO NOT LEAK UNRELATED" },
+    };
+    const projection = projectRawLyncFile(
+      `${[target, critical, noTrain, unrelated].map(JSON.stringify).join("\n")}\n`,
+      "policy.lync",
+    );
+    const serialized = JSON.stringify(projection.snapshot);
+    expect(serialized).not.toContain("DO NOT LEAK");
+
+    const records = projection.snapshot.turns
+      .filter((turn) => turn.meta.rawSource)
+      .map((turn) => turn.payload.message as import("../rawLyncArchiveTypes").RawLyncSourceRecord);
+    expect(records.map((record) => record.id).sort()).toEqual([
+      "policy-critical",
+      "policy-no-train",
+      "policy-target",
+    ]);
+    expect(records.map(({ id, payloadState, payload, sourceLine, withheldBy }) => ({
+      id,
+      payloadState,
+      payload,
+      sourceLine,
+      withheldBy,
+    }))).toEqual([
+      {
+        id: "policy-critical",
+        payloadState: "critical-policy",
+        payload: undefined,
+        sourceLine: undefined,
+        withheldBy: ["policy-critical"],
+      },
+      {
+        id: "policy-no-train",
+        payloadState: "no-train-policy",
+        payload: undefined,
+        sourceLine: undefined,
+        withheldBy: ["policy-no-train"],
+      },
+      {
+        id: "policy-target",
+        payloadState: "critical-suppressed-and-no-train",
+        payload: undefined,
+        sourceLine: undefined,
+        withheldBy: ["policy-critical", "policy-no-train"],
+      },
+    ]);
+    const targetTurn = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceId === "policy-target",
+    );
+    expect(targetTurn?.payload.text).toContain("Payload withheld by critical source suppression");
+  });
+
   it("collapses unreadable tool steps to the nearest readable first-parent ancestor", () => {
     const a = "0197e6a0-4a09-7000-8000-000000000061";
     const tool = "0197e6a0-4a09-7000-8000-000000000062";
@@ -225,13 +412,16 @@ describe("raw .lync projection", () => {
     expect(tagged?.meta.rawTags?.map((tag) => tag.tag)).toEqual(["source-kind-proof"]);
 
     const embed = sourceTurns.find((turn) => turn.meta.sourceKind === "twitter/tweet-embed");
-    const archiveTweet = sourceTurns.find(
-      (turn) =>
-        turn.meta.sourceKind === "twitter/tweet" &&
-        (turn.payload.message as { id?: string }).id === "1000000000000000001",
+    const archived = projection.snapshot.turns
+      .filter((turn) => turn.meta.rawSource)
+      .map((turn) => turn.payload.message as import("../rawLyncArchiveTypes").RawLyncSourceRecord);
+    const archiveTweet = archived.find(
+      (record) =>
+        record.envelope.kind === "twitter/tweet" &&
+        record.payload?.id === "1000000000000000001",
     );
-    expect(embed?.meta.sourceParents).toEqual([archiveTweet?.meta.sourceId]);
-    expect(embed?.parentId).toBe(archiveTweet?.meta.sourceId);
+    expect(embed?.meta.sourceParents).toEqual([archiveTweet?.id]);
+    expect(embed?.parentId).toBe(archiveTweet?.id);
   });
 
   it("presents the exact Oxford resident fixture and reconstructs unchanged source events", async () => {

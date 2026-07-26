@@ -89,9 +89,13 @@ export function useStoryTree(params: StoryParams) {
   const [currentLoomId, setCurrentLoomId] = useState(
     () => Object.keys(trees)[0],
   );
-  const [storyTree, setStoryTree] = useState<{ root: StoryNode }>(
-    () => trees[currentLoomId],
-  );
+  // The visible story is derived from the selected loom id and the catalog's
+  // projection. Keeping a second, independently mutable `storyTree` state let
+  // an async catalog refresh pair loom A's id with loom B's visible tree. That
+  // is catastrophic at the curation/export boundary: K/N could look correct
+  // while the Stories action exported a different tree. One map + one key is
+  // now the sole identity source.
+  const storyTree = trees[currentLoomId] || INITIAL_STORY;
   const [currentDepth, setCurrentDepth] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([0]);
   const [inFlight, setInFlight] = useState<InFlight>(new Set());
@@ -107,10 +111,9 @@ export function useStoryTree(params: StoryParams) {
         INITIAL_STORY.root.text,
       );
       setTrees((prev) => ({ ...prev, [key]: tree }));
-      if (key === currentLoomId) setStoryTree(tree);
       return tree;
     },
-    [currentLoomId],
+    [],
   );
 
   useStoryCatalog({
@@ -118,7 +121,6 @@ export function useStoryTree(params: StoryParams) {
     setTrees,
     setStoryTitles,
     setCurrentLoomId,
-    setStoryTree,
     setCurrentDepth,
     setSelectedOptions,
     fallbackTree: INITIAL_STORY,
@@ -147,10 +149,6 @@ export function useStoryTree(params: StoryParams) {
 
   // Helper to check if any generation is in progress
   const isAnyGenerating = inFlight.size > 0;
-
-  useEffect(() => {
-    setStoryTree(trees[currentLoomId] || INITIAL_STORY);
-  }, [trees, currentLoomId]);
 
   // Helper to get the last selected index for a node
   const getLastSelectedIndex = useCallback(
@@ -503,8 +501,8 @@ export function useStoryTree(params: StoryParams) {
             // The new nodes will be visible in the reader and minimap
             // but the cursor stays where it was
 
-            // Update tree last to ensure all state is consistent
-            setStoryTree(updatedTree);
+            // Update the catalog projection; the visible tree is derived from
+            // this map and currentLoomId, so identity cannot drift.
             setTrees((prev) => ({
               ...prev,
               [currentLoomId]: updatedTree,
@@ -566,7 +564,6 @@ export function useStoryTree(params: StoryParams) {
     currentLoomReady: Boolean(loomsById[currentLoomId]),
     setCurrentLoomId: (key: string) => {
       setCurrentLoomId(key);
-      setStoryTree(trees[key] || INITIAL_STORY);
       setCurrentDepth(0);
       setSelectedOptions([0]);
     },
@@ -581,7 +578,6 @@ export function useStoryTree(params: StoryParams) {
       const tree = await projectStoryTree(loom, INITIAL_STORY.root.text);
       setTrees((prev) => ({ ...prev, [info.id]: tree }));
       setCurrentLoomId(info.id);
-      setStoryTree(tree);
       setCurrentDepth(0);
       setSelectedOptions([0]);
       return info.id;

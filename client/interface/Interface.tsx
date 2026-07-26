@@ -56,12 +56,13 @@ import {
 } from "./utils/storyMeta";
 import {
   downloadKeptStoryJson,
-  downloadRawLyncCuration,
+  downloadRawLyncKeptContext,
   hasRawLyncSources,
   downloadStoryThreadText,
   downloadStoryTreeJson,
   getStoryPrimaryPath,
 } from "./utils/storyExport";
+import { resolveStoryActionTarget } from "./utils/storyActionTarget";
 import {
   createStoryIndexShareUrl,
   createStoryShareUrl,
@@ -545,43 +546,69 @@ export const GamepadInterface = () => {
     [performDeleteStory]
   );
 
+  const storyActionTargetFor = useCallback(
+    (key: string) => resolveStoryActionTarget(key, {
+      trees,
+      titles: storyTitles,
+      currentLoomId,
+      visibleTree: storyTree,
+    }),
+    [currentLoomId, storyTitles, storyTree, trees],
+  );
+
   const handleExportTree = useCallback(
     (key: string) => {
-      const tree = trees[key];
-      if (!tree) return;
-      const filename = downloadStoryTreeJson(key, tree);
-      showImportNotice(`Downloaded ${filename} — story tree JSON.`);
+      try {
+        const target = storyActionTargetFor(key);
+        const filename = downloadStoryTreeJson(target.title, target.tree);
+        showImportNotice(`Downloaded ${filename} — story tree JSON.`);
+      } catch (error) {
+        showImportNotice(error instanceof Error ? error.message : String(error));
+      }
     },
-    [showImportNotice, trees]
+    [showImportNotice, storyActionTargetFor]
   );
 
   const handleExportThread = useCallback(
     (key: string) => {
-      const tree = trees[key];
-      if (!tree) return;
-      const path =
-        key === currentLoomId ? getCurrentPath() : getStoryPrimaryPath(tree);
-      const filename = downloadStoryThreadText(key, path);
-      showImportNotice(`Downloaded ${filename} — first-parent thread text.`);
+      try {
+        const target = storyActionTargetFor(key);
+        const path = key === currentLoomId
+          ? getCurrentPath()
+          : getStoryPrimaryPath(target.tree);
+        const filename = downloadStoryThreadText(target.title, path);
+        showImportNotice(`Downloaded ${filename} — first-parent thread text.`);
+      } catch (error) {
+        showImportNotice(error instanceof Error ? error.message : String(error));
+      }
     },
-    [currentLoomId, getCurrentPath, showImportNotice, trees]
+    [currentLoomId, getCurrentPath, showImportNotice, storyActionTargetFor]
   );
 
   const handleExportKept = useCallback(
     (key: string) => {
-      const tree = trees[key];
-      if (!tree) return;
-      if (hasRawLyncSources(tree.root)) {
-        const filename = downloadRawLyncCuration(key, tree);
-        showImportNotice(
-          `Downloaded ${filename} — Lync curation patch. Merge it with the source .lync, then verify the combined graph.`,
-        );
-      } else {
-        const filename = downloadKeptStoryJson(key, tree);
-        showImportNotice(`Downloaded ${filename} — curated kept-turn JSON.`);
+      try {
+        const target = storyActionTargetFor(key);
+        if (hasRawLyncSources(target.tree.root)) {
+          const artifact = downloadRawLyncKeptContext(target.title, target.tree, {
+            loomId: target.loomId,
+            rootTurnId: target.rootTurnId,
+            visibleSourceEventIds: target.sourceEventIds,
+          });
+          const keptTargetCount = artifact.manifest.keptTargets.length
+            + artifact.manifest.localKeptTargets.length;
+          showImportNotice(
+            `Downloaded ${artifact.filename} — self-contained kept-context Markdown with an embedded machine manifest: ${keptTargetCount} kept target${keptTargetCount === 1 ? "" : "s"}, ${artifact.manifest.events.length} causal source event${artifact.manifest.events.length === 1 ? "" : "s"}${artifact.manifest.localTurns.length ? `, ${artifact.manifest.localTurns.length} Textile turn${artifact.manifest.localTurns.length === 1 ? "" : "s"}` : ""}${artifact.manifest.partial ? ", PARTIAL — inspect its integrity report" : ""}.`,
+          );
+        } else {
+          const filename = downloadKeptStoryJson(target.title, target.tree);
+          showImportNotice(`Downloaded ${filename} — curated kept-turn JSON.`);
+        }
+      } catch (error) {
+        showImportNotice(error instanceof Error ? error.message : String(error));
       }
     },
-    [showImportNotice, trees]
+    [showImportNotice, storyActionTargetFor]
   );
 
   // KEEP (the swipe): toggle the kept state of the current turn. Feedback rides
@@ -1546,7 +1573,7 @@ export const GamepadInterface = () => {
       <input
         ref={conversationFileInputRef}
         type="file"
-        accept="application/x-lync+jsonl,.lync,.jsonl,application/json,.json"
+        accept="application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
         aria-hidden="true"
         tabIndex={-1}
         style={{ display: "none" }}

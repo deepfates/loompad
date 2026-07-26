@@ -33,7 +33,6 @@ interface UseStoryCatalogParams {
   setTrees: Dispatch<SetStateAction<Record<string, { root: StoryNode }>>>;
   setStoryTitles: Dispatch<SetStateAction<Record<string, string>>>;
   setCurrentLoomId: Dispatch<SetStateAction<string>>;
-  setStoryTree: Dispatch<SetStateAction<{ root: StoryNode }>>;
   setCurrentDepth: Dispatch<SetStateAction<number>>;
   setSelectedOptions: Dispatch<SetStateAction<number[]>>;
   fallbackTree: { root: StoryNode };
@@ -91,7 +90,6 @@ export function useStoryCatalog({
   setTrees,
   setStoryTitles,
   setCurrentLoomId,
-  setStoryTree,
   setCurrentDepth,
   setSelectedOptions,
   fallbackTree,
@@ -111,7 +109,6 @@ export function useStoryCatalog({
       setTrees({ [info.id]: tree });
       setStoryTitles({ [info.id]: info.meta?.title ?? "Story 1" });
       setCurrentLoomId(info.id);
-      setStoryTree(tree);
       return;
     }
 
@@ -131,7 +128,6 @@ export function useStoryCatalog({
       setTrees({ [info.id]: tree });
       setStoryTitles({ [info.id]: info.meta?.title ?? "Story 1" });
       setCurrentLoomId(info.id);
-      setStoryTree(tree);
       setCurrentDepth(0);
       setSelectedOptions([0]);
       return;
@@ -145,7 +141,6 @@ export function useStoryCatalog({
       const nextKey = chooseInitialStoryKey(loaded, prev, focusedKey)
         ?? loaded.orderedIds[0];
       const nextTree = loaded.trees[nextKey] ?? fallbackTree;
-      setStoryTree(nextTree);
       let appliedFocus = false;
       if (focus?.kind !== "index" && focus?.turnId && loaded.trees[nextKey]) {
         const path = findPathById(nextTree.root, focus.turnId);
@@ -170,7 +165,6 @@ export function useStoryCatalog({
     setLoomsById,
     setSelectedOptions,
     setStoryTitles,
-    setStoryTree,
     setTrees,
     threadToSelectionIndices,
   ]);

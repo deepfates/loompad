@@ -27,6 +27,8 @@ export interface ReadableTurnMeta {
   /** Present only on `role: "mark"` turns — the kept state this swipe records. */
   kept?: boolean;
   rawVirtual?: boolean;
+  rawSource?: boolean;
+  sourceArchive?: import("./rawLyncArchiveTypes").RawLyncSourceArchiveMeta;
   sourceId?: string;
   sourceKind?: string;
   sourceParents?: string[];
@@ -41,6 +43,12 @@ export interface ReadableTurnMeta {
   sourcePresentationDiagnostics?: import("./rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
   sourceLoomProfile?: string;
   sourceEnvelope?: Record<string, unknown>;
+  portableTurnId?: string;
+  portableOriginLoomId?: string;
+  portableRole?: string;
+  portableRevises?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["revisesRef"];
+  portableKeep?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["keepEvent"];
+  portableNotes?: import("./rawLyncArchiveTypes").RawLyncPortableNote[];
 }
 
 /**
@@ -172,6 +180,7 @@ export async function projectStoryTree(
   }
 
   const rootNode: StoryNode = turnToStoryNode(rootTurn);
+  const sourceRecords: import("./rawLyncArchiveTypes").RawLyncSourceRecord[] = [];
   const rootRevisions = rootTurns.filter(
     (turn) => turn.meta?.role === "revision" && turn.meta.revises === rootTurn.id,
   );
@@ -196,9 +205,18 @@ export async function projectStoryTree(
       const role = child.meta?.role;
       if (role === "annotation") annotations.push(annotationFromTurn(child));
       else if (role === "mark") markTurns.push(child);
+      else if (role === "raw-source" && child.meta?.rawSource === true) {
+        const record = rawSourceRecordFromTurn(child);
+        if (record) sourceRecords.push(record);
+      }
       else storyChildren.push(child);
     }
-    if (annotations.length) parent.annotations = annotations;
+    if (annotations.length) {
+      const existing = parent.annotations ?? [];
+      parent.annotations = [...existing, ...annotations.filter(
+        (annotation) => !existing.some((candidate) => candidate.id === annotation.id),
+      )];
+    }
     // Append-only toggle: childrenOf returns marks in append order, so the LAST
     // mark is the newest — its kept state wins. Nothing is deleted.
     const latestMark = markTurns.at(-1);
@@ -216,6 +234,18 @@ export async function projectStoryTree(
 
     parent.continuations = storyChildren.map(turnToStoryNode);
     for (let index = 0; index < storyChildren.length; index += 1) {
+      const childTurn = storyChildren[index];
+      const child = parent.continuations[index];
+      const revises = childTurn?.meta?.revises;
+      if (!child || !revises || child.revisesSourceId || child.revisesPortableTurnId) continue;
+      const revisedIndex = storyChildren.findIndex((candidate) => candidate.id === revises);
+      const revised = parent.continuations[revisedIndex];
+      if (revised?.sourceId) child.revisesSourceId = revised.sourceId;
+      else if (revised && (revised.portableTurnId || rootTurn.meta?.sourceArchive)) {
+        child.revisesPortableTurnId = portableIdentity(revised);
+      }
+    }
+    for (let index = 0; index < storyChildren.length; index += 1) {
       const child = parent.continuations[index];
       const childTurn = storyChildren[index];
       if (child && childTurn) {
@@ -225,7 +255,70 @@ export async function projectStoryTree(
   };
 
   await appendChildren(rootNode, rootTurn);
+  if (rootTurn.meta?.sourceArchive) {
+    const records = [...sourceRecords].sort((a, b) => a.id.localeCompare(b.id));
+    rootNode.sourceArchive = { ...rootTurn.meta.sourceArchive, records };
+    const recordsById = new Map(records.map((record) => [record.id, record]));
+    attachSourceEvents(rootNode, recordsById);
+    attachCarriedNotes(rootNode, rootTurn.meta.sourceArchive.carriedCuration);
+  }
   return { root: rootNode };
+}
+
+function attachCarriedNotes(
+  root: StoryNode,
+  events: import("./rawLyncArchiveTypes").RawLyncCarriedCurationEvent[],
+): void {
+  const nodes = new Map<string, StoryNode>();
+  const collect = (node: StoryNode) => {
+    if (node.sourceId) nodes.set(node.sourceId, node);
+    for (const child of node.continuations ?? []) collect(child);
+  };
+  collect(root);
+  for (const event of events) {
+    if (event.payload.label !== "note" || typeof event.payload.text !== "string") continue;
+    for (const target of event.parents) {
+      const node = nodes.get(target);
+      if (!node || node.annotations?.some((note) => note.id === event.id)) continue;
+      node.annotations = [...(node.annotations ?? []), {
+        id: event.id,
+        text: event.payload.text,
+        actor: event.author.actor,
+        via: event.author.via,
+        createdAt: Date.parse(event.at),
+      }];
+    }
+  }
+}
+
+function rawSourceRecordFromTurn(
+  turn: ReadableTurn,
+): import("./rawLyncArchiveTypes").RawLyncSourceRecord | null {
+  if (!turn.payload || typeof turn.payload !== "object") return null;
+  const message = (turn.payload as { message?: unknown }).message;
+  if (!message || typeof message !== "object" || Array.isArray(message)) return null;
+  const record = message as Partial<import("./rawLyncArchiveTypes").RawLyncSourceRecord>;
+  if (
+    typeof record.id !== "string" ||
+    !record.envelope ||
+    typeof record.envelope !== "object" ||
+    !Array.isArray(record.nonconformingReasons) ||
+    typeof record.payloadState !== "string"
+  ) return null;
+  return message as import("./rawLyncArchiveTypes").RawLyncSourceRecord;
+}
+
+function attachSourceEvents(
+  node: StoryNode,
+  records: Map<string, import("./rawLyncArchiveTypes").RawLyncSourceRecord>,
+): void {
+  if (node.sourceId) {
+    const record = records.get(node.sourceId);
+    if (record?.payloadState === "available" && record.payload) {
+      node.sourceEvent = { ...record.envelope, payload: record.payload };
+    }
+  }
+  for (const child of node.continuations ?? []) attachSourceEvents(child, records);
 }
 
 /** Fold a `role: "annotation"` turn into the note shape the reader surfaces. */
@@ -352,7 +445,25 @@ function turnToStoryNode(turn: ReadableTurn): StoryNode {
     actor: meta?.author,
     via: meta?.via,
     generatedBy: meta?.generatedBy,
-    kept: meta?.sourceSelected === true ? true : undefined,
+    turnRole: meta?.portableRole,
+    portableTurnId: meta?.portableTurnId,
+    portableOriginLoomId: meta?.portableOriginLoomId,
+    revisesSourceId: meta?.portableRevises?.kind === "source-event"
+      ? meta.portableRevises.id
+      : undefined,
+    revisesPortableTurnId: meta?.portableRevises?.kind === "textile-turn"
+      ? meta.portableRevises.id
+      : undefined,
+    kept: meta?.sourceSelected === true || meta?.portableKeep ? true : undefined,
+    keepMark: meta?.portableKeep
+      ? {
+          id: meta.portableKeep.id,
+          createdAt: Date.parse(meta.portableKeep.at),
+          actor: meta.portableKeep.author.actor,
+          via: meta.portableKeep.author.via,
+        }
+      : undefined,
+    annotations: meta?.portableNotes?.map((note) => ({ ...note })),
     sourceId: meta?.sourceId,
     sourceKind: meta?.sourceKind,
     sourceParents: meta?.sourceParents,
@@ -367,4 +478,8 @@ function turnToStoryNode(turn: ReadableTurn): StoryNode {
     sourceLoomProfile: meta?.sourceLoomProfile,
     sourceEvent,
   };
+}
+
+function portableIdentity(node: StoryNode): string {
+  return node.portableTurnId ?? node.id;
 }

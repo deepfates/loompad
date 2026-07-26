@@ -25,7 +25,11 @@ import { createLoomClient } from "@deepfates/lync/client";
 import { upsertLoom } from "@deepfates/lync/indexes/entries";
 import type { LoomIndex } from "@deepfates/lync/indexes";
 import { createLoreLoomIndexes } from "./loreIndex";
-import { projectRawLyncFile } from "./rawLync";
+import { projectRawLyncFile, type RawLyncProjectionOptions } from "./rawLync";
+import {
+  keptContextImportSource,
+  parseKeptContextMarkdown,
+} from "../utils/storyExport";
 import type { RawLyncTag } from "../types";
 import type {
   StoryEntryMeta,
@@ -438,7 +442,11 @@ export interface ConversationTurnMeta {
   role: string;
   author: string;
   via?: string;
+  generatedBy?: import("./storyTypes").StoryGeneratedBy;
+  revises?: string;
   rawVirtual?: boolean;
+  rawSource?: boolean;
+  sourceArchive?: import("./rawLyncArchiveTypes").RawLyncSourceArchiveMeta;
   sourceId?: string;
   sourceKind?: string;
   sourceParents?: string[];
@@ -452,6 +460,12 @@ export interface ConversationTurnMeta {
   sourcePresentationSections?: import("./rawLyncPresentationTypes").RawLyncPresentationSection[];
   sourcePresentationDiagnostics?: import("./rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
   sourceLoomProfile?: string;
+  portableTurnId?: string;
+  portableOriginLoomId?: string;
+  portableRole?: string;
+  portableRevises?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["revisesRef"];
+  portableKeep?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["keepEvent"];
+  portableNotes?: import("./rawLyncArchiveTypes").RawLyncPortableNote[];
   sourceEnvelope?: Record<string, unknown>;
 }
 /** A conversation loom's own meta: marks the profile + carries a title. */
@@ -545,6 +559,7 @@ export interface ImportedConversation {
   annotationCount?: number;
   branchPointCount?: number;
   selectedSourceCount?: number;
+  selectedLocalTurnCount?: number;
   nonconformingCount?: number;
   warnings?: string[];
 }
@@ -604,8 +619,9 @@ export async function importConversationLoomText(
 export async function importRawLyncText(
   text: string,
   filename = "Imported Lync corpus",
+  options: RawLyncProjectionOptions = {},
 ): Promise<ImportedConversation> {
-  const projection = projectRawLyncFile(text, filename);
+  const projection = projectRawLyncFile(text, filename, options);
   const imported = await importConversationLoom(projection.snapshot);
   return {
     ...imported,
@@ -619,9 +635,25 @@ export async function importRawLyncText(
     annotationCount: projection.annotationCount,
     branchPointCount: projection.branchPointCount,
     selectedSourceCount: projection.selectedSourceCount,
+    selectedLocalTurnCount: projection.selectedLocalTurnCount,
     nonconformingCount: projection.nonconformingCount,
     warnings: projection.warnings,
   };
+}
+
+/** Reopen a self-contained kept-context Markdown artifact as a raw corpus. */
+export async function importKeptContextMarkdownText(
+  text: string,
+  filename: string,
+): Promise<ImportedConversation> {
+  const manifest = parseKeptContextMarkdown(text);
+  const source = keptContextImportSource(manifest);
+  return importRawLyncText(source.text, filename, {
+    initialSelectedSourceIds: source.selectedSourceIds,
+    carriedCuration: source.carriedCuration,
+    carriedKeeps: source.carriedKeeps,
+    carriedLocalTurns: source.carriedLocalTurns,
+  });
 }
 
 /** File-aware import keeps snapshot JSON and raw `.lync` as distinct contracts. */
@@ -629,7 +661,9 @@ export async function importLyncOrConversationText(
   text: string,
   filename: string,
 ): Promise<ImportedConversation> {
-  return /\.(lync|jsonl)$/i.test(filename)
+  return /\.md$/i.test(filename)
+    ? importKeptContextMarkdownText(text, filename)
+    : /\.(lync|jsonl)$/i.test(filename)
     ? importRawLyncText(text, filename)
     : importConversationLoomText(text);
 }
