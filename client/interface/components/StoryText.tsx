@@ -188,6 +188,12 @@ export function StoryText({
   authorshipDisplay,
 }: StoryTextProps) {
   const tint = authorshipDisplay === "detail";
+  // Generated story prose is deliberately seam-joined into one flowing text.
+  // Imported corpus records are distinct beats; their source strings should
+  // never need fabricated trailing whitespace to remain legible as turns.
+  const showTurnBoundaries = currentPath.some(
+    (segment) => segment.archiveSource || segment.sourceId || segment.portableTurnId,
+  );
   return (
     <div ref={storyTextRef} className="story-text">
       {currentPath.map((segment, index) => {
@@ -221,6 +227,7 @@ export function StoryText({
         return (
           <span
             key={segment.id}
+            className={showTurnBoundaries ? "story-turn-boundary" : undefined}
             data-node-id={segment.id}
             data-source-text-length={segment.text.length}
           >

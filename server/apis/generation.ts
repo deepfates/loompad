@@ -20,6 +20,7 @@ import {
 import { validateGenerateRequestBody } from "./validators";
 
 import { openai } from "./openaiClient";
+import { config } from "../config";
 
 // Boundary regex is provided by helpers to keep API lean
 function getBoundaryRegex(mode: LengthMode): RegExp | null {
@@ -53,6 +54,11 @@ export async function generateText(req: Request, res: Response) {
   let clientDisconnected = false;
 
   try {
+    if (!config.openRouterApiKey) {
+      return res.status(503).json({
+        error: "Generation is disabled. Set OPENROUTER_API_KEY to generate; local corpus reading and curation remain available.",
+      });
+    }
     const parsed = validateGenerateRequestBody(req.body);
     if (!parsed.ok) {
       return res.status(400).json({ error: parsed.error });

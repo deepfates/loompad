@@ -1,7 +1,7 @@
 {
   "name": "Textile",
   "short_name": "Textile",
-  "description": "An infinite game of choose your own adventure",
+  "description": "A tactile multiverse reader for branching stories, archives, and causal histories",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
@@ -56,7 +56,7 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["games", "entertainment"],
+  "categories": ["productivity", "utilities"],
   "shortcuts": [
     {
       "name": "New Story",

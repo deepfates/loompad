@@ -4,6 +4,7 @@ import http from "http";
 import {
   createSiteAuthCookieValue,
   hasSiteAccess,
+  hasProtectedSyncAccess,
   hasValidSiteSession,
   isSiteAuthConfigured,
   setupSiteAuthRoutes,
@@ -80,6 +81,21 @@ describe("site auth", () => {
         "script-secret",
       ),
     ).toBe(true);
+  });
+
+  it("does not make durable sync public when the API token is the only gate", () => {
+    const tokenOnly = { ...options, sitePassword: null };
+    expect(hasSiteAccess({ headers: {} }, tokenOnly, "script-secret")).toBe(true);
+    expect(hasProtectedSyncAccess({ headers: {} }, tokenOnly, "script-secret")).toBe(false);
+    expect(hasProtectedSyncAccess({
+      headers: { authorization: "Bearer script-secret" },
+    }, tokenOnly, "script-secret")).toBe(true);
+  });
+
+  it("allows an ungated local development relay but not an ungated production relay", () => {
+    const ungated = { ...options, sitePassword: null };
+    expect(hasProtectedSyncAccess({ headers: {} }, { ...ungated, isDevelopment: true }, null)).toBe(true);
+    expect(hasProtectedSyncAccess({ headers: {} }, ungated, null)).toBe(false);
   });
 
   it("serves login styles without Tailwind source directives", async () => {

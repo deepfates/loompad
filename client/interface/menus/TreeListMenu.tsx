@@ -218,7 +218,7 @@ export function getStoryRowPreview({
 /**
  * Stories list.  Mirrors the Models-tab row layout:
  *   row 0 — Sort pick (Recent / A→Z / Z→A); column 1 is the Index-link action
- *   row 1 — sibling + New Story and Import Lync actions
+ *   row 1 — sibling + New Story and Import Archive actions
  *   row 2+ — each existing story as an action row whose trailing slot
  *            carries sub-actions (copy links / export JSON / export thread)
  * The cursor is (rowIndex, columnIndex) — column 0 is the story body,
@@ -379,15 +379,15 @@ export const TreeListMenu = ({
               ]
                 .filter(Boolean)
                 .join(" ")}
-              title="Import Lync"
+              title="Import Archive"
             >
               <ImportIcon />
-              <span className="story-action-label">Import Lync</span>
+              <span className="story-action-label">Import Archive</span>
               <input
                 type="file"
                 className="story-import-control__input"
-                accept="application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
-                aria-label="Import Lync"
+                accept="application/zip,.zip,application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
+                aria-label="Import Archive"
                 onChange={onImportFileChosen}
               />
             </label>

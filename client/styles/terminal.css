@@ -61,7 +61,7 @@
      hydrates so the var is always defined. No :root fallback needed. */
 }
 
-/* Theme palettes extracted from SRCL — 14 themes across light/dark tones */
+/* Maintained theme palettes extracted from SRCL across light/dark tones */
 
 /* Per-theme focus treatment.  Two paired token sets because the
  * same "this is what you'd activate" intent wants different visual
@@ -371,6 +371,14 @@ html, body {
   transition: color 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
 }
 
+/* Source records are conversation/corpus beats, not fragments generated to
+   continue one prose stream. Keep their exact text while making the boundary
+   readable even when the source strings carry no trailing whitespace. */
+.story-text > .story-turn-boundary + .story-turn-boundary {
+  display: block;
+  margin-top: 0.65rem;
+}
+
 .story-text .story-large-text-reader {
   display: block;
   width: 100%;
@@ -524,7 +532,7 @@ html, body {
    indicator. Quiet is carried by MUTED COLOR + low opacity at the single grid
    size (SRCL: hierarchy is colour and position, never font size) — a leading
    dot glyph whose theme-var color carries origin, a short token, verbose detail
-   in title/aria only. Theme vars only — survives all 14 themes; no avatars. */
+   in title/aria only. Theme vars only — survives every palette; no avatars. */
 .story-authorship-status {
   position: absolute;
   left: 0.5rem;
@@ -1545,7 +1553,7 @@ button.story-source-status:focus-visible {
   justify-content: flex-end;
 }
 
-/* New Story and Import Lync share one d-pad row but remain sibling pointer
+/* New Story and Import Archive share one d-pad row but remain sibling pointer
    targets. This avoids an interactive Import control inside New Story. */
 .menu-item.story-create-row {
   grid-template-columns: 1fr auto;

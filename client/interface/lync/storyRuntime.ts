@@ -27,6 +27,9 @@ import type { LoomIndex } from "@deepfates/lync/indexes";
 import { createLoreLoomIndexes } from "./loreIndex";
 import { projectRawLyncFile, type RawLyncProjectionOptions } from "./rawLync";
 import {
+  parseKeptConversationMarkdown,
+} from "../utils/conversationKeptExport";
+import {
   keptContextImportSource,
   parseKeptContextMarkdown,
 } from "../utils/storyExport";
@@ -466,6 +469,7 @@ export interface ConversationTurnMeta {
   portableRevises?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["revisesRef"];
   portableKeep?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["keepEvent"];
   portableNotes?: import("./rawLyncArchiveTypes").RawLyncPortableNote[];
+  archiveSource?: import("./archiveTypes").ArchiveSourceRef;
   sourceEnvelope?: Record<string, unknown>;
 }
 /** A conversation loom's own meta: marks the profile + carries a title. */
@@ -550,7 +554,7 @@ export interface ImportedConversation {
   loomId: string;
   title: string;
   turnCount: number;
-  kind?: "conversation" | "raw-lync";
+  kind?: "conversation" | "raw-lync" | "twitter-archive";
   sourceEventCount?: number;
   readableEventCount?: number;
   structuralEventCount?: number;
@@ -562,6 +566,16 @@ export interface ImportedConversation {
   selectedLocalTurnCount?: number;
   nonconformingCount?: number;
   warnings?: string[];
+  archiveStats?: {
+    sourceRecords: number;
+    readableRecords: number;
+    tweets: number;
+    retweets: number;
+    likes: number;
+    malformedRecords: number;
+    unresolvedReplies: number;
+    ownerHandle: string;
+  };
 }
 
 /**
@@ -656,13 +670,63 @@ export async function importKeptContextMarkdownText(
   });
 }
 
+/** Reopen a portable kept conversation without the original archive or Loom. */
+export async function importKeptConversationMarkdownText(
+  text: string,
+): Promise<ImportedConversation> {
+  const manifest = parseKeptConversationMarkdown(text);
+  if (manifest.turns.length === 0) {
+    throw new Error("Kept-conversation artifact contains no kept turns to reopen.");
+  }
+  const createdAt = Math.min(...manifest.turns.map((turn) => turn.createdAt));
+  const snapshot: ConversationLoomSnapshot = {
+    loom: {
+      id: manifest.originalLoomId,
+      meta: {
+        profile: "conversation",
+        source: "textile-kept-conversation",
+        title: manifest.title,
+      },
+      createdAt: Number.isFinite(createdAt) ? createdAt : 0,
+    },
+    turns: manifest.turnOrder.map((id) => {
+      const turn = manifest.turns.find((candidate) => candidate.id === id);
+      if (!turn) throw new Error(`Kept-conversation turn ${id} is missing.`);
+      return {
+        id: turn.id,
+        loomId: manifest.originalLoomId,
+        parentId: turn.parentId,
+        payload: { message: turn.text, text: turn.text },
+        meta: {
+          role: turn.role ?? "artifact",
+          author: turn.actor ?? "unknown",
+          ...(turn.via ? { via: turn.via } : {}),
+          portableTurnId: turn.id,
+          portableOriginLoomId: manifest.originalLoomId,
+          portableRole: turn.role,
+          portableKeep: turn.keepEvent,
+          portableNotes: turn.notes,
+          archiveSource: turn.archiveSource,
+        },
+        createdAt: turn.createdAt,
+      };
+    }),
+  };
+  return {
+    ...(await importConversationLoom(snapshot)),
+    kind: "conversation",
+  };
+}
+
 /** File-aware import keeps snapshot JSON and raw `.lync` as distinct contracts. */
 export async function importLyncOrConversationText(
   text: string,
   filename: string,
 ): Promise<ImportedConversation> {
   return /\.md$/i.test(filename)
-    ? importKeptContextMarkdownText(text, filename)
+    ? text.includes("textile-kept-conversation:v1")
+      ? importKeptConversationMarkdownText(text)
+      : importKeptContextMarkdownText(text, filename)
     : /\.(lync|jsonl)$/i.test(filename)
     ? importRawLyncText(text, filename)
     : importConversationLoomText(text);

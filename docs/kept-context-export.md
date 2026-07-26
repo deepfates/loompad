@@ -1,5 +1,9 @@
 # Kept-context export
 
+This contract applies to raw multi-parent Lync unions. Native conversation
+archives use the smaller
+[`textile/kept-conversation` contract](kept-conversation-export.md).
+
 For a raw Lync corpus, **Export KEPT** means the ordinary positive selection.
 A kept source event carries the recursive union of all causal parents. A kept
 Textile-authored fork or revision carries its exact Textile loom/turn identity,
@@ -46,7 +50,7 @@ second-browser state therefore contain the source envelope, policy event IDs,
 and explicit reason—but not the withheld body.
 
 An artifact with withheld causal payloads is marked `PARTIAL`. It remains a
-useful, honest reading/report artifact, but **Import Lync** refuses to recreate
+useful, honest reading/report artifact, but **Import Archive** refuses to recreate
 source events whose bodies are absent. Export-eligible artifacts reopen as a
 new raw corpus with the same source IDs, exact causal content, explicit keeps,
 portable Textile forks/revisions, and visible notes; no original archive is

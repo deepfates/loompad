@@ -50,6 +50,8 @@ export interface RawLyncTag {
 export interface StoryNode {
   id: string;
   text: string;
+  /** Durable turn time from the Loom, when available. */
+  createdAt?: number;
   continuations?: StoryNode[];
   /** Human vs model vs unknown, derived from carried meta in the fold. */
   origin: StoryOrigin;
@@ -61,6 +63,8 @@ export interface StoryNode {
   generatedBy?: StoryGeneratedBy;
   /** Original loom role; carried for honest portable local-turn projection. */
   turnRole?: string;
+  /** Provider source identity carried by an explicit archive adapter. */
+  archiveSource?: import("../lync/archiveTypes").ArchiveSourceRef;
   revises?: string;
   /** Stable origin identity for a Textile-authored turn reopened from an artifact. */
   portableTurnId?: string;

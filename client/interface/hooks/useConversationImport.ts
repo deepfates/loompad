@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 
 import {
-  importLyncOrConversationText,
   type ImportedConversation,
 } from "../lync/storyRuntime";
+import { importTextileFile } from "../lync/twitterArchiveImport";
 
 /**
  * The running-app entry path for raw `.lync` or a conversation-loom snapshot:
@@ -46,8 +46,7 @@ export function useConversationImport({
       event.preventDefault();
       void (async () => {
         try {
-          const text = await file.text();
-          const result = await importLyncOrConversationText(text, file.name);
+          const result = await importTextileFile(file);
           onImported(result);
         } catch (error) {
           if (onError) onError(error);

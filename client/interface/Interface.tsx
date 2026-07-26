@@ -62,12 +62,15 @@ import {
   downloadStoryTreeJson,
   getStoryPrimaryPath,
 } from "./utils/storyExport";
+import {
+  downloadKeptConversationArtifact,
+  hasArchiveConversationSources,
+} from "./utils/conversationKeptExport";
 import { resolveStoryActionTarget } from "./utils/storyActionTarget";
 import {
   createStoryIndexShareUrl,
   createStoryShareUrl,
   createStoryThreadShareUrl,
-  importLyncOrConversationText,
   getStoryReferenceFromLocation,
   getStoryIndex,
   getLyncSyncSnapshot,
@@ -81,6 +84,7 @@ import {
   type AuthorshipDisplay,
   type ImportedConversation,
 } from "./lync/storyRuntime";
+import { importTextileFile } from "./lync/twitterArchiveImport";
 import { formatImportedConversationNotice } from "./lync/importNotice";
 import {
   rawLyncRelationsFor,
@@ -122,12 +126,6 @@ const SETTINGS_ROW_LABELS = [
 // like this one; the ActionMenu primitive and the key handling stay put.
 const TURN_ACTIONS = ["keep", "note", "edit"] as const;
 type TurnActionId = (typeof TURN_ACTIONS)[number] | "links";
-
-// What ⌫ does on a focused turn in the loom. "menu" = menu-first (⌫ opens the
-// action sheet; edit is a row inside it); "edit" = edit-first (⌫ jumps straight
-// into the editor). The owner is still deciding which; flip this ONE constant
-// to change the mapping — nothing else moves.
-const BACKSPACE_ON_TURN = "menu" as "menu" | "edit";
 
 // The FLOOR's per-loom action set. Same shape as TURN_ACTIONS — a stable order
 // that drives both the ActionMenu labels and the key handler. "open" is
@@ -385,7 +383,7 @@ export const GamepadInterface = () => {
   } = useStoryTree(menuParams);
 
   // Import raw `.lync` or a conversation snapshot two ways — drop a file anywhere,
-  // or use the keyboard-reachable "Import Lync" action in the Stories drawer.
+  // or use the keyboard-reachable "Import Archive" action in the Stories drawer.
   // (d-pad → Enter opens the file picker). Both share one result path. Neither
   // adds a Stories row, so the base-model story flow + drawer row math are
   // untouched; the notice keeps success AND failure visible (NOTHING-SILENT).
@@ -439,7 +437,7 @@ export const GamepadInterface = () => {
     onError: handleConversationImportError,
   });
 
-  // Hidden file input driven by the keyboard "Import Lync" action. The
+  // Hidden file input driven by the keyboard "Import Archive" action. The
   // action calls .click() to open the OS picker; the change handler runs the
   // SAME import path the drop hook uses. Reset value so re-picking the same file
   // fires change again.
@@ -455,7 +453,7 @@ export const GamepadInterface = () => {
       if (!file) return;
       try {
         handleConversationImported(
-          await importLyncOrConversationText(await file.text(), file.name),
+          await importTextileFile(file),
         );
       } catch (error) {
         handleConversationImportError(error);
@@ -609,6 +607,15 @@ export const GamepadInterface = () => {
             + artifact.manifest.localKeptTargets.length;
           showImportNotice(
             `Downloaded ${artifact.filename} — self-contained kept-context Markdown with an embedded machine manifest: ${keptTargetCount} kept target${keptTargetCount === 1 ? "" : "s"}, ${artifact.manifest.events.length} causal source event${artifact.manifest.events.length === 1 ? "" : "s"}${artifact.manifest.localTurns.length ? `, ${artifact.manifest.localTurns.length} Textile turn${artifact.manifest.localTurns.length === 1 ? "" : "s"}` : ""}${artifact.manifest.partial ? ", PARTIAL — inspect its integrity report" : ""}.`,
+          );
+        } else if (hasArchiveConversationSources(target.tree.root)) {
+          const artifact = downloadKeptConversationArtifact(
+            target.title,
+            target.tree,
+            target.loomId,
+          );
+          showImportNotice(
+            `Downloaded ${artifact.filename} — portable kept-conversation Markdown: ${artifact.manifest.keptTargets.length} kept target${artifact.manifest.keptTargets.length === 1 ? "" : "s"}, ${artifact.manifest.turns.length} contextual turn${artifact.manifest.turns.length === 1 ? "" : "s"}. Import this Markdown to reopen it without the Twitter archive.`,
           );
         } else {
           const filename = downloadKeptStoryJson(target.title, target.tree);
@@ -958,7 +965,7 @@ export const GamepadInterface = () => {
       const columnTypes: Array<
         "story" | "share" | "thread-link" | "json" | "thread" | "kept"
       > = ["story", "share", "thread-link", "json", "thread", "kept"];
-      // Rows 0 (Sort → Index link) and 1 (New Story → Import Lync)
+      // Rows 0 (Sort → Index link) and 1 (New Story → Import Archive)
       // each carry exactly one trailing action at column 1; stories (rows 2+)
       // carry the full sub-action set.
       const maxColumnFor = (index: number) =>
@@ -1464,12 +1471,9 @@ export const GamepadInterface = () => {
         return;
       }
       if (key === "Backspace") {
-        // ⌫ acts on the focused TURN. Menu-first vs edit-first is an open
-        // owner call — BACKSPACE_ON_TURN (top of file) is the one-line flip.
-        if (BACKSPACE_ON_TURN === "edit") {
-          setScreen("edit");
-          return;
-        }
+        // ⌫ opens the focused TURN's ordinary action door. Edit stays a named
+        // row beside Keep and Note instead of a hidden projection-specific
+        // shortcut, matching the touchscreen and keyboard surfaces.
         const node = getCurrentPath()[currentDepth];
         const actions = buildTurnActions(node);
         openMenu({
@@ -1648,12 +1652,12 @@ export const GamepadInterface = () => {
       data-story-ready={currentLoomReady ? "true" : "false"}
     >
       <InstallPrompt />
-      {/* Hidden picker for the keyboard "Import Lync" action. Off the
+      {/* Hidden picker for the keyboard "Import Archive" action. Off the
           keyboard grid; triggered by openConversationFilePicker(). */}
       <input
         ref={conversationFileInputRef}
         type="file"
-        accept="application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
+        accept="application/zip,.zip,application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
         aria-hidden="true"
         tabIndex={-1}
         style={{ display: "none" }}
@@ -1993,7 +1997,7 @@ export const GamepadInterface = () => {
                           ? "Sort"
                           : selectedTreeIndex === 1
                             ? selectedTreeColumn === 1
-                              ? "Import Lync"
+                              ? "Import Archive"
                               : "+ New Story"
                             : orderedKeys[selectedTreeIndex - 2] ?? ""
                         : "";

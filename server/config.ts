@@ -1,5 +1,6 @@
 interface Config {
-  openRouterApiKey: string;
+  /** Null means provider-free corpus mode; only generation/judging are disabled. */
+  openRouterApiKey: string | null;
   isDevelopment: boolean;
   corsAllowedOrigins: string[] | null;
   apiAuthToken: string | null;
@@ -92,7 +93,20 @@ function validateConfig(): Config {
         trustProxyHops,
       };
     }
-    throw new Error("OPENROUTER_API_KEY environment variable is required");
+    console.warn(
+      "⚠️ OPENROUTER_API_KEY is unset; corpus import, reading, curation, sync, and export remain available, while generation is disabled.",
+    );
+    return {
+      openRouterApiKey: null,
+      isDevelopment,
+      corsAllowedOrigins,
+      apiAuthToken,
+      sitePassword,
+      siteAuthSecret,
+      rateLimitWindowMs,
+      rateLimitMaxRequests,
+      trustProxyHops,
+    };
   }
 
   return {

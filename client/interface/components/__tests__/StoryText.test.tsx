@@ -109,6 +109,36 @@ describe("StoryText prose surface", () => {
     expect(detail).toContain("story-tint--unknown");
   });
 
+  it("separates imported corpus turns without changing exact source text", () => {
+    const first: StoryNode = {
+      ...human,
+      id: "archive-1",
+      text: "First archive beat.",
+      portableTurnId: "portable-1",
+    };
+    const second: StoryNode = {
+      ...human,
+      id: "archive-2",
+      text: "Second archive beat.",
+      archiveSource: {
+        profile: "splice/twitter-archive/v1",
+        provider: "twitter",
+        kind: "tweet",
+        recordId: "2",
+        parentRecordId: "1",
+        parentHeld: true,
+        accountId: "42",
+        ownerHandle: "archivist",
+        createdAt: "2026-07-26T00:00:00Z",
+      },
+    };
+    const html = render([first, second], 1);
+    expect(html.match(/story-turn-boundary/g)).toHaveLength(2);
+    expect(html).toContain("First archive beat.");
+    expect(html).toContain("Second archive beat.");
+    expect(render([human, model], 1)).not.toContain("story-turn-boundary");
+  });
+
   it("presents a multi-megabyte turn as an explicit bounded reader window", () => {
     const large: StoryNode = {
       ...unknown,

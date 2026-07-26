@@ -5,6 +5,58 @@
 > package. Textile supports `@deepfates/lync >=0.3.0 <0.5.0`. Its lock remains
 > on the published 0.3 line until the owner-authorized 0.4 registry release.
 
+Textile is a tactile multiverse reader for branching stories, conversations,
+and causal histories. It is now useful without an AI provider: open an archive
+locally, move through its threads, keep and annotate exact turns, share the
+durable Loom with another browser, and export a contextual conversation that a
+person or model can read without the original archive.
+
+## Five-minute archive path
+
+```sh
+bun install --frozen-lockfile
+bun run dev
+```
+
+Open `http://localhost:5173`, then use **SELECT → Stories → Import Archive**
+and choose
+[`examples/twitter-archive/textile-twitter-demo.zip`](examples/twitter-archive/textile-twitter-demo.zip).
+This checked-in, synthetic Twitter/X archive contains two reply threads, an
+external-parent reply, a retweet, and likes. No OpenRouter key is needed.
+
+The ZIP is read inside the browser and is not uploaded. The resulting minimized
+Loom—readable text plus the provenance named below—uses Textile's normal relay
+sync, so only import archives into a relay you trust. Textile uses Splice's
+explicit Twitter archive adapter to create one deterministic conversation Loom:
+tweets, retweets, and likes remain distinct; held replies retain their parent;
+missing external parents remain named provenance rather than invented context.
+Press Down to follow a thread, Left/Right to compare roots, `K` to keep the
+focused turn, and `N` to attach a note. **Export KEPT** produces readable
+Markdown plus a `textile/kept-conversation` manifest containing only each kept
+target and its Loom-parent path. Import that `.md` in a fresh browser to reopen
+the same source IDs, keep, and note without the ZIP.
+
+The demo's exact walkthrough and privacy boundary are in
+[`examples/twitter-archive/README.md`](examples/twitter-archive/README.md).
+The portable file contract is documented in
+[`docs/kept-conversation-export.md`](docs/kept-conversation-export.md).
+The current source-native ZIP front door supports Twitter/X `tweets`,
+`retweets`, and `like` records. Other Splice importers currently enter Textile
+through `.lync`; they are not falsely advertised as native ZIP adapters.
+
+## Accepted corpus surfaces
+
+- Native Twitter/X archive `.zip`, converted locally by Splice's browser-safe
+  adapter.
+- Raw `.lync`/`.jsonl` unions, including the documented Splice source kinds,
+  Curare annotations, arbitrary named pointers, and safe Behold resident turns.
+- Conversation Loom `.json` snapshots.
+- Textile kept-context and kept-conversation `.md` artifacts.
+
+AI continuation is a second, optional surface. Configure OpenRouter only when
+you want generation or automatic judging; corpus import, navigation, curation,
+sync, and export do not require it.
+
 ## Raw Lync corpus acceptance
 
 Textile opens raw `.lync` event unions directly. Its reader follows only the
@@ -56,7 +108,7 @@ operator and portable `fixture://` source reference rather than the local
 account name or checkout path. The automated Textile boundary is its real app-layer projection,
 Loom import, keep mark, reprojection, and selection exporter. It does not claim
 to click the browser controls. For the human UI check, open **Settings →
-Stories → Import Lync** and choose the retained `annotated.lync` (it has
+Stories → Import Archive** and choose the retained `annotated.lync` (it has
 clusters but no selection yet). Import opens LOOM; do not expect Left/Right
 there to switch between siblings. Press **START** to open MAP at the branch
 parent, press Down to descend to the selected child, then use Left/Right to
@@ -76,7 +128,7 @@ cannot redirect the export away from the visible K/N state.
 The same file embeds a deterministic `textile/kept-context` machine manifest
 with exact source lines, ordered parent roles, kept Textile turns, keep/note
 attribution, original source annotations, comparison-only references, and
-explicit partial/drop reports. Import the `.md` through **Import Lync** to
+explicit partial/drop reports. Import the `.md` through **Import Archive** to
 reopen export-eligible context with its raw and Textile keeps/notes in a fresh
 browser. Critical, no-train, and
 suppressed bodies are never carried: only their envelopes and reasons appear,
@@ -87,7 +139,7 @@ user/assistant roles or a training perspective. See
 
 To inspect a synthetic typed-DAG fixture in the running interface, start
 Textile with `bun run dev`, open `http://localhost:5173`, then use **Settings →
-Stories → Import Lync** to choose `tests/e2e/fixtures/dag-links.lync`. The
+Stories → Import Archive** to choose `tests/e2e/fixtures/dag-links.lync`. The
 import opens in LOOM; press **START** to show its branch map, then follow the
 solid additional-parent, dashed pointer, and dotted annotation legend in MAP.
 
@@ -141,7 +193,8 @@ It connects to [OpenRouter](https://openrouter.ai/), so you can use whatever mod
 
 **Storage:** Stories save to your browser automatically. Switch between them, create new ones, delete old ones. Export as JSON (full tree) or plain text (current branch).
 
-**Theming:** 14 color schemes - terminal greens, amber phosphor, LCARS, outrun pink, classic Mac, Win95 blue screen, more. 16 monospace fonts. Light mode, dark mode, or system.
+**Theming:** Six deliberately maintained palettes and two Iosevka faces. Light
+mode, dark mode, or system.
 
 **PWA:** Install to your home screen. Reading and navigation work offline. Generation needs a connection.
 
@@ -202,10 +255,11 @@ composing the existing projections and verbs, not by accumulating chrome.
 Requires [Bun](https://bun.sh).
 
 ```bash
-bun install
-echo "OPENROUTER_API_KEY=your_key" > .env
+bun install --frozen-lockfile
 bun run dev
 ```
+
+For generation, optionally add `OPENROUTER_API_KEY=your_key` to `.env`.
 
 Dev server runs at `localhost:5173` on macOS, `localhost:5000` elsewhere (see `server/args.ts`; override with `PORT=`).
 
@@ -215,11 +269,17 @@ bun run build
 bun run prod
 ```
 
-Production deployments need `OPENROUTER_API_KEY` and at least one access gate:
+Production deployments need at least one access gate:
 `TEXTILE_SITE_PASSWORD` for browser users, `TEXTILE_API_AUTH_TOKEN` for trusted
-scripts/server clients, or both. The API token is accepted as
-`Authorization: Bearer <token>` or `x-api-key`, including for `/lync` websocket
-sync upgrades.
+scripts/server clients, or both. OpenRouter is optional in production too;
+without it the corpus product boots normally and generation/judging return a
+clear disabled response.
+
+The API token is accepted as `Authorization: Bearer <token>` or `x-api-key`,
+including for native `/lync` websocket clients. Ordinary browser websocket
+sync cannot attach that header, so a private synced browser deployment should
+use `TEXTILE_SITE_PASSWORD`. An API-token-only deployment does **not** silently
+make `/lync` public.
 
 `/lync` websocket sync uses a 30s relay heartbeat by default. Set
 `LYNC_KEEPALIVE_INTERVAL_MS` if a deployment needs a different watchdog window.

@@ -4,7 +4,7 @@ import {
   attachLyncServer as attachLyncRelay,
   type AttachLyncServerOptions,
 } from "@deepfates/lync/relay";
-import { hasSiteAccess } from "./siteAuth";
+import { hasProtectedSyncAccess } from "./siteAuth";
 
 let attached = false;
 let relay: ReturnType<typeof attachLyncRelay> | null = null;
@@ -34,7 +34,7 @@ export function attachLyncServer(server: http.Server) {
       parsePositiveInt(process.env.LYNC_KEEPALIVE_INTERVAL_MS) ??
       DEFAULT_LYNC_KEEPALIVE_INTERVAL_MS,
     maxConnections: parsePositiveInt(process.env.LYNC_MAX_CONNECTIONS),
-    authenticate: authMode === "public" ? undefined : hasSiteAccess,
+    authenticate: authMode === "public" ? undefined : hasProtectedSyncAccess,
   };
   relay = attachLyncRelay(server, options);
   console.log(`[Lync] relay auth mode: ${authMode}`);

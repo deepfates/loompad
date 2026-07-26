@@ -100,6 +100,20 @@ export function hasSiteAccess(
   );
 }
 
+/**
+ * Access for durable sync, where "no site password" must not accidentally
+ * mean public when an API token is the configured production gate.
+ */
+export function hasProtectedSyncAccess(
+  req: HeaderRequest,
+  options = getSiteAuthOptions(),
+  apiAuthToken = config.apiAuthToken,
+) {
+  if (hasValidSiteSession(req, options)) return true;
+  if (hasValidApiAuthToken(req, apiAuthToken)) return true;
+  return options.isDevelopment && !options.sitePassword && !apiAuthToken;
+}
+
 function safeRedirectTarget(raw: unknown) {
   if (typeof raw !== "string") return "/";
   if (!raw.startsWith("/") || raw.startsWith("//")) return "/";

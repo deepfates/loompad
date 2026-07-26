@@ -49,6 +49,7 @@ export interface ReadableTurnMeta {
   portableRevises?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["revisesRef"];
   portableKeep?: import("./rawLyncArchiveTypes").RawLyncPortableLocalTurn["keepEvent"];
   portableNotes?: import("./rawLyncArchiveTypes").RawLyncPortableNote[];
+  archiveSource?: import("./archiveTypes").ArchiveSourceRef;
 }
 
 /**
@@ -440,12 +441,16 @@ function turnToStoryNode(turn: ReadableTurn): StoryNode {
   return {
     id: turn.id,
     text: deriveTurnText(turn.payload),
+    // Archive/portable artifacts need their source time for an honest reopen.
+    // Keep legacy story projections byte-for-byte shaped as before.
+    ...(meta?.archiveSource || meta?.portableTurnId ? { createdAt: turn.createdAt } : {}),
     continuations: [],
     origin: originFromMeta(meta),
     actor: meta?.author,
     via: meta?.via,
     generatedBy: meta?.generatedBy,
-    turnRole: meta?.portableRole,
+    turnRole: meta?.portableRole ?? (meta?.archiveSource ? meta.role : undefined),
+    ...(meta?.archiveSource ? { archiveSource: meta.archiveSource } : {}),
     portableTurnId: meta?.portableTurnId,
     portableOriginLoomId: meta?.portableOriginLoomId,
     revisesSourceId: meta?.portableRevises?.kind === "source-event"

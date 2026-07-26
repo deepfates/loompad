@@ -7,6 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { createMemoryEventStore } from "@deepfates/lync/memory-log";
 import { createLyncLooms } from "@deepfates/lync/looms";
 import { parseKeptContextMarkdown } from "../../client/interface/utils/storyExport";
+import { parseKeptConversationMarkdown } from "../../client/interface/utils/conversationKeptExport";
 
 // Build a SYNTHETIC conversation-loom snapshot file (splice's session→loom
 // adapter shape: turns carry payload.message + payload.text, meta.role/author),
@@ -217,8 +218,15 @@ async function focusImportConversationByKeyboard(page: Page) {
   await expect(page.locator(".navbar-minibuffer")).toContainText("Sort");
   await page.keyboard.press("ArrowDown"); // row 1: + New Story
   await expect(page.locator(".navbar-minibuffer")).toContainText("+ New Story");
-  await page.keyboard.press("ArrowRight"); // row 1, column 1: Import Lync/conversation
-  await expect(page.locator(".navbar-minibuffer")).toContainText("Import Lync");
+  await page.keyboard.press("ArrowRight"); // row 1, column 1: Import Archive/conversation
+  await expect(page.locator(".navbar-minibuffer")).toContainText("Import Archive");
+  await expect(page.locator("label.story-import-control")).toHaveClass(/selected/);
+  // Let the global keyboard listener receive the render carrying column 1.
+  // Without this boundary an immediate Enter can hit the preceding New Story
+  // closure under a busy parallel run even though the selected UI has painted.
+  await page.evaluate(() => new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  ));
 }
 
 async function mockGeneration(page: Page, prefix: string) {
@@ -362,6 +370,20 @@ async function descendToLeaf(page: Page) {
   await expect(page.locator(".cursor-node")).toHaveCount(0);
 }
 
+async function openFocusedTurnEditor(page: Page) {
+  await page.keyboard.press("Backspace");
+  const sheet = page.getByTestId("action-sheet");
+  await expect(sheet).toBeVisible();
+  await expect(page.locator(".action-sheet-title")).toHaveText("TURN");
+  await expect(sheet.getByRole("menuitem", { name: "edit", exact: true })).toBeVisible();
+  // keep → note → edit: exercise the menu's keyboard contract, not a hidden
+  // direct-edit shortcut that touch users cannot reach.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".edit-textarea")).toBeVisible();
+}
+
 async function readCapturedClipboard(page: Page) {
   return page.evaluate(() => window.__textileClipboardText);
 }
@@ -401,6 +423,9 @@ const oxfordResidentFixture = fileURLToPath(
 );
 const dagLinksFixture = fileURLToPath(
   new URL("./fixtures/dag-links.lync", import.meta.url),
+);
+const twitterArchiveDemo = fileURLToPath(
+  new URL("../../examples/twitter-archive/textile-twitter-demo.zip", import.meta.url),
 );
 const TWITTER_ROOT = "3f91fb15-efa8-883a-bc73-7288e4712854";
 const TWITTER_PRESERVE = "42a289ef-1fba-8935-8555-4045f55868d4";
@@ -782,7 +807,7 @@ test("a copied thread link after a root edit reopens the same edited loom", asyn
   await page.keyboard.press("Escape");
   await expect(page.locator(".menu-content")).toHaveCount(0);
 
-  await page.keyboard.press("Backspace");
+  await openFocusedTurnEditor(page);
   await page.locator("textarea").fill("Shared edited opening,");
   await page.getByRole("button", { name: "START" }).click();
   await expect(page.locator(".edit-textarea")).toHaveCount(0);
@@ -837,7 +862,7 @@ test("editing a node with children creates one revision instead of duplicating i
 
   await waitForGenerationSettled(page);
   await descendToLeaf(page);
-  await page.keyboard.press("Backspace");
+  await openFocusedTurnEditor(page);
   await page.locator("textarea").fill("Edited child");
   await page.getByRole("button", { name: "START" }).click();
 
@@ -884,7 +909,7 @@ test("editing the story root revises the seed in place within the same loom", as
   await page.keyboard.press("Escape");
   await expect(page.locator(".menu-content")).toHaveCount(0);
 
-  await page.keyboard.press("Backspace");
+  await openFocusedTurnEditor(page);
   await page.locator("textarea").fill("Edited opening,");
   await page.getByRole("button", { name: "START" }).click();
   await expect(page.locator(".edit-textarea")).toHaveCount(0);
@@ -925,7 +950,7 @@ test("lore-backed story edits survive a browser reload", async ({ browser }) => 
   );
   await waitForStoryIndex(page);
 
-  await page.keyboard.press("Backspace");
+  await openFocusedTurnEditor(page);
   await page.locator("textarea").fill("Reloaded edited opening,");
   await page.getByRole("button", { name: "START" }).click();
   await expect(page.locator("body")).toContainText(
@@ -975,7 +1000,7 @@ test("generating after a root edit continues from the revised root", async ({
   await expect(page.locator("body")).toContainText("Root regen 1.");
   await waitForGenerationSettled(page);
 
-  await page.keyboard.press("Backspace");
+  await openFocusedTurnEditor(page);
   await page.locator("textarea").fill("Regenerated opening,");
   await page.getByRole("button", { name: "START" }).click();
   await expect(page.locator(".edit-textarea")).toHaveCount(0);
@@ -1260,7 +1285,7 @@ test("keyboard-reachable Import conversation opens a synthetic conversation loom
   await expect(page.locator("body")).toContainText("Reached by keyboard alone?");
 });
 
-test("pointer Import Lync opens one chooser from a standalone control", async ({
+test("pointer Import Archive opens one chooser from a standalone control", async ({
   page,
 }) => {
   await mockGeneration(page, "Pointer import");
@@ -1270,12 +1295,12 @@ test("pointer Import Lync opens one chooser from a standalone control", async ({
   const file = await writeSyntheticConversationFile({
     title: "Synthetic Pointer Chat",
     seed: "Reached by pointer alone?",
-    reply: "Yes — the visible Import Lync control owns the chooser.",
+    reply: "Yes — the visible Import Archive control owns the chooser.",
   });
 
   await openStoriesDrawer(page);
   const importButton = page.getByRole("button", {
-    name: "Import Lync",
+    name: "Import Archive",
     exact: true,
   });
   await expect(importButton).toHaveCount(1);
@@ -1306,7 +1331,7 @@ test("an 8 MiB OCR event keeps controls responsive and its exact source accessib
   await openStoriesDrawer(page);
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    page.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   const importStartedAt = Date.now();
   await chooser.setFiles(fixture.file);
@@ -1568,7 +1593,7 @@ test("MAP prose, source badge, and curation target one imported event", async ({
 
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    page.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await chooser.setFiles(twitterCorpusFixture);
   await expect(page.locator(".navbar-minibuffer")).toContainText(
@@ -1618,7 +1643,7 @@ test("every Splice raw-converter kind renders, focuses, curates, shares, and exp
   await openStoriesDrawer(page);
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    page.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await chooser.setFiles(spliceSourceKindsFixture);
   await expect(page.locator(".navbar-minibuffer")).toContainText(
@@ -1823,7 +1848,7 @@ test("the exact Oxford resident life imports, reads, navigates, and exports its 
   await openStoriesDrawer(page);
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    page.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await chooser.setFiles(oxfordResidentFixture);
   await expect(page.locator(".navbar-minibuffer")).toContainText(
@@ -2029,6 +2054,134 @@ test("keyboard KEEP + ANNOTATE persist across reload and Export KEPT emits the k
   await context.close();
 });
 
+test("native Twitter archive becomes a shared, portable kept conversation", async ({
+  browser,
+}) => {
+  test.setTimeout(60_000);
+  const owner = await browser.newContext();
+  const page = await owner.newPage();
+  await captureClipboard(page);
+  await captureDownloads(page);
+  await mockGeneration(page, "unused");
+  await page.goto("/");
+  await waitForStoryIndex(page);
+
+  // The ordinary front door accepts the original ZIP. Parsing and conversion
+  // happen in this browser; the selected archive is never uploaded.
+  await openStoriesDrawer(page);
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByRole("button", { name: "Import Archive", exact: true }).click(),
+  ]);
+  await chooser.setFiles(twitterArchiveDemo);
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /Imported @archive_weaver locally.*6 tweets.*1 retweet.*2 likes.*1 external reply.*no malformed records/,
+  );
+  await page.keyboard.press("Escape");
+
+  // Discover the retained thread through visible prose, never a known event id.
+  await expect(page.locator("body")).toContainText("Twitter archive @archive_weaver");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("body")).toContainText("A good archive remembers the path");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("body")).toContainText("The useful unit is a conversation");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("body")).toContainText("Keeping one turn should carry the thread");
+  await expect(page.locator('[aria-label^="source twitter tweet"]')).toHaveAttribute(
+    "aria-label",
+    /twitter tweet 1800000000000000003.*archive owner @archive_weaver/,
+  );
+  await page.keyboard.press("k");
+  await noteFocusedTurn(page, "This conclusion needs its two-turn setup.");
+  await expect(page.locator(".story-curation-status__kept")).toBeVisible();
+
+  // A second browser opens the shared Loom and sees the same immutable source,
+  // keep, and note. Closing and reopening the tab proves relay reconstruction.
+  await openStoriesDrawer(page);
+  const archiveRow = page.locator(".story-menu-item").filter({
+    hasText: "Twitter archive @archive_weaver",
+  });
+  await archiveRow.getByRole("button", { name: "Story link" }).click();
+  await expect.poll(() => readCapturedClipboard(page)).not.toBe("");
+  const sharedUrl = await readCapturedClipboard(page);
+  await page.keyboard.press("Escape");
+
+  const guest = await browser.newContext();
+  let guestPage = await guest.newPage();
+  await mockGeneration(guestPage, "unused");
+  await guestPage.goto(sharedUrl);
+  await waitForStoryIndex(guestPage);
+  for (let depth = 0; depth < 3; depth += 1) await guestPage.keyboard.press("ArrowDown");
+  await expect(guestPage.locator("body")).toContainText("Keeping one turn should carry the thread");
+  await expect(guestPage.locator(".story-curation-status__kept")).toBeVisible();
+  await expect(guestPage.getByText("This conclusion needs its two-turn setup.", { exact: true }))
+    .toBeVisible();
+  await guestPage.close();
+  guestPage = await guest.newPage();
+  await mockGeneration(guestPage, "unused");
+  await guestPage.goto(sharedUrl);
+  await waitForStoryIndex(guestPage);
+  for (let depth = 0; depth < 3; depth += 1) await guestPage.keyboard.press("ArrowDown");
+  await expect(guestPage.locator(".story-curation-status__kept")).toBeVisible();
+
+  // The current archive row exports a human-readable conversation, not a
+  // hidden full archive. Nearby roots/likes remain unselected and absent.
+  await openStoriesDrawer(page);
+  await archiveRow.getByRole("button", { name: "Export KEPT" }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /portable kept-conversation Markdown.*1 kept target.*4 contextual turns/,
+  );
+  const markdown = await page.evaluate(async () => {
+    const blob = window.__textileDownloads.at(-1);
+    return blob ? await blob.text() : null;
+  });
+  expect(markdown).not.toBeNull();
+  const manifest = parseKeptConversationMarkdown(markdown ?? "");
+  expect(manifest.keptTargets).toHaveLength(1);
+  expect(manifest.turns.map((turn) => turn.archiveSource?.recordId).filter(Boolean)).toEqual([
+    "1800000000000000001",
+    "1800000000000000002",
+    "1800000000000000003",
+  ]);
+  expect(markdown).toContain("This conclusion needs its two-turn setup.");
+  expect(markdown).not.toContain("A corpus becomes an instrument");
+  expect(markdown).not.toContain("Tools should make provenance easier");
+
+  // A completely fresh browser can reopen and understand the artifact without
+  // access to the source ZIP or the shared relay reference.
+  const dir = mkdtempSync(join(tmpdir(), "textile-kept-conversation-"));
+  const file = join(dir, "archive-weaver-kept-conversations.md");
+  writeFileSync(file, markdown ?? "", "utf8");
+  const reopened = await browser.newContext();
+  const reopenedPage = await reopened.newPage();
+  await mockGeneration(reopenedPage, "unused");
+  await reopenedPage.goto("/");
+  await waitForStoryIndex(reopenedPage);
+  await openStoriesDrawer(reopenedPage);
+  const [reopenChooser] = await Promise.all([
+    reopenedPage.waitForEvent("filechooser"),
+    reopenedPage.getByRole("button", { name: "Import Archive", exact: true }).click(),
+  ]);
+  await reopenChooser.setFiles(file);
+  await expect(reopenedPage.locator(".navbar-minibuffer")).toContainText(
+    /Imported "Twitter archive @archive_weaver".*4 turns/,
+  );
+  await reopenedPage.keyboard.press("Escape");
+  for (let depth = 0; depth < 3; depth += 1) await reopenedPage.keyboard.press("ArrowDown");
+  await expect(reopenedPage.locator("body")).toContainText("Keeping one turn should carry the thread");
+  await expect(reopenedPage.locator(".story-curation-status__kept")).toBeVisible();
+  await expect(reopenedPage.getByText("This conclusion needs its two-turn setup.", { exact: true }))
+    .toBeVisible();
+  await expect(reopenedPage.locator('[aria-label^="source twitter tweet"]')).toHaveAttribute(
+    "aria-label",
+    /twitter tweet 1800000000000000003/,
+  );
+
+  await owner.close();
+  await guest.close();
+  await reopened.close();
+});
+
 test("two authors reconnect, co-curate a Twitter corpus, and reopen portable kept context", async ({
   browser,
 }) => {
@@ -2046,7 +2199,7 @@ test("two authors reconnect, co-curate a Twitter corpus, and reopen portable kep
   await openStoriesDrawer(adaPage);
   const [chooser] = await Promise.all([
     adaPage.waitForEvent("filechooser"),
-    adaPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    adaPage.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await chooser.setFiles(twitterCorpusFixture);
   await expect(adaPage.locator(".navbar-minibuffer")).toContainText(
@@ -2189,7 +2342,7 @@ test("two authors reconnect, co-curate a Twitter corpus, and reopen portable kep
   await openStoriesDrawer(reopenedPage);
   const [reopenChooser] = await Promise.all([
     reopenedPage.waitForEvent("filechooser"),
-    reopenedPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    reopenedPage.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await reopenChooser.setFiles(exportFile);
   await expect(reopenedPage.locator(".navbar-minibuffer")).toContainText(
@@ -2243,7 +2396,7 @@ test("typed Lync links traverse an additional causal parent and return to its ch
   await openStoriesDrawer(page);
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    page.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await chooser.setFiles(dagLinksFixture);
   await expect(page.locator(".navbar-minibuffer")).toContainText(
@@ -2364,7 +2517,7 @@ test("same-title Stories action exports the exact visible kept loom and source s
     await openStoriesDrawer(page);
     const [chooser] = await Promise.all([
       page.waitForEvent("filechooser"),
-      page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+      page.getByRole("button", { name: "Import Archive", exact: true }).click(),
     ]);
     await chooser.setFiles(file);
     await expect(page.locator(".navbar-minibuffer")).toContainText(
@@ -2482,7 +2635,7 @@ test("same-title Stories action exports the exact visible kept loom and source s
   await openStoriesDrawer(reopenedPage);
   const [chooser] = await Promise.all([
     reopenedPage.waitForEvent("filechooser"),
-    reopenedPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    reopenedPage.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await chooser.setFiles(exportFile);
   await expect(reopenedPage.locator(".navbar-minibuffer")).toContainText(
@@ -2547,7 +2700,7 @@ test("policy-withheld bodies never cross share, export, or fresh-reopen boundari
   await openStoriesDrawer(ownerPage);
   const [chooser] = await Promise.all([
     ownerPage.waitForEvent("filechooser"),
-    ownerPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    ownerPage.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await chooser.setFiles(policyFile);
   await expect(ownerPage.locator(".navbar-minibuffer")).toContainText(
@@ -2618,7 +2771,7 @@ test("policy-withheld bodies never cross share, export, or fresh-reopen boundari
   await openStoriesDrawer(freshPage);
   const [freshChooser] = await Promise.all([
     freshPage.waitForEvent("filechooser"),
-    freshPage.getByRole("button", { name: "Import Lync", exact: true }).click(),
+    freshPage.getByRole("button", { name: "Import Archive", exact: true }).click(),
   ]);
   await freshChooser.setFiles(exportFile);
   await expect(freshPage.locator(".navbar-minibuffer")).toContainText(

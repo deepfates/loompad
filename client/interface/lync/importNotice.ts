@@ -6,6 +6,18 @@ function count(value: number, singular: string, plural = `${singular}s`): string
 
 /** A compact import receipt that also teaches the raw-corpus interaction. */
 export function formatImportedConversationNotice(result: ImportedConversation): string {
+  if (result.kind === "twitter-archive" && result.archiveStats) {
+    const stats = result.archiveStats;
+    const owner = stats.ownerHandle === "__owner__" ? "Twitter archive" : `@${stats.ownerHandle}`;
+    const accounting = [
+      count(stats.tweets, "tweet"),
+      count(stats.retweets, "retweet"),
+      count(stats.likes, "like"),
+      stats.unresolvedReplies ? count(stats.unresolvedReplies, "external reply") : "all held replies linked",
+      stats.malformedRecords ? count(stats.malformedRecords, "malformed record") : "no malformed records",
+    ].join(" · ");
+    return `Imported ${owner} locally — ${accounting} — START opens map · ↓ enters the review row · ←/→ reviews archive items · K keeps · N notes`;
+  }
   const summary = [
     ...(result.kind === "raw-lync"
       ? [

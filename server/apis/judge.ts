@@ -5,6 +5,11 @@ import { validateJudgeRequestBody } from "./validators";
 
 export async function judgeContinuation(req: Request, res: Response) {
   try {
+    if (!config.openRouterApiKey) {
+      return res.status(503).json({
+        error: "Automatic judging is disabled. Set OPENROUTER_API_KEY to enable it.",
+      });
+    }
     const parsed = validateJudgeRequestBody(req.body);
     if (!parsed.ok) {
       console.error("[Judge] Invalid request body:", req.body);

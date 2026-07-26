@@ -8,7 +8,30 @@ export function RawLyncIndicator({
   node: StoryNode | undefined;
   onOpenLinks?: () => void;
 }) {
-  if (!node?.sourceId) return null;
+  if (!node?.sourceId && !node?.archiveSource) return null;
+  if (!node.sourceId && node.archiveSource) {
+    const source = node.archiveSource;
+    const detail = [
+      `source ${source.provider} ${source.kind} ${source.recordId}`,
+      `archive owner @${source.ownerHandle}`,
+      source.parentRecordId
+        ? `${source.parentHeld ? "held" : "external"} reply parent ${source.parentRecordId}`
+        : "archive root record",
+      source.createdAt,
+    ].filter(Boolean).join(" · ");
+    return (
+      <span
+        className="story-curation-status story-source-status"
+        aria-label={detail}
+        title={detail}
+      >
+        <span className="story-source-status__label">
+          {source.provider} {source.kind} {source.recordId}
+        </span>
+      </span>
+    );
+  }
+  if (!node.sourceId) return null;
   const extraParents = node.extraParentIds ?? [];
   const tags = node.rawTags ?? [];
   const warnings = node.sourceWarnings ?? [];
