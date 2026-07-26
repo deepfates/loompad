@@ -1972,10 +1972,12 @@ export const GamepadInterface = () => {
                 active={activeControls.a}
                 onMouseDown={() => handleControlPress("Enter")}
                 onMouseUp={() => handleControlRelease("Enter")}
-                disabled={
-                  isOffline ||
-                  isGeneratingAt(getCurrentPath()[currentDepth]?.id)
-                }
+                // Offline status is advisory: navigator.onLine is not reliable
+                // enough to disable every A-button action (including local New
+                // Story), and generation will surface a real fetch failure.
+                disabled={isGeneratingAt(
+                  getCurrentPath()[currentDepth]?.id,
+                )}
               />
             </div>
           </div>
