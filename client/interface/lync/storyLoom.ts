@@ -35,6 +35,12 @@ export interface ReadableTurnMeta {
   sourceSelected?: boolean;
   sourceWarnings?: string[];
   sourcePresentation?: "content" | "structure";
+  sourcePresentationContract?: string;
+  sourcePresentationSource?: import("./rawLyncPresentationTypes").RawLyncPresentationSource;
+  sourcePresentationSections?: import("./rawLyncPresentationTypes").RawLyncPresentationSection[];
+  sourcePresentationDiagnostics?: import("./rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
+  sourceLoomProfile?: string;
+  sourceEnvelope?: Record<string, unknown>;
 }
 
 /**
@@ -139,6 +145,9 @@ function originFromMeta(meta: ReadableTurnMeta | undefined): StoryOrigin {
   if (meta?.generatedBy) return "model";
   if (meta?.role === "assistant") return "model";
   if (meta?.role === "user") return "human";
+  // Imported archive actors identify durable writers, not a human/model
+  // perspective. Domain presentation may expose that writer without guessing.
+  if (meta?.role === "artifact" || meta?.role === "corpus") return "unknown";
   if (meta?.author) return "human";
   return "unknown";
 }
@@ -331,6 +340,10 @@ export async function appendAnnotation(
 
 function turnToStoryNode(turn: ReadableTurn): StoryNode {
   const meta = turn.meta;
+  const payload = turn.payload as { message?: unknown } | null;
+  const sourceEvent = meta?.sourceEnvelope
+    ? { ...meta.sourceEnvelope, payload: payload?.message }
+    : undefined;
   return {
     id: turn.id,
     text: deriveTurnText(turn.payload),
@@ -347,5 +360,11 @@ function turnToStoryNode(turn: ReadableTurn): StoryNode {
     rawTags: meta?.rawTags,
     sourceWarnings: meta?.sourceWarnings,
     sourcePresentation: meta?.sourcePresentation,
+    sourcePresentationContract: meta?.sourcePresentationContract,
+    sourcePresentationSource: meta?.sourcePresentationSource,
+    sourcePresentationSections: meta?.sourcePresentationSections,
+    sourcePresentationDiagnostics: meta?.sourcePresentationDiagnostics,
+    sourceLoomProfile: meta?.sourceLoomProfile,
+    sourceEvent,
   };
 }

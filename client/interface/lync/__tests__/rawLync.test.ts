@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createTestLoomClient } from "@deepfates/lync/client/testing";
 import { projectRawLyncFile } from "../rawLync";
@@ -12,6 +13,10 @@ import type {
 const fixtureUrl = new URL("./fixtures/corpus-loop.lync", import.meta.url);
 const spliceKindsFixtureUrl = new URL(
   "../../../../tests/e2e/fixtures/splice-source-kinds.lync",
+  import.meta.url,
+);
+const oxfordResidentFixtureUrl = new URL(
+  "../../../../tests/e2e/fixtures/oxford-aster-human-semantic-v1.lync",
   import.meta.url,
 );
 const B = "0197e6a0-4a09-7000-8000-000000000002";
@@ -229,6 +234,138 @@ describe("raw .lync projection", () => {
     expect(embed?.parentId).toBe(archiveTweet?.meta.sourceId);
   });
 
+  it("presents the exact Oxford resident fixture and reconstructs unchanged source events", async () => {
+    const raw = readFileSync(oxfordResidentFixtureUrl, "utf8");
+    expect(Buffer.byteLength(raw)).toBe(6_743);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe(
+      "f254829584b7597ab1e09e88e840be4efff631ee84ee7a595c4ee44cba069305",
+    );
+
+    const projection = projectRawLyncFile(raw, "oxford-aster-human-semantic-v1.lync");
+    expect(projection.sourceEventCount).toBe(2);
+    expect(projection.readableEventCount).toBe(1);
+    expect(projection.structuralEventCount).toBe(1);
+    expect(projection.unsupportedEventCount).toBe(0);
+
+    const sourceTurns = projection.snapshot.turns.filter((turn) => turn.meta.sourceId);
+    const root = sourceTurns.find((turn) => turn.meta.sourceKind === "lync/loom");
+    const beat = sourceTurns.find((turn) => turn.meta.sourceKind === "lync/turn");
+    expect(root?.payload.text).toContain("Behold resident life: OxfordAster");
+    expect(beat?.payload.text).toContain("OxfordAster's condition:");
+    expect(beat?.payload.text).toContain("Saw Birch");
+    expect(beat?.payload.text).toContain("[script · exclusive] OxfordAster looked left, level.");
+    expect(beat?.payload.text).toContain("The body confirmed facing east and level.");
+    expect(beat?.payload.text).toContain("Birch left the current view.");
+    expect(beat?.payload.text).not.toContain("visible-entity-1");
+    expect(beat?.payload.text).not.toContain("lastSeenDistance");
+    expect(beat?.meta.sourceLoomProfile).toBe("org.behold.inhabitant.v1");
+    expect(beat?.meta.sourcePresentationContract).toBe(
+      "org.behold.presentation.inhabitant-turn.v1",
+    );
+    expect(beat?.meta.sourcePresentationSource).toEqual({
+      id: "019f9b8f-8a75-7de2-a306-6fe25fecb9a6",
+      parents: ["019f9b8f-7b3e-7039-b3f3-82833021a250"],
+      author: { actor: "OxfordAster", via: "behold@0.1.0-alpha.0" },
+      kind: "lync/turn",
+    });
+    expect(beat?.meta.sourcePresentationSections?.map((section) => section.role)).toEqual([
+      "perception",
+      "action",
+      "outcome",
+      "perception",
+    ]);
+    expect(beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code)).toContain(
+      "withheld_observation_local_reference",
+    );
+
+    const looms = createTestLoomClient<
+      ConversationTurnPayload,
+      ConversationLoomMeta,
+      ConversationTurnMeta
+    >().looms;
+    const imported = await looms.import(projection.snapshot);
+    const tree = await projectStoryTree(
+      (await looms.open(imported.id)) as unknown as ReadableLoom,
+    );
+    const sourceNodes = flatten(tree.root).filter((node) => node.sourceEvent);
+    expect(sourceNodes).toHaveLength(2);
+    expect(sourceNodes.map((node) => node.origin)).toEqual(["unknown", "unknown"]);
+    expect(sourceNodes.map((node) => node.actor)).toEqual(["OxfordAster", "OxfordAster"]);
+    expect(sourceNodes.map((node) => node.sourceEvent)).toEqual(
+      raw.trim().split("\n").map((line) => JSON.parse(line)),
+    );
+  });
+
+  it("shows only the pact's public utterance and never a sibling reasoning field", () => {
+    const events = readFixtureEvents();
+    const turnPayload = nestedRecord(events[1], "payload");
+    const entityTurn = nestedRecord(turnPayload, "payload");
+    const utterance = nestedRecord(entityTurn, "utterance");
+    const assistant = nestedRecord(utterance, "assistant");
+    assistant.content = "I can say this where the reader can see it.";
+    utterance.reasoning = "PRIVATE REASONING MUST NOT BECOME PROSE";
+
+    const projection = projectRawLyncFile(asLync(events), "public-utterance.lync");
+    const prose = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    )?.payload.text;
+    expect(prose).toContain("I can say this where the reader can see it.");
+    expect(prose).not.toContain("PRIVATE REASONING MUST NOT BECOME PROSE");
+  });
+
+  it("does not claim unknown resident profiles by nested shape", () => {
+    const events = readFixtureEvents();
+    nestedRecord(nestedRecord(events[0], "payload"), "meta").profile =
+      "org.behold.unknown.v2";
+    expect(() => projectRawLyncFile(asLync(events), "unknown-profile.lync")).toThrow(
+      /No presentable events.*lync\/loom.*lync\/turn/,
+    );
+  });
+
+  it("does not fall back to generic prose after the Behold profile claims a malformed turn", () => {
+    const events = readFixtureEvents();
+    const turnPayload = nestedRecord(events[1], "payload");
+    nestedRecord(turnPayload, "meta").protocol = "behold.unknown-turn-link.v2";
+    turnPayload.message = "THIS GENERIC FALLBACK MUST NOT BE SHOWN";
+
+    const projection = projectRawLyncFile(asLync(events), "broken-pact.lync");
+    expect(projection.sourceEventCount).toBe(2);
+    expect(projection.structuralEventCount).toBe(1);
+    expect(projection.readableEventCount).toBe(0);
+    expect(projection.unsupportedEventCount).toBe(1);
+    expect(projection.unsupportedKinds).toEqual(["lync/turn"]);
+    expect(projection.snapshot.turns.map((turn) => turn.payload.text).join("\n"))
+      .not.toContain("THIS GENERIC FALLBACK MUST NOT BE SHOWN");
+  });
+
+  it("keeps explicit rejection provenance distinct from an ordinary failure", () => {
+    const rejected = readFixtureEvents();
+    const rejectedOutcome = nestedRecord(
+      nestedRecord(nestedRecord(rejected[1], "payload"), "payload"),
+      "outcome",
+    );
+    rejectedOutcome.ok = false;
+    rejectedOutcome.eventType = "policy_rejected";
+    const rejectedText = projectRawLyncFile(asLync(rejected)).snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    )?.payload.text;
+    expect(rejectedText).toContain("look_direction was rejected (policy_rejected)");
+    expect(rejectedText).not.toContain("look_direction failed (");
+
+    const failed = readFixtureEvents();
+    const failedOutcome = nestedRecord(
+      nestedRecord(nestedRecord(failed[1], "payload"), "payload"),
+      "outcome",
+    );
+    failedOutcome.ok = false;
+    failedOutcome.eventType = "action_failed";
+    const failedText = projectRawLyncFile(asLync(failed)).snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    )?.payload.text;
+    expect(failedText).toContain("look_direction failed (action_failed)");
+    expect(failedText).not.toContain("failed or was rejected");
+  });
+
   it("fails closed with named kinds when every event is unsupported", () => {
     const input = {
       ...event("0197e6a0-4a09-7000-8000-000000000071", [], "unused"),
@@ -242,6 +379,28 @@ describe("raw .lync projection", () => {
 
 function flatten(node: import("../../types").StoryNode): import("../../types").StoryNode[] {
   return [node, ...(node.continuations ?? []).flatMap(flatten)];
+}
+
+function readFixtureEvents(): Record<string, unknown>[] {
+  return readFileSync(oxfordResidentFixtureUrl, "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+function nestedRecord(
+  value: Record<string, unknown>,
+  field: string,
+): Record<string, unknown> {
+  const nested = value[field];
+  if (!nested || typeof nested !== "object" || Array.isArray(nested)) {
+    throw new Error(`Fixture field ${field} is not an object`);
+  }
+  return nested as Record<string, unknown>;
+}
+
+function asLync(events: Record<string, unknown>[]): string {
+  return `${events.map(JSON.stringify).join("\n")}\n`;
 }
 
 function event(id: string, parents: string[], text: string) {

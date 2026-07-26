@@ -46,9 +46,13 @@ export function projectRawLyncFile(
 
   const annotations = events.filter((event) => event.kind === "lync/annotation");
   const sources = events.filter((event) => event.kind !== "lync/annotation");
+  const eventsById = new Map(events.map((event) => [event.id, event]));
+  const loomProfiles = declaredLoomProfiles(sources, eventsById);
   const presentations = new Map<string, RawLyncPresentation>();
   for (const event of sources) {
-    const presentation = presentRawLyncEvent(event);
+    const presentation = presentRawLyncEvent(event, {
+      loomProfile: loomProfiles.get(event.id),
+    });
     if (presentation) presentations.set(event.id, presentation);
   }
   const presented = sources.filter((event) => presentations.has(event.id));
@@ -62,7 +66,6 @@ export function projectRawLyncFile(
   }
 
   const presentedIds = new Set(presented.map((event) => event.id));
-  const eventsById = new Map(events.map((event) => [event.id, event]));
   const navigationParents = new Map(
     presented.map((event) => [
       event.id,
@@ -98,6 +101,7 @@ export function projectRawLyncFile(
   for (const event of orderByNavigationParent(presented, navigationParents)) {
     const navigationParent = navigationParents.get(event.id) ?? virtualId;
     const presentation = presentations.get(event.id)!;
+    const { payload: _sourcePayload, ...sourceEnvelope } = event;
     const meta: ConversationTurnMeta = {
       role: rawRole(event),
       author: event.author.actor,
@@ -110,6 +114,12 @@ export function projectRawLyncFile(
       sourceSelected: selectedIds.has(event.id),
       sourceWarnings: warningsById.get(event.id) ?? [],
       sourcePresentation: presentation.kind,
+      sourcePresentationContract: presentation.contract,
+      sourcePresentationSource: presentation.source,
+      sourcePresentationSections: presentation.sections,
+      sourcePresentationDiagnostics: presentation.diagnostics,
+      sourceLoomProfile: loomProfiles.get(event.id),
+      sourceEnvelope,
     };
     turns.push({
       id: event.id,
@@ -147,6 +157,58 @@ export function projectRawLyncFile(
       (line) => `${line.file}:${line.line} nonconforming: ${line.reason}`,
     ),
   };
+}
+
+/** Resolve the one profile inherited through a source event's causal parents. */
+function declaredLoomProfiles(
+  events: LyncEventBody[],
+  eventsById: Map<string, LyncEventBody>,
+): Map<string, string> {
+  const resolved = new Map<string, string | null>();
+  const visiting = new Set<string>();
+
+  const profileFor = (event: LyncEventBody): string | null => {
+    const cached = resolved.get(event.id);
+    if (cached !== undefined) return cached;
+    if (visiting.has(event.id)) return null;
+    visiting.add(event.id);
+
+    let profile: string | null = null;
+    if (event.kind === "lync/loom") {
+      const meta = recordField(event.payload, "meta");
+      profile = typeof meta?.profile === "string" ? meta.profile : null;
+    } else {
+      const inherited = new Set<string>();
+      for (const parentId of event.parents) {
+        const parent = eventsById.get(parentId);
+        if (!parent) continue;
+        const parentProfile = profileFor(parent);
+        if (parentProfile) inherited.add(parentProfile);
+      }
+      if (inherited.size === 1) profile = [...inherited][0] ?? null;
+    }
+
+    visiting.delete(event.id);
+    resolved.set(event.id, profile);
+    return profile;
+  };
+
+  const result = new Map<string, string>();
+  for (const event of events) {
+    const profile = profileFor(event);
+    if (profile) result.set(event.id, profile);
+  }
+  return result;
+}
+
+function recordField(
+  payload: Record<string, unknown>,
+  field: string,
+): Record<string, unknown> | null {
+  const value = payload[field];
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 /** Refuse to build a plausible-looking partial tree from an unsafe union. */

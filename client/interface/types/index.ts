@@ -78,6 +78,13 @@ export interface StoryNode {
   sourceWarnings?: string[];
   /** Whether Textile is showing source prose or an explicit structural summary. */
   sourcePresentation?: "content" | "structure";
+  sourcePresentationContract?: string;
+  sourcePresentationSource?: import("../lync/rawLyncPresentationTypes").RawLyncPresentationSource;
+  sourcePresentationSections?: import("../lync/rawLyncPresentationTypes").RawLyncPresentationSection[];
+  sourcePresentationDiagnostics?: import("../lync/rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
+  sourceLoomProfile?: string;
+  /** The exact source event reconstructed from its preserved envelope + payload. */
+  sourceEvent?: Record<string, unknown>;
   /** The newest positive Textile keep event, used as the selection event id. */
   keepMark?: { id: string; createdAt: number; actor?: string; via?: string };
 }

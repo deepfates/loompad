@@ -447,6 +447,12 @@ export interface ConversationTurnMeta {
   sourceSelected?: boolean;
   sourceWarnings?: string[];
   sourcePresentation?: "content" | "structure";
+  sourcePresentationContract?: string;
+  sourcePresentationSource?: import("./rawLyncPresentationTypes").RawLyncPresentationSource;
+  sourcePresentationSections?: import("./rawLyncPresentationTypes").RawLyncPresentationSection[];
+  sourcePresentationDiagnostics?: import("./rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
+  sourceLoomProfile?: string;
+  sourceEnvelope?: Record<string, unknown>;
 }
 /** A conversation loom's own meta: marks the profile + carries a title. */
 export interface ConversationLoomMeta {

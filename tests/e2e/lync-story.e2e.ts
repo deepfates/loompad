@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -323,6 +323,9 @@ const twitterCorpusFixture = fileURLToPath(
 );
 const spliceSourceKindsFixture = fileURLToPath(
   new URL("./fixtures/splice-source-kinds.lync", import.meta.url),
+);
+const oxfordResidentFixture = fileURLToPath(
+  new URL("./fixtures/oxford-aster-human-semantic-v1.lync", import.meta.url),
 );
 const TWITTER_ROOT = "3f91fb15-efa8-883a-bc73-7288e4712854";
 const TWITTER_PRESERVE = "42a289ef-1fba-8935-8555-4045f55868d4";
@@ -1713,6 +1716,75 @@ test("every Splice raw-converter kind renders, focuses, curates, shares, and exp
 
   await owner.close();
   await guest.close();
+});
+
+test("the exact Oxford resident life imports, reads, navigates, and exports its unchanged source", async ({
+  page,
+}) => {
+  await mockGeneration(page, "unused");
+  await captureDownloads(page);
+  await page.goto("/");
+  await waitForStoryIndex(page);
+
+  await openStoriesDrawer(page);
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByRole("button", { name: "Import Lync", exact: true }).click(),
+  ]);
+  await chooser.setFiles(oxfordResidentFixture);
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /2 source events.*1 readable event.*1 structural event.*all presented/,
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mode-bar-title")).toHaveText("LOOM");
+
+  await expect(page.locator("body")).toContainText("Behold resident life: OxfordAster");
+  await expect(page.locator("body")).toContainText("Saw Birch");
+  await expect(page.locator("body")).toContainText(
+    "[script · exclusive] OxfordAster looked left, level.",
+  );
+  await expect(page.locator("body")).toContainText(
+    "The body confirmed facing east and level.",
+  );
+  await expect(page.locator("body")).toContainText("Birch left the current view.");
+  await expect(page.locator("body")).not.toContainText("visible-entity-1");
+  await expect(page.locator("body")).not.toContainText("lastSeenDistance");
+
+  await page.getByRole("button", { name: "START" }).click();
+  await expect(page.locator(".mode-bar-title")).toHaveText("MAP");
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, "019f9b8f-7b3e-7039-b3f3-82833021a250");
+  await page.keyboard.press("ArrowDown");
+  await expectFocusedSource(page, "019f9b8f-8a75-7de2-a306-6fe25fecb9a6");
+  await expect(page.locator(".minimap-minibuffer-text")).toContainText(
+    "OxfordAster · turn 1",
+  );
+
+  await openStoriesDrawer(page);
+  const corpusRow = page.locator(".story-menu-item").filter({
+    hasText: "oxford-aster-human-semantic-v1.lync",
+  });
+  await expect(corpusRow).toHaveCount(1);
+  await corpusRow.getByRole("button", { name: "Export JSON" }).click();
+  await expect(page.locator(".navbar-minibuffer")).toContainText(
+    /Downloaded .*tree\.json.*story tree JSON/,
+  );
+  await expect.poll(() => page.evaluate(() => window.__textileDownloads.length)).toBe(1);
+
+  const exportedSource = await page.evaluate(async () => {
+    const raw = await window.__textileDownloads[0]!.text();
+    const parsed = JSON.parse(raw) as {
+      tree: import("../../client/interface/types").StoryNode;
+    };
+    const events: Record<string, unknown>[] = [];
+    const walk = (node: import("../../client/interface/types").StoryNode) => {
+      if (node.sourceEvent) events.push(node.sourceEvent);
+      for (const child of node.continuations ?? []) walk(child);
+    };
+    walk(parsed.tree);
+    return `${events.map(JSON.stringify).join("\n")}\n`;
+  });
+  expect(exportedSource).toBe(readFileSync(oxfordResidentFixture, "utf8"));
 });
 
 test("a shared conversation ?ref= link opens the conversation in another context", async ({

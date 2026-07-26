@@ -20,6 +20,12 @@ FIRST/PREV/NEXT/LAST 65,536-character windows. This is presentation
 virtualization, not truncation: the exact complete source string remains in the
 story model, full-tree JSON, and source-targeted curation/export paths.
 
+Textile also reads the exact Behold `org.behold.inhabitant.v1` profile through
+a non-mutating, profile-aware presentation adapter. It presents the safe
+resident perception/action/outcome allowlist, preserves the original source
+events for full-tree export, and fails closed for unknown nested shapes. See
+[the Behold resident Lync presentation boundary](docs/behold-resident-lync-presentation.md).
+
 To run the provider-free rehearsal against sibling Lync, Splice, and Curare
 source checkouts (nothing is published):
 

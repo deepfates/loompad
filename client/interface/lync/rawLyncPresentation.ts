@@ -1,15 +1,22 @@
 import type { LyncEventBody } from "@deepfates/lync/events";
 
-export type RawLyncPresentationKind = "content" | "structure";
+import {
+  BEHOLD_INHABITANT_PROFILE,
+  presentBeholdInhabitantEvent,
+} from "./beholdResidentPresentation";
+import type { RawLyncPresentation } from "./rawLyncPresentationTypes";
 
-/**
- * A reader-owned view of one kind-defined Lync payload. The source payload is
- * never rewritten: this only supplies the plain text Textile puts on screen.
- */
-export interface RawLyncPresentation {
-  text: string;
-  kind: RawLyncPresentationKind;
-  contract: string;
+export type {
+  RawLyncPresentation,
+  RawLyncPresentationDiagnostic,
+  RawLyncPresentationKind,
+  RawLyncPresentationRole,
+  RawLyncPresentationSection,
+  RawLyncPresentationSource,
+} from "./rawLyncPresentationTypes";
+
+export interface RawLyncPresentationContext {
+  loomProfile?: string;
 }
 
 type Presenter = (payload: Record<string, unknown>) => RawLyncPresentation | null;
@@ -43,7 +50,16 @@ const splicePresenters: Record<string, Presenter> = {
  * generic text/message contract. Unknown payloads are not searched
  * recursively: callers account for them as unsupported instead of guessing.
  */
-export function presentRawLyncEvent(event: LyncEventBody): RawLyncPresentation | null {
+export function presentRawLyncEvent(
+  event: LyncEventBody,
+  context: RawLyncPresentationContext = {},
+): RawLyncPresentation | null {
+  // A declared profile owns its complete presentation boundary. Once claimed,
+  // malformed or unknown events must remain unsupported instead of falling
+  // through to Textile's generic nested-message reader.
+  if (context.loomProfile === BEHOLD_INHABITANT_PROFILE) {
+    return presentBeholdInhabitantEvent(event);
+  }
   const known = splicePresenters[event.kind];
   if (known) return known(event.payload);
   return genericPresentation(event.payload);
