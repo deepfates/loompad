@@ -11,14 +11,6 @@ test("offline advice never disables local choices or a later generation retry", 
   page,
   context,
 }) => {
-  await page.route("**/api/generate", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/event-stream",
-      body: 'data: {"content":" The connection returned."}\n\ndata: [DONE]\n\n',
-    });
-  });
-
   await page.goto("/");
   await waitForStory(page);
   await context.setOffline(true);
@@ -38,6 +30,13 @@ test("offline advice never disables local choices or a later generation retry", 
   await expect(page.locator(".navigation-bar")).toContainText("Network error");
 
   await context.setOffline(false);
+  await page.route("**/api/generate", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: 'data: {"content":" The connection returned."}\n\ndata: [DONE]\n\n',
+    });
+  });
   await page.getByRole("button", { name: "A button" }).click();
   await expect(page.locator(".navigation-bar")).not.toContainText(
     "Network error",
