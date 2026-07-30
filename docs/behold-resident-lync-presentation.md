@@ -3,12 +3,13 @@
 Textile presents one declared Behold life profile without changing the source
 Lync. The domain contract is owned by Behold at commit
 `a95491b55da6bb716b858ff88e8cfa7e7429b6f0` in
-`docs/RESIDENT_LYNC_PRESENTATION.md`; this file records Textile's adapter and
-the boundary actually exercised here.
+`docs/RESIDENT_LYNC_PRESENTATION.md`; Lync implements the exact presenter at
+commit `fee7adc14f0038d9d0be51bd16b930659ffae1f8`, and this file records
+Textile's consumption and the boundary actually exercised here.
 
 ## Dispatch
 
-The adapter runs only for a causally inherited Loom profile of
+Lync's presenter runs only for a causally inherited Loom profile of
 `org.behold.inhabitant.v1`. The root must declare
 `behold.entity-loom.v1`; each turn must declare both
 `behold.entity-turn-link.v1` on the outer `lync/turn` payload and
@@ -55,6 +56,7 @@ navigates both source ids in MAP, performs the ordinary full-tree JSON export,
 and proves that the exported `sourceEvent` records reproduce those fixture
 bytes exactly.
 
-This adapter does not change Keep/export meaning, Backspace editing, MAP focus,
-or Textile's first-parent navigation. Heterogeneous DAG navigation and the
-cross-consumer Lync presentation package remain separate work.
+This shared presentation contract does not change Keep/export meaning,
+Backspace editing, MAP focus, or Textile's first-parent reading path. Typed
+additional-parent/pointer navigation and contextual export remain separate
+graph/application responsibilities rather than presentation behavior.

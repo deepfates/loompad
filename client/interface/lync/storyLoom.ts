@@ -39,7 +39,7 @@ export interface ReadableTurnMeta {
   sourcePresentation?: "content" | "structure";
   sourcePresentationContract?: string;
   sourcePresentationSource?: import("./rawLyncPresentationTypes").RawLyncPresentationSource;
-  sourcePresentationSections?: import("./rawLyncPresentationTypes").RawLyncPresentationSection[];
+  sourcePresentationSections?: import("./rawLyncPresentationTypes").StoredRawLyncPresentationSection[];
   sourcePresentationDiagnostics?: import("./rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
   sourceLoomProfile?: string;
   sourceEnvelope?: Record<string, unknown>;
@@ -435,12 +435,13 @@ export async function appendAnnotation(
 function turnToStoryNode(turn: ReadableTurn): StoryNode {
   const meta = turn.meta;
   const payload = turn.payload as { message?: unknown } | null;
+  const text = deriveTurnText(turn.payload);
   const sourceEvent = meta?.sourceEnvelope
     ? { ...meta.sourceEnvelope, payload: payload?.message }
     : undefined;
   return {
     id: turn.id,
-    text: deriveTurnText(turn.payload),
+    text,
     // Archive/portable artifacts need their source time for an honest reopen.
     // Keep legacy story projections byte-for-byte shaped as before.
     ...(meta?.archiveSource || meta?.portableTurnId ? { createdAt: turn.createdAt } : {}),
@@ -478,7 +479,11 @@ function turnToStoryNode(turn: ReadableTurn): StoryNode {
     sourcePresentation: meta?.sourcePresentation,
     sourcePresentationContract: meta?.sourcePresentationContract,
     sourcePresentationSource: meta?.sourcePresentationSource,
-    sourcePresentationSections: meta?.sourcePresentationSections,
+    sourcePresentationSections: meta?.sourcePresentationSections?.map((section) =>
+      "sameAsTurnText" in section && section.sameAsTurnText
+        ? { role: section.role, text, sourcePaths: [...section.sourcePaths] }
+        : section
+    ),
     sourcePresentationDiagnostics: meta?.sourcePresentationDiagnostics,
     sourceLoomProfile: meta?.sourceLoomProfile,
     sourceEvent,

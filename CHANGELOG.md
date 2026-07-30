@@ -27,6 +27,13 @@ train.
 
 ### Changed
 
+- Raw Lync projection now consumes the checksum-pinned Lync presentation
+  candidate. Textile's duplicated Splice and Behold presenter implementations
+  were removed; exact source paths, profile fail-closed behavior, typed graph
+  identity, and source-preserving contextual export remain intact.
+- Presentation sections identical to a turn's primary text use a compact
+  on-Loom marker and are expanded on read, avoiding a third serialized copy of
+  large OCR prose without truncating source or presentation data.
 - Production can boot without OpenRouter for provider-free corpus work;
   generation and judging alone return an explicit disabled response.
 - Imported corpus records render as distinct visual beats while generated story

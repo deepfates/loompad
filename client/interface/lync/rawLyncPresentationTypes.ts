@@ -1,32 +1,22 @@
-export type RawLyncPresentationKind = "content" | "structure";
+export type {
+  LyncPresentation as RawLyncPresentation,
+  LyncPresentationDiagnostic as RawLyncPresentationDiagnostic,
+  LyncPresentationKind as RawLyncPresentationKind,
+  LyncPresentationRole as RawLyncPresentationRole,
+  LyncPresentationSection as RawLyncPresentationSection,
+  LyncPresentationSource as RawLyncPresentationSource,
+} from "../../../vendor/lync-presentation/index.js";
 
-export type RawLyncPresentationRole =
-  "structure" | "perception" | "utterance" | "action" | "outcome";
-
-export interface RawLyncPresentationSection {
-  role: RawLyncPresentationRole;
-  text: string;
-  sourcePaths: string[];
-}
-
-export interface RawLyncPresentationDiagnostic {
-  code: string;
-  sourcePath: string;
-}
-
-export interface RawLyncPresentationSource {
-  id: string;
-  parents: string[];
-  author: { actor: string; via?: string };
-  kind: string;
-}
-
-/** A non-mutating readable view over one exact source event. */
-export interface RawLyncPresentation {
-  text: string;
-  kind: RawLyncPresentationKind;
-  contract: string;
-  source?: RawLyncPresentationSource;
-  sections?: RawLyncPresentationSection[];
-  diagnostics?: RawLyncPresentationDiagnostic[];
-}
+/**
+ * Compact on-Loom form for a presentation section. When a section is exactly
+ * the turn's primary text, retain its role/path provenance without serializing
+ * the same potentially multi-megabyte string a third time. The read fold
+ * expands this marker back to the public Lync presentation shape.
+ */
+export type StoredRawLyncPresentationSection =
+  | import("../../../vendor/lync-presentation/index.js").LyncPresentationSection
+  | {
+      role: import("../../../vendor/lync-presentation/index.js").LyncPresentationRole;
+      sourcePaths: string[];
+      sameAsTurnText: true;
+    };

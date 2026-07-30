@@ -270,6 +270,10 @@ describe("raw .lync projection", () => {
     const turn = projection.snapshot.turns.find((candidate) => candidate.meta.sourceId === id);
     expect(turn?.payload.text.length).toBe(text.length);
     expect(turn?.payload.text).toBe(text);
+    expect(JSON.stringify(turn?.meta.sourcePresentationSections).length).toBeLessThan(256);
+    expect(turn?.meta.sourcePresentationSections).toEqual([
+      { role: "content", sourcePaths: ["payload.text"], sameAsTurnText: true },
+    ]);
   });
 
   it("keeps critical, no-train, suppressed, and unrelated bodies out of the synced archive", () => {

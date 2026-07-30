@@ -460,7 +460,7 @@ export interface ConversationTurnMeta {
   sourcePresentation?: "content" | "structure";
   sourcePresentationContract?: string;
   sourcePresentationSource?: import("./rawLyncPresentationTypes").RawLyncPresentationSource;
-  sourcePresentationSections?: import("./rawLyncPresentationTypes").RawLyncPresentationSection[];
+  sourcePresentationSections?: import("./rawLyncPresentationTypes").StoredRawLyncPresentationSection[];
   sourcePresentationDiagnostics?: import("./rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
   sourceLoomProfile?: string;
   portableTurnId?: string;

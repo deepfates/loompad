@@ -78,8 +78,10 @@ FIRST/PREV/NEXT/LAST 65,536-character windows. This is presentation
 virtualization, not truncation: the exact complete source string remains in the
 story model, full-tree JSON, and kept-context export paths.
 
-Textile also reads the exact Behold `org.behold.inhabitant.v1` profile through
-a non-mutating, profile-aware presentation adapter. It presents the safe
+Textile reads raw corpus events through Lync's non-mutating, kind/profile-aware
+presentation contract. The same contract is consumed by Splice and Curare; its
+checksum-pinned local candidate keeps this private app installable before Lync
+0.4 publication. For Behold `org.behold.inhabitant.v1`, it presents the safe
 resident perception/action/outcome allowlist, preserves the original source
 events for full-tree export, and fails closed for unknown nested shapes. See
 [the Behold resident Lync presentation boundary](docs/behold-resident-lync-presentation.md).
@@ -316,6 +318,8 @@ in the workshop root ledger.
 
 The exact payload-to-prose contracts for Splice's raw event importers are in
 [the Splice raw-Lync presentation matrix](./docs/splice-raw-lync-presentations.md).
+The owning reusable API and its privacy/dispatch obligations are in Lync's
+`pacts/presentation.md`.
 
 ## License
 

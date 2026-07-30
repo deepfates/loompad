@@ -8,6 +8,7 @@ import type { ConversationLoomSnapshot, ConversationTurnMeta } from "./storyRunt
 import type { RawLyncTag } from "../types";
 import {
   presentRawLyncEvent,
+  resolveLyncPresentationProfiles,
   type RawLyncPresentation,
 } from "./rawLyncPresentation";
 import type {
@@ -65,7 +66,7 @@ export function projectRawLyncFile(
   const eventsById = new Map(events.map((event) => [event.id, event]));
   const suppressedBy = criticalSuppressorsByTarget(events, parsed);
   const noTrainBy = noTrainAnnotationsByTarget(annotations, parsed);
-  const loomProfiles = declaredLoomProfiles(sources, eventsById);
+  const loomProfiles = resolveLyncPresentationProfiles(sources);
   const presentations = new Map<string, RawLyncPresentation>();
   for (const event of sources) {
     const policy = policyState(event, suppressedBy, noTrainBy);
@@ -188,7 +189,15 @@ export function projectRawLyncFile(
       sourcePresentation: presentation.kind,
       sourcePresentationContract: presentation.contract,
       sourcePresentationSource: presentation.source,
-      sourcePresentationSections: presentation.sections,
+      sourcePresentationSections: presentation.sections.map((section) =>
+        section.text === presentation.text
+          ? {
+              role: section.role,
+              sourcePaths: [...section.sourcePaths],
+              sameAsTurnText: true as const,
+            }
+          : section
+      ),
       sourcePresentationDiagnostics: presentation.diagnostics,
       sourceLoomProfile: loomProfiles.get(event.id),
     };
@@ -402,8 +411,9 @@ function withheldPresentation(
       : state === "no-train-policy"
         ? "the source event's no-train policy"
         : "a no-train annotation";
+  const text = `Payload withheld by ${reason}.\nSource kind: ${event.kind}\nSource id: ${event.id}`;
   return {
-    text: `Payload withheld by ${reason}.\nSource kind: ${event.kind}\nSource id: ${event.id}`,
+    text,
     kind: "structure",
     contract: "lync/policy-withheld",
     source: {
@@ -415,63 +425,12 @@ function withheldPresentation(
       },
       kind: event.kind,
     },
+    sections: [{ role: "structure", text, sourcePaths: [] }],
     diagnostics: by.map((sourcePath) => ({
       code: state,
       sourcePath: `policy-event:${sourcePath}`,
     })),
   };
-}
-
-/** Resolve the one profile inherited through a source event's causal parents. */
-function declaredLoomProfiles(
-  events: LyncEventBody[],
-  eventsById: Map<string, LyncEventBody>,
-): Map<string, string> {
-  const resolved = new Map<string, string | null>();
-  const visiting = new Set<string>();
-
-  const profileFor = (event: LyncEventBody): string | null => {
-    const cached = resolved.get(event.id);
-    if (cached !== undefined) return cached;
-    if (visiting.has(event.id)) return null;
-    visiting.add(event.id);
-
-    let profile: string | null = null;
-    if (event.kind === "lync/loom") {
-      const meta = recordField(event.payload, "meta");
-      profile = typeof meta?.profile === "string" ? meta.profile : null;
-    } else {
-      const inherited = new Set<string>();
-      for (const parentId of event.parents) {
-        const parent = eventsById.get(parentId);
-        if (!parent) continue;
-        const parentProfile = profileFor(parent);
-        if (parentProfile) inherited.add(parentProfile);
-      }
-      if (inherited.size === 1) profile = [...inherited][0] ?? null;
-    }
-
-    visiting.delete(event.id);
-    resolved.set(event.id, profile);
-    return profile;
-  };
-
-  const result = new Map<string, string>();
-  for (const event of events) {
-    const profile = profileFor(event);
-    if (profile) result.set(event.id, profile);
-  }
-  return result;
-}
-
-function recordField(
-  payload: Record<string, unknown>,
-  field: string,
-): Record<string, unknown> | null {
-  const value = payload[field];
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 }
 
 /** Refuse to build a plausible-looking partial tree from an unsafe union. */
