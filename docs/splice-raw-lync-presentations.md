@@ -1,7 +1,8 @@
 # Splice raw-Lync presentation matrix
 
 Ground truth: Lync `fee7adc14f0038d9d0be51bd16b930659ffae1f8`,
-Splice `2f6cc3c`, their presentation/import tests, and Splice's
+Splice `ea2ecb0c408590fef7fabe51335765a61831ab5e`, their
+presentation/import tests, and Splice's
 `splice lync archive|glowfic|ocr|tweet-embed` writers, source adapters, and
 checked-in fixtures. The browser fixture
 `tests/e2e/fixtures/splice-source-kinds.lync` was generated through those
@@ -24,7 +25,7 @@ kind by name.
 | `lync archive` (Bluesky) | `bluesky/post` | `{uri,cid,collection,rkey,record}` | exact `record.text` (top-level `text` only for normalized fallback payloads) | deterministic imported AT reply URI, when present |
 | `lync glowfic` | `glowfic/thread` | thread metadata excluding posts | **structure:** title, thread id, authors, and source URL | root container |
 | `lync glowfic` | `glowfic/post` | complete original post, including HTML `content` | inert plain text derived from that exact HTML | first post → thread; later post → previous post |
-| `lync ocr` | `ocr/set` | set locator, source accounting, page range, gaps, document names | **structure:** locator, page/document counts, page range | root container |
+| `lync ocr` | `ocr/set` | portable-v2 identity scheme, set locator, source accounting, page range, gaps, document names | **structure:** locator, page/document counts, page range | root container |
 | `lync ocr` | `ocr/page` | page text, description, file names, byte counts | exact `text` | first page → set; later page → previous page |
 | `lync ocr` | `ocr/document` | combined document text, file name, byte count | exact `text` | set container |
 | `lync tweet-embed` | `twitter/tweet-embed` | `{file,tweet_id,embed}` with the original oEmbed object | inert plain text derived from exact `embed.html` | matched canonical archive tweet when the importer was given archive ids; otherwise root |
