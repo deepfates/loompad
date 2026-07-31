@@ -2,6 +2,7 @@ import type { DrawerTab, Projection, Screen } from "../types";
 
 export type ModeId =
   | "loom"
+  | "lync-review"
   | "map"
   | "bin"
   | "edit"
@@ -20,6 +21,7 @@ interface ModeContext {
   drawerTab: DrawerTab;
   cursorOnTabs: boolean;
   editingModel: boolean;
+  readOnly?: boolean;
 }
 
 interface RegisteredMode {
@@ -97,6 +99,13 @@ export const registeredModes: RegisteredMode[] = [
     title: "MAP",
     hint: "↵: GENERATE • ⌫: EDIT • START: LOOM • SELECT: CONFIG",
     matches: ({ screen, projection }) => screen === null && projection === "map",
+  },
+  {
+    id: "lync-review",
+    title: "LYNC REVIEW",
+    hint: "↕: READ • ◄►: BRANCH • L: LINKS • START: MAP • SELECT: CONFIG",
+    matches: ({ screen, projection, readOnly }) =>
+      screen === null && projection === "loom" && readOnly === true,
   },
   {
     id: "loom",

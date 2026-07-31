@@ -309,37 +309,33 @@ describe("raw .lync projection", () => {
 
     const records = projection.snapshot.turns
       .filter((turn) => turn.meta.rawSource)
-      .map((turn) => turn.payload.message as import("../rawLyncArchiveTypes").RawLyncSourceRecord);
+      .map((turn) => turn.payload.message as import("../rawLyncArchiveTypes").StoredRawLyncSourceRecord);
     expect(records.map((record) => record.id).sort()).toEqual([
       "policy-critical",
       "policy-no-train",
       "policy-target",
     ]);
-    expect(records.map(({ id, payloadState, payload, sourceLine, withheldBy }) => ({
+    expect(records.map(({ id, payloadState, sourceLine, withheldBy }) => ({
       id,
       payloadState,
-      payload,
       sourceLine,
       withheldBy,
     }))).toEqual([
       {
         id: "policy-critical",
         payloadState: "critical-policy",
-        payload: undefined,
         sourceLine: undefined,
         withheldBy: ["policy-critical"],
       },
       {
         id: "policy-no-train",
         payloadState: "no-train-policy",
-        payload: undefined,
         sourceLine: undefined,
         withheldBy: ["policy-no-train"],
       },
       {
         id: "policy-target",
         payloadState: "critical-suppressed-and-no-train",
-        payload: undefined,
         sourceLine: undefined,
         withheldBy: ["policy-critical", "policy-no-train"],
       },
@@ -418,10 +414,11 @@ describe("raw .lync projection", () => {
     const embed = sourceTurns.find((turn) => turn.meta.sourceKind === "twitter/tweet-embed");
     const archived = projection.snapshot.turns
       .filter((turn) => turn.meta.rawSource)
-      .map((turn) => turn.payload.message as import("../rawLyncArchiveTypes").RawLyncSourceRecord);
+      .map((turn) => turn.payload.message as import("../rawLyncArchiveTypes").StoredRawLyncSourceRecord)
+      .flatMap((record) => record.sourceLine ? [JSON.parse(record.sourceLine)] : []);
     const archiveTweet = archived.find(
       (record) =>
-        record.envelope.kind === "twitter/tweet" &&
+        record.kind === "twitter/tweet" &&
         record.payload?.id === "1000000000000000001",
     );
     expect(embed?.meta.sourceParents).toEqual([archiveTweet?.id]);

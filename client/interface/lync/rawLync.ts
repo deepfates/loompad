@@ -17,7 +17,7 @@ import type {
   RawLyncPayloadState,
   RawLyncPortableLocalTurn,
   RawLyncSourceArchiveMeta,
-  RawLyncSourceRecord,
+  StoredRawLyncSourceRecord,
 } from "./rawLyncArchiveTypes";
 
 export interface RawLyncProjectionOptions {
@@ -154,7 +154,7 @@ export function projectRawLyncFile(
   ];
 
   for (const record of sourceRecords) {
-    const author = record.envelope.author as
+    const author = eventsById.get(record.id)?.author as
       | { actor?: unknown; via?: unknown }
       | undefined;
     turns.push({
@@ -292,7 +292,7 @@ function sourceRecordFor(
   line: LyncLineDiagnostic,
   suppressedBy: Map<string, string[]>,
   noTrainBy: Map<string, string[]>,
-): RawLyncSourceRecord {
+): StoredRawLyncSourceRecord {
   const event = line.event!;
   const { payload, ...envelope } = event;
   const payloadState = policyState(event, suppressedBy, noTrainBy);
@@ -306,8 +306,7 @@ function sourceRecordFor(
   ])].sort();
   return {
     id: event.id,
-    envelope,
-    ...(payloadState === "available" ? { payload, sourceLine: decodeLine(line) } : {}),
+    ...(payloadState === "available" ? { sourceLine: decodeLine(line) } : { envelope }),
     classification: line.class === "nonconforming" ? "nonconforming" : "accepted",
     nonconformingReasons: [...(line.nonconformingReasons ?? [])],
     payloadState,

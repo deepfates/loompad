@@ -379,6 +379,13 @@ html, body {
   margin-top: 0.65rem;
 }
 
+.story-text .story-path-window-notice {
+  display: block;
+  margin: 0.35rem 0 0.65rem;
+  color: var(--theme-muted);
+  opacity: 0.82;
+}
+
 .story-text .story-large-text-reader {
   display: block;
   width: 100%;

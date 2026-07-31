@@ -21,6 +21,24 @@ export interface RawLyncSourceRecord {
   withheldBy: string[];
 }
 
+/**
+ * Lossless representation used inside Textile's Loom viewing index.
+ *
+ * Available source records keep their exact JSONL line instead of also copying
+ * the parsed envelope and payload into a second Lync event. Policy-withheld
+ * records have no source line, so their safe envelope remains inline. The read
+ * layer expands either form to `RawLyncSourceRecord` when curation needs it.
+ */
+export interface StoredRawLyncSourceRecord {
+  id: string;
+  sourceLine?: string;
+  envelope?: Record<string, unknown>;
+  classification: "accepted" | "nonconforming";
+  nonconformingReasons: string[];
+  payloadState: RawLyncPayloadState;
+  withheldBy: string[];
+}
+
 export interface RawLyncArchiveObstacle {
   class: "cycle" | "dangling" | "unavailable-due-to-conflict";
   ids?: string[];

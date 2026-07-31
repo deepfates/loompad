@@ -177,7 +177,11 @@ const DEFAULT_MENU_HINT = "↕: MOVE • ↵: CHOOSE • START: CLOSE";
 
 function buildTurnActions(
   node: { kept?: boolean; sourceId?: string } | undefined,
+  readOnly = false,
 ): MenuAction[] {
+  if (readOnly) {
+    return node?.sourceId ? [{ id: "links", label: "links" }] : [];
+  }
   const ids: TurnActionId[] = node?.sourceId
     ? ["keep", "note", "links", "edit"]
     : [...TURN_ACTIONS];
@@ -370,11 +374,13 @@ export const GamepadInterface = () => {
     error,
     handleStoryNavigation,
     setCurrentLoomId,
+    openImportedView,
     getCurrentPath,
     getOptionsAtDepth,
     setSelectionByPath,
     storyTitles,
     currentLoomReady,
+    currentLoomReadOnly,
     createStory,
     deleteStory,
     saveCurrentNodeRevision,
@@ -420,10 +426,20 @@ export const GamepadInterface = () => {
   );
   const handleConversationImported = useCallback(
     (result: ImportedConversation) => {
-      setCurrentLoomId(result.loomId);
+      if (result.view) {
+        openImportedView(
+          result.loomId,
+          result.title,
+          result.view.loom,
+          result.view.tree,
+          result.readOnly === true,
+        );
+      } else {
+        setCurrentLoomId(result.loomId);
+      }
       showImportNotice(formatImportedConversationNotice(result));
     },
-    [setCurrentLoomId, showImportNotice],
+    [openImportedView, setCurrentLoomId, showImportNotice],
   );
   const handleConversationImportError = useCallback(
     (error: unknown) =>
@@ -1398,10 +1414,18 @@ export const GamepadInterface = () => {
       // both tree projections (loom + map); they never navigate, so they sit
       // ahead of the projection-specific handling below.
       if (key === "k" || key === "K") {
+        if (currentLoomReadOnly) {
+          showImportNotice("This local raw-Lync review is read-only.");
+          return;
+        }
         void handleKeepAction();
         return;
       }
       if (key === "n" || key === "N") {
+        if (currentLoomReadOnly) {
+          showImportNotice("This local raw-Lync review is read-only.");
+          return;
+        }
         openNote();
         return;
       }
@@ -1417,6 +1441,10 @@ export const GamepadInterface = () => {
       // Tree view: projection "loom" or "map".
       if (projection === "map") {
         if (key === "Backspace") {
+          if (currentLoomReadOnly) {
+            showImportNotice("This local raw-Lync review is read-only.");
+            return;
+          }
           setLastMapNodeId(highlightedNode.id);
           setScreen("edit");
           return;
@@ -1475,7 +1503,11 @@ export const GamepadInterface = () => {
         // row beside Keep and Note instead of a hidden projection-specific
         // shortcut, matching the touchscreen and keyboard surfaces.
         const node = getCurrentPath()[currentDepth];
-        const actions = buildTurnActions(node);
+        const actions = buildTurnActions(node, currentLoomReadOnly);
+        if (actions.length === 0) {
+          showImportNotice("This local raw-Lync review is read-only.");
+          return;
+        }
         openMenu({
           title: "TURN",
           actions,
@@ -1504,6 +1536,7 @@ export const GamepadInterface = () => {
       cursorOnTabs,
       currentDepth,
       currentLoomId,
+      currentLoomReadOnly,
       drawerTab,
       expandedModel,
       openNote,
@@ -1537,6 +1570,7 @@ export const GamepadInterface = () => {
       selectedTreeIndex,
       setDrawerTab,
       setScreen,
+      showImportNotice,
       setSelectedTreeColumn,
       setSelectedTreeIndex,
       triggerBonk,
@@ -1643,6 +1677,7 @@ export const GamepadInterface = () => {
     cursorOnTabs,
     editingModel:
       screen === "drawer" && drawerTab === "models" && expandedModel !== null,
+    readOnly: currentLoomReadOnly,
   });
 
   return (

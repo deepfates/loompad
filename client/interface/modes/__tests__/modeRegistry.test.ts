@@ -44,4 +44,20 @@ describe("modeRegistry", () => {
 
     expect(mode.id).toBe("menu");
   });
+
+  it("advertises only navigation and links for a read-only Lync review", () => {
+    const mode = getRegisteredMode({
+      screen: null,
+      projection: "loom",
+      drawerTab: "stories",
+      cursorOnTabs: false,
+      editingModel: false,
+      readOnly: true,
+    });
+
+    expect(mode.id).toBe("lync-review");
+    expect(mode.hint).toContain("L: LINKS");
+    expect(mode.hint).not.toContain("GENERATE");
+    expect(mode.hint).not.toContain("ACTIONS");
+  });
 });

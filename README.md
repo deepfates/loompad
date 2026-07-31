@@ -24,6 +24,13 @@ and choose
 This checked-in, synthetic Twitter/X archive contains two reply threads, an
 external-parent reply, a retweet, and likes. No OpenRouter key is needed.
 
+For a browser-local, read-only archive review that does not relay or duplicate
+the imported projection into Textile's mutable Loom store,
+open `http://localhost:5173/?lync=local` instead. The status strip says **Lync
+local-only**; the source archive stays canonical, while Textile holds only a
+session-local navigable view. Open the normal URL when you intend to curate and
+sync an imported archive.
+
 The ZIP is read inside the browser and is not uploaded. The resulting minimized
 Loom—readable text plus the provenance named below—uses Textile's normal relay
 sync, so only import archives into a relay you trust. Textile uses Splice's

@@ -298,15 +298,43 @@ function rawSourceRecordFromTurn(
   if (!turn.payload || typeof turn.payload !== "object") return null;
   const message = (turn.payload as { message?: unknown }).message;
   if (!message || typeof message !== "object" || Array.isArray(message)) return null;
-  const record = message as Partial<import("./rawLyncArchiveTypes").RawLyncSourceRecord>;
+  const record = message as Partial<import("./rawLyncArchiveTypes").StoredRawLyncSourceRecord>;
   if (
     typeof record.id !== "string" ||
-    !record.envelope ||
-    typeof record.envelope !== "object" ||
     !Array.isArray(record.nonconformingReasons) ||
     typeof record.payloadState !== "string"
   ) return null;
-  return message as import("./rawLyncArchiveTypes").RawLyncSourceRecord;
+  if (record.payloadState === "available") {
+    if (typeof record.sourceLine !== "string") return null;
+    let source: unknown;
+    try {
+      source = JSON.parse(record.sourceLine);
+    } catch {
+      return null;
+    }
+    if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+    const { payload, ...envelope } = source as Record<string, unknown>;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+    return {
+      id: record.id,
+      envelope,
+      payload: payload as Record<string, unknown>,
+      sourceLine: record.sourceLine,
+      classification: record.classification ?? "accepted",
+      nonconformingReasons: [...record.nonconformingReasons],
+      payloadState: record.payloadState,
+      withheldBy: [...(record.withheldBy ?? [])],
+    };
+  }
+  if (!record.envelope || typeof record.envelope !== "object") return null;
+  return {
+    id: record.id,
+    envelope: record.envelope,
+    classification: record.classification ?? "accepted",
+    nonconformingReasons: [...record.nonconformingReasons],
+    payloadState: record.payloadState,
+    withheldBy: [...(record.withheldBy ?? [])],
+  };
 }
 
 function attachSourceEvents(

@@ -153,4 +153,22 @@ describe("StoryText prose surface", () => {
     expect(html).not.toContain("END LARGE SOURCE");
     expect(html.length).toBeLessThan(80_000);
   });
+
+  it("renders a sliding bounded path window without hiding history ownership", () => {
+    const path = Array.from({ length: 100 }, (_, index): StoryNode => ({
+      ...unknown,
+      id: `turn-${index}`,
+      text: `Turn ${index}.`,
+      portableTurnId: `source-${index}`,
+    }));
+    const html = render(path, 75);
+
+    expect(html.match(/data-node-id=/g)).toHaveLength(48);
+    expect(html).toContain("29 earlier turns are preserved; move up to bring them into view.");
+    expect(html).toContain("23 later turns are preserved; move down to bring them into view.");
+    expect(html).toContain('data-node-id="turn-75"');
+    expect(html).toContain('data-node-id="turn-76"');
+    expect(html).not.toContain('data-node-id="turn-27"');
+    expect(html).not.toContain('data-node-id="turn-77"');
+  });
 });

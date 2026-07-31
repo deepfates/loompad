@@ -46,7 +46,9 @@ export function formatImportedConversationNotice(result: ImportedConversation): 
 
   const controls =
     result.kind === "raw-lync"
-      ? " — START opens map · L opens typed links · ↓ selects child · ←/→ compare siblings · focus reading surface + K to Keep"
+      ? result.readOnly
+        ? " — read-only session view · ↓ reads forward · ←/→ compare siblings · L opens typed links"
+        : " — START opens map · L opens typed links · ↓ selects child · ←/→ compare siblings · focus reading surface + K to Keep"
       : "";
   return `Imported "${result.title}" — ${summary}${controls}`;
 }

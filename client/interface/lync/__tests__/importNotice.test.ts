@@ -45,4 +45,25 @@ describe("raw Lync import notice", () => {
       }),
     ).toContain("1 unsupported (tool/result)");
   });
+
+  it("does not advertise curation controls for a read-only local review", () => {
+    const notice = formatImportedConversationNotice({
+      loomId: "archive",
+      title: "life.lync",
+      turnCount: 2,
+      kind: "raw-lync",
+      readOnly: true,
+      sourceEventCount: 2,
+      readableEventCount: 1,
+      structuralEventCount: 1,
+      unsupportedEventCount: 0,
+      branchPointCount: 0,
+      annotationCount: 0,
+      selectedSourceCount: 0,
+      nonconformingCount: 0,
+    });
+
+    expect(notice).toContain("read-only session view");
+    expect(notice).not.toContain("K to Keep");
+  });
 });

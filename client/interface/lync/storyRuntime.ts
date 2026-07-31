@@ -34,6 +34,7 @@ import {
   parseKeptContextMarkdown,
 } from "../utils/storyExport";
 import type { RawLyncTag } from "../types";
+import type { StoryNode } from "../types";
 import type {
   StoryEntryMeta,
   StoryLoom,
@@ -41,6 +42,8 @@ import type {
   StoryTurnMeta,
   StoryTurnPayload,
 } from "./storyTypes";
+import { projectStoryTree } from "./storyLoom";
+import { readOnlySnapshotLoom } from "./snapshotLoom";
 
 export type { StoryEntryMeta, StoryLoom, StoryLoomMeta } from "./storyTypes";
 export type StoryIndex = LoomIndex<StoryEntryMeta, { app: "textile" }>;
@@ -207,8 +210,13 @@ function buildSyncTransport(): SyncTransport | null {
   if (typeof window === "undefined") return null;
   if (!("WebSocket" in window)) return null;
   if (window.location.protocol === "file:") return null;
+  if (requestedLocalOnlyLync(window.location.search)) return null;
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return createWebSocketTransport(`${protocol}//${window.location.host}/lync`);
+}
+
+export function requestedLocalOnlyLync(search: string): boolean {
+  return new URLSearchParams(search).get("lync") === "local";
 }
 
 function getStoryClient() {
@@ -566,6 +574,11 @@ export interface ImportedConversation {
   selectedLocalTurnCount?: number;
   nonconformingCount?: number;
   warnings?: string[];
+  readOnly?: boolean;
+  view?: {
+    loom: StoryLoom;
+    tree: { root: StoryNode };
+  };
   archiveStats?: {
     sourceRecords: number;
     readableRecords: number;
@@ -636,7 +649,21 @@ export async function importRawLyncText(
   options: RawLyncProjectionOptions = {},
 ): Promise<ImportedConversation> {
   const projection = projectRawLyncFile(text, filename, options);
-  const imported = await importConversationLoom(projection.snapshot);
+  const localReview = typeof window !== "undefined" &&
+    requestedLocalOnlyLync(window.location.search);
+  const imported = localReview
+    ? await (async () => {
+        const loom = readOnlySnapshotLoom(projection.snapshot) as unknown as StoryLoom;
+        const tree = await projectStoryTree(loom);
+        return {
+          loomId: projection.snapshot.loom.id,
+          title: projection.snapshot.loom.meta?.title ?? filename,
+          turnCount: projection.snapshot.turns.length,
+          readOnly: true,
+          view: { loom, tree },
+        };
+      })()
+    : await importConversationLoom(projection.snapshot);
   return {
     ...imported,
     kind: "raw-lync",
@@ -835,10 +862,16 @@ function startLyncSyncMonitor() {
     });
     return;
   }
-  if (!("WebSocket" in window) || window.location.protocol === "file:") {
+  if (
+    !("WebSocket" in window) ||
+    window.location.protocol === "file:" ||
+    requestedLocalOnlyLync(window.location.search)
+  ) {
     emitLyncSyncEvent({
       type: "local-only",
-      detail: "No Lync relay is available in this context.",
+      detail: requestedLocalOnlyLync(window.location.search)
+        ? "This archive-review URL keeps Lync state in this browser."
+        : "No Lync relay is available in this context.",
     });
     return;
   }

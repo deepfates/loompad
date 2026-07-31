@@ -14,6 +14,7 @@ import {
   getAuthorshipDisplay,
   setAuthorshipDisplay,
   reduceLyncSyncStatus,
+  requestedLocalOnlyLync,
   resolveAuthorActor,
   storyAuthorFor,
 } from "../storyRuntime";
@@ -235,6 +236,12 @@ describe("Lync sync status", () => {
       state: "local-only",
       detail: "Browser is offline; stories are local only.",
     });
+  });
+
+  it("recognizes only the explicit local archive-review URL", () => {
+    expect(requestedLocalOnlyLync("?lync=local")).toBe(true);
+    expect(requestedLocalOnlyLync("?lync=connected")).toBe(false);
+    expect(requestedLocalOnlyLync("?local=1")).toBe(false);
   });
 });
 

@@ -86,6 +86,9 @@ export function useStoryTree(params: StoryParams) {
   const [trees, setTrees] = useState(DEFAULT_TREES);
   const [loomsById, setLoomsById] = useState<Record<string, StoryLoom>>({});
   const [storyTitles, setStoryTitles] = useState<Record<string, string>>({});
+  const [readOnlyLoomIds, setReadOnlyLoomIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [currentLoomId, setCurrentLoomId] = useState(
     () => Object.keys(trees)[0],
   );
@@ -444,6 +447,7 @@ export function useStoryTree(params: StoryParams) {
           return false;
         case "Enter": {
           if (error) return false;
+          if (readOnlyLoomIds.has(currentLoomId)) return false;
           const loom = loomsById[currentLoomId];
           if (!loom) return false;
 
@@ -538,6 +542,7 @@ export function useStoryTree(params: StoryParams) {
       generateContinuations,
       autoExpandChildren,
       currentLoomId,
+      readOnlyLoomIds,
       loomsById,
       refreshTreeFromLoom,
       getLastSelectedIndex,
@@ -562,6 +567,27 @@ export function useStoryTree(params: StoryParams) {
     currentLoomId,
     storyTitles,
     currentLoomReady: Boolean(loomsById[currentLoomId]),
+    currentLoomReadOnly: readOnlyLoomIds.has(currentLoomId),
+    openImportedView: (
+      loomId: string,
+      title: string,
+      loom: StoryLoom,
+      tree: { root: StoryNode },
+      readOnly = false,
+    ) => {
+      setLoomsById((prev) => ({ ...prev, [loomId]: loom }));
+      setStoryTitles((prev) => ({ ...prev, [loomId]: title }));
+      setTrees((prev) => ({ ...prev, [loomId]: tree }));
+      setReadOnlyLoomIds((prev) => {
+        const next = new Set(prev);
+        if (readOnly) next.add(loomId);
+        else next.delete(loomId);
+        return next;
+      });
+      setCurrentLoomId(loomId);
+      setCurrentDepth(0);
+      setSelectedOptions([0]);
+    },
     setCurrentLoomId: (key: string) => {
       setCurrentLoomId(key);
       setCurrentDepth(0);
@@ -583,7 +609,7 @@ export function useStoryTree(params: StoryParams) {
       return info.id;
     },
     deleteStory: async (key: string) => {
-      await removeStory(key);
+      if (!readOnlyLoomIds.has(key)) await removeStory(key);
       setLoomsById((prev) => {
         const next = { ...prev };
         delete next[key];
@@ -597,6 +623,11 @@ export function useStoryTree(params: StoryParams) {
       setTrees((prev) => {
         const next = { ...prev };
         delete next[key];
+        return next;
+      });
+      setReadOnlyLoomIds((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
         return next;
       });
     },

@@ -21,6 +21,8 @@ interface StoryTextProps {
   authorshipDisplay: AuthorshipDisplay;
 }
 
+const STORY_PATH_WINDOW_SIZE = 48;
+
 interface StoryNodeProseProps {
   text: string;
   tail: string;
@@ -188,6 +190,14 @@ export function StoryText({
   authorshipDisplay,
 }: StoryTextProps) {
   const tint = authorshipDisplay === "detail";
+  const windowEnd = Math.min(
+    currentPath.length,
+    Math.max(STORY_PATH_WINDOW_SIZE, currentDepth + 2),
+  );
+  const windowStart = Math.max(0, windowEnd - STORY_PATH_WINDOW_SIZE);
+  const visiblePath = currentPath.slice(windowStart, windowEnd);
+  const hiddenBefore = windowStart;
+  const hiddenAfter = currentPath.length - windowEnd;
   // Generated story prose is deliberately seam-joined into one flowing text.
   // Imported corpus records are distinct beats; their source strings should
   // never need fabricated trailing whitespace to remain legible as turns.
@@ -196,7 +206,13 @@ export function StoryText({
   );
   return (
     <div ref={storyTextRef} className="story-text">
-      {currentPath.map((segment, index) => {
+      {hiddenBefore > 0 ? (
+        <span className="story-path-window-notice">
+          {`${hiddenBefore.toLocaleString()} earlier turn${hiddenBefore === 1 ? " is" : "s are"} preserved; move up to bring ${hiddenBefore === 1 ? "it" : "them"} into view.`}
+        </span>
+      ) : null}
+      {visiblePath.map((segment, visibleIndex) => {
+        const index = windowStart + visibleIndex;
         const isCurrentDepth = index === currentDepth;
         const isNextDepth = index === currentDepth + 1;
         const isLoading = isGeneratingAt(segment.id);
@@ -242,6 +258,11 @@ export function StoryText({
           </span>
         );
       })}
+      {hiddenAfter > 0 ? (
+        <span className="story-path-window-notice">
+          {`${hiddenAfter.toLocaleString()} later turn${hiddenAfter === 1 ? " is" : "s are"} preserved; move down to bring ${hiddenAfter === 1 ? "it" : "them"} into view.`}
+        </span>
+      ) : null}
     </div>
   );
 }
