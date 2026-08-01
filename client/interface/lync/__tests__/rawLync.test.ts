@@ -590,6 +590,72 @@ describe("raw .lync projection", () => {
       .toEqual(raw.trim().split("\n").map((line) => JSON.parse(line)));
   });
 
+  it("presents a verified resident-v2 material consequence without private coordinates", () => {
+    const events = readV2FixtureEvents();
+    const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");
+    entityTurn.action = {
+      id: "material-action",
+      name: "dig_focused_block",
+      input: {},
+      source: "llm",
+      kind: "exclusive",
+      toolCallId: "private-tool-call",
+    };
+    entityTurn.outcome = {
+      ok: true,
+      eventType: "action_completed",
+      result: {
+        ok: true,
+        changes: [{
+          verb: "dig",
+          position: { x: 1977, y: -47, z: 1419 },
+          before: "mud_bricks",
+          after: "air",
+          verified: true,
+          observed: true,
+          confirmation: {
+            source: "mineflayer:blockUpdate",
+            observedAt: 1785564959120,
+            dimension: "overworld",
+            position: { x: 1977, y: -47, z: 1419 },
+            before: { name: "mud_bricks", stateId: 6775 },
+            after: { name: "air", stateId: 0 },
+            beforeStateId: 6775,
+            afterStateId: 0,
+          },
+        }],
+        navigation: null,
+      },
+    };
+    nestedRecord(entityTurn, "nextObservation").events = [{
+      sequence: 33,
+      type: "visible_block_changed",
+      salience: "normal",
+      source: "vision",
+      isNew: true,
+      data: { before: "mud_bricks", after: "air" },
+    }];
+
+    const projection = projectRawLyncFile(asLync(events), "material-consequence-v2.lync");
+    expect(projection.unsupportedEventCount).toBe(0);
+    const beat = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    );
+    expect(beat?.payload.text).toContain("OxfordCedar attempted to dig the focused block.");
+    expect(beat?.payload.text).toContain(
+      "Change evidence: dig mud bricks → air; verified yes; observed yes; confirmation mineflayer:blockUpdate.",
+    );
+    expect(beat?.payload.text).toContain("Visible block changed: mud bricks → air.");
+    expect(beat?.payload.text).not.toContain("1977");
+    expect(beat?.payload.text).not.toContain("6775");
+    expect(beat?.payload.text).not.toContain("private-tool-call");
+    const diagnostics = beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code);
+    expect(diagnostics).not.toContain("unsupported_action_input");
+    expect(diagnostics).not.toContain("unsupported_outcome_result");
+    expect(diagnostics).not.toContain("unsupported_observation_event");
+    expect(diagnostics).toContain("source_only_outcome_field");
+  });
+
   it("shows only the pact's public utterance and never a sibling reasoning field", () => {
     const events = readFixtureEvents();
     const turnPayload = nestedRecord(events[1], "payload");
@@ -677,6 +743,13 @@ function flatten(node: import("../../types").StoryNode): import("../../types").S
 
 function readFixtureEvents(): Record<string, unknown>[] {
   return readFileSync(oxfordResidentFixtureUrl, "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+function readV2FixtureEvents(): Record<string, unknown>[] {
+  return readFileSync(oxfordResidentV2FixtureUrl, "utf8")
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line) as Record<string, unknown>);
