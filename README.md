@@ -2,8 +2,9 @@
 
 > **Status:** private application. Version 0.1.0 is the first coherent source
 > release candidate for the raw-Lync corpus workflow and UI; it is not an npm
-> package. Textile supports `@deepfates/lync >=0.3.0 <0.5.0`. Its lock remains
-> on the published 0.3 line until the owner-authorized 0.4 registry release.
+> package. Textile supports `@deepfates/lync >=0.3.0 <0.5.0`; this checkout pins
+> the exact packed Lync 0.4.3 indexed-union candidate documented in
+> `vendor/LYNC-PROVENANCE.md` pending an owner-authorized registry release.
 
 Textile is a tactile multiverse reader for branching stories, conversations,
 and causal histories. It is now useful without an AI provider: open an archive
@@ -79,6 +80,18 @@ and revision link; it is never mislabeled as the raw event it extends.
 Unsafe unions (damaged or garbage lines, ID conflicts, missing parents, or graph
 cycles) fail closed with concrete reasons. Accepted nonconforming events remain
 readable and carry their warnings on the focused turn.
+
+A Behold ordered-prefix manifest plus its selected resident `.lync` files takes
+a separate, always-read-only path through Lync's indexed union. Textile hashes
+the exact bound prefixes, rereads and presents one event at a time, and retains
+only compact graph/envelope indexes, authenticated byte locators, and the public
+presentation snapshot. It does not retain source lines, source byte arrays, or
+private resident payloads. The source working set is bounded by Lync's 1 MiB
+chunk and 16 MiB line limits plus one reread event; retained session state is
+O(events + edges + public presentation text), not O(source bytes). The ordinary
+multi-file picker reports resident/source/readable/structural/diagnostic counts
+and rejects changed, truncated, conflicting, dangling, or cyclic input. Existing
+single-file raw imports keep their eager, lossless archive/export behavior.
 
 Readable events above one MiB of text use an explicit bounded reader with
 FIRST/PREV/NEXT/LAST 65,536-character windows. This is presentation

@@ -21,12 +21,16 @@ export function formatImportedConversationNotice(result: ImportedConversation): 
   const summary = [
     ...(result.kind === "raw-lync"
       ? [
+          ...(result.sourceCount ? [count(result.sourceCount, "resident source")] : []),
           count(result.sourceEventCount ?? result.turnCount, "source event"),
           count(result.readableEventCount ?? result.turnCount, "readable event"),
           count(result.structuralEventCount ?? 0, "structural event"),
           result.unsupportedEventCount
             ? `${count(result.unsupportedEventCount, "unsupported")} (${result.unsupportedKinds?.join(", ") || "unknown kind"})`
             : "all presented",
+          ...(result.diagnosticCount !== undefined
+            ? [count(result.diagnosticCount, "presentation diagnostic")]
+            : []),
         ]
       : [count(result.turnCount, "turn")]),
     ...(result.kind === "raw-lync"

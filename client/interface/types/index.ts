@@ -96,6 +96,8 @@ export interface StoryNode {
   sourcePresentationSections?: import("../lync/rawLyncPresentationTypes").RawLyncPresentationSection[];
   sourcePresentationDiagnostics?: import("../lync/rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
   sourceLoomProfile?: string;
+  /** Authenticated byte locator for a session-only indexed source presentation. */
+  sourceLocator?: import("../lync/orderedLyncReviewTypes").OrderedLyncPresentationLocator;
   /** The exact source event reconstructed from its preserved envelope + payload. */
   sourceEvent?: Record<string, unknown>;
   /** Lossless raw corpus carried through hidden synced turns for portable export. */

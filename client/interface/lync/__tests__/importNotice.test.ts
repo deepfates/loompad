@@ -53,6 +53,8 @@ describe("raw Lync import notice", () => {
       turnCount: 2,
       kind: "raw-lync",
       readOnly: true,
+      sourceCount: 2,
+      diagnosticCount: 9,
       sourceEventCount: 2,
       readableEventCount: 1,
       structuralEventCount: 1,
@@ -64,6 +66,8 @@ describe("raw Lync import notice", () => {
     });
 
     expect(notice).toContain("read-only session view");
+    expect(notice).toContain("2 resident sources");
+    expect(notice).toContain("9 presentation diagnostics");
     expect(notice).not.toContain("K to Keep");
   });
 });

@@ -6,17 +6,17 @@ import {
 } from "../../../vendor/splice-browser/index.js";
 import {
   importConversationLoom,
+  importIndexedRawLyncProjection,
   importLyncOrConversationText,
-  importRawLyncSources,
   type ConversationLoomSnapshot,
   type ImportedConversation,
 } from "./storyRuntime";
 import {
   BEHOLD_ORDERED_LYNC_SOURCE_SET_PROTOCOL,
-  loadOrderedLyncByteSources,
   parseOrderedLyncSourceSet,
   resolveOrderedLyncSourceFiles,
 } from "./orderedLyncSourceSet";
+import { projectOrderedLyncSourceFiles } from "./indexedRawLync";
 
 const ARCHIVE_TEXT_MEMBER = /(?:^|\/)data\/(?:manifest|account|tweets[^/]*|like[^/]*)\.js$/i;
 const MAX_ARCHIVE_FILE_BYTES = 2 * 1024 * 1024 * 1024;
@@ -118,6 +118,10 @@ export async function importTextileFiles(
   const manifest = parseOrderedLyncSourceSet(selected.text);
   const sourceFiles = files.filter((file) => file !== selected.file);
   const resolved = resolveOrderedLyncSourceFiles(manifest, sourceFiles);
-  const sources = await loadOrderedLyncByteSources(resolved);
-  return importRawLyncSources(sources, selected.file.name);
+  const projection = await projectOrderedLyncSourceFiles(
+    manifest,
+    resolved,
+    selected.file.name,
+  );
+  return importIndexedRawLyncProjection(projection, selected.file.name);
 }

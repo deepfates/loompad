@@ -35,6 +35,7 @@ export function RawLyncIndicator({
   const extraParents = node.extraParentIds ?? [];
   const tags = node.rawTags ?? [];
   const warnings = node.sourceWarnings ?? [];
+  const locator = node.sourceLocator;
   const detail = [
     `source ${node.sourceId}`,
     node.sourceKind,
@@ -42,6 +43,9 @@ export function RawLyncIndicator({
     node.sourceParents?.length ? `parents: ${node.sourceParents.join(", ")}` : "root event",
     tags.length ? `tags: ${tags.map((tag) => tag.tag).join(", ")}` : null,
     warnings.length ? `nonconforming: ${warnings.join(", ")}` : null,
+    locator
+      ? `${locator.file}:${locator.line} bytes ${locator.start}-${locator.end} · resident ${locator.residentEntityId} · prefix sha256 ${locator.sourceSha256}`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");

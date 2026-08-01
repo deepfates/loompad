@@ -43,6 +43,7 @@ export interface ReadableTurnMeta {
   sourcePresentationDiagnostics?: import("./rawLyncPresentationTypes").RawLyncPresentationDiagnostic[];
   sourceLoomProfile?: string;
   sourceEnvelope?: Record<string, unknown>;
+  sourceLocator?: import("./orderedLyncReviewTypes").OrderedLyncPresentationLocator;
   portableTurnId?: string;
   portableOriginLoomId?: string;
   portableRole?: string;
@@ -514,6 +515,7 @@ function turnToStoryNode(turn: ReadableTurn): StoryNode {
     ),
     sourcePresentationDiagnostics: meta?.sourcePresentationDiagnostics,
     sourceLoomProfile: meta?.sourceLoomProfile,
+    sourceLocator: meta?.sourceLocator,
     sourceEvent,
   };
 }

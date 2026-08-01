@@ -13,6 +13,12 @@ import {
   verifyOrderedLyncSourceFiles,
 } from "../orderedLyncSourceSet";
 import { projectRawLyncSources } from "../rawLync";
+import {
+  orderedLyncFileSource,
+  projectIndexedOrderedLyncSources,
+  projectOrderedLyncSourceFiles,
+} from "../indexedRawLync";
+import { importTextileFiles } from "../twitterArchiveImport";
 
 const aster = readFileSync(
   new URL("../../../../tests/e2e/fixtures/oxford-aster-human-semantic-v1.lync", import.meta.url),
@@ -82,6 +88,106 @@ describe("Behold ordered Lync source sets", () => {
     await expect(verifyOrderedLyncSourceFiles(resolveOrderedLyncSourceFiles(falselyBound, [
       new File([Uint8Array.from(aster)], "aster.lync"),
     ]))).rejects.toThrow(/does not match its resident binding/);
+  });
+
+  it("opens the ordinary two-resident set read-only with public text and authenticated locators only", async () => {
+    const privateSentinel = "PRIVATE-RESIDENT-FRAME-MUST-NOT-BE-RETAINED";
+    const cedarLines = cedar.toString("utf8").trimEnd().split("\n").map((line) => JSON.parse(line));
+    cedarLines[1].payload.payload.privateCausalFrames = { secret: privateSentinel };
+    const cedarPrivate = Buffer.from(`${cedarLines.map((line) => JSON.stringify(line)).join("\n")}\n`);
+    const manifestText = sourceSet([
+      source(0, "OxfordAster", "/canonical/OxfordAster/aster.lync", aster, "org.behold.inhabitant.v1"),
+      source(1, "OxfordCedar", "/canonical/OxfordCedar/cedar.lync", cedarPrivate, "org.behold.inhabitant.v2"),
+    ]);
+    const manifestFile = new File([manifestText], "episode.sources.json");
+    const files = [
+      new File([Uint8Array.from(aster), "unbound later append\n"], "aster.lync"),
+      new File([Uint8Array.from(cedarPrivate), "unbound later append\n"], "cedar.lync"),
+    ];
+    const manifest = parseOrderedLyncSourceSet(manifestText);
+    const projection = await projectOrderedLyncSourceFiles(
+      manifest,
+      resolveOrderedLyncSourceFiles(manifest, files),
+      manifestFile.name,
+    );
+
+    expect(projection.sourceCount).toBe(2);
+    expect(projection.sourceEventCount).toBe(4);
+    expect(projection.readableEventCount).toBe(2);
+    expect(projection.structuralEventCount).toBe(2);
+    expect(projection.snapshot.turns).toHaveLength(5);
+    expect(projection.ownership.index.retainedRawBytes).toBe(0);
+    expect(projection.ownership.index.retainedPayloadObjects).toBe(0);
+    expect(projection.ownership.retainedSourceLineChars).toBe(0);
+    expect(projection.ownership.retainedPrivatePayloadObjects).toBe(0);
+    expect(projection.ownership.retainedRawBytes).toBe(0);
+    const retained = JSON.stringify(projection.snapshot);
+    expect(retained).not.toContain(privateSentinel);
+    expect(retained).not.toContain("sourceLine");
+    const cedarTurn = projection.snapshot.turns.find((turn) => turn.meta?.sourceKind === "lync/turn" && turn.meta.author === "OxfordCedar");
+    expect(cedarTurn?.meta.sourceLocator).toMatchObject({
+      file: "cedar.lync",
+      source: 1,
+      residentEntityId: "OxfordCedar",
+      manifestDigest: manifest.digest,
+      sourceSha256: manifest.sources[1]!.sha256,
+    });
+
+    const imported = await importTextileFiles([manifestFile, ...files]);
+    expect(imported.readOnly).toBe(true);
+    expect(imported.view?.tree.root.continuations).toHaveLength(2);
+    expect(imported.turnCount).toBe(4);
+    await expect(imported.view!.loom.appendTurn(null, { text: "mutation" }, { role: "prose" }))
+      .rejects.toThrow(/read-only/);
+  });
+
+  it("fails closed on union conflicts and source changes between index and projection", async () => {
+    const lines = aster.toString("utf8").trimEnd().split("\n");
+    const conflicting = JSON.parse(lines[1]!);
+    conflicting.payload.payload.sequence = 999;
+    const conflictBytes = Buffer.from(`${lines.join("\n")}\n${JSON.stringify(conflicting)}\n`);
+    const conflictManifest = parseOrderedLyncSourceSet(sourceSet([
+      source(0, "OxfordAster", "aster.lync", conflictBytes, "org.behold.inhabitant.v1"),
+    ]));
+    const conflictFile = new File([Uint8Array.from(conflictBytes)], "aster.lync");
+    await expect(projectOrderedLyncSourceFiles(
+      conflictManifest,
+      resolveOrderedLyncSourceFiles(conflictManifest, [conflictFile]),
+      "conflict.sources.json",
+    )).rejects.toThrow(/conflict/);
+
+    const manifest = parseOrderedLyncSourceSet(sourceSet([
+      source(0, "OxfordAster", "aster.lync", aster, "org.behold.inhabitant.v1"),
+    ]));
+    const stable = orderedLyncFileSource(resolveOrderedLyncSourceFiles(manifest, [
+      new File([Uint8Array.from(aster)], "aster.lync"),
+    ])[0]!);
+    let reads = 0;
+    await expect(projectIndexedOrderedLyncSources(manifest, [{
+      ...stable,
+      async read(start, end) {
+        const exact = await stable.read(start, end);
+        reads += 1;
+        if (reads === 1 && exact.length > 8) exact[8] ^= 1;
+        return exact;
+      },
+    }], "changed.sources.json")).rejects.toThrow(/changed|reordered|no longer matches/);
+
+    const truncated = orderedLyncFileSource(resolveOrderedLyncSourceFiles(manifest, [
+      new File([Uint8Array.from(aster)], "aster.lync"),
+    ])[0]!);
+    await expect(projectIndexedOrderedLyncSources(manifest, [{
+      ...truncated,
+      async *stream() {
+        let remaining = truncated.size - 1;
+        for await (const chunk of truncated.stream()) {
+          if (remaining <= 0) break;
+          const held = chunk.subarray(0, remaining);
+          remaining -= held.byteLength;
+          yield held;
+        }
+      },
+    }], "truncated.sources.json")).rejects.toThrow(/supplied .* expected|complete prefix/);
   });
 });
 

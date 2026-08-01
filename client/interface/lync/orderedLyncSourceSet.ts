@@ -122,9 +122,9 @@ export async function verifyOrderedLyncSourceFiles(
 }
 
 /**
- * Load verified prefixes without an eager union string or TextEncoder copy.
- * This removes the old union duplication, but the existing Lync projector still
- * retains the complete byte/event set; tex-wrif remains open for bounded scale.
+ * Compatibility adapter for callers that explicitly need the eager projector.
+ * The ordinary multi-file UI does not call this: it uses the re-readable
+ * indexed adapter and never materializes every prefix into Textile-owned bytes.
  */
 export async function loadOrderedLyncByteSources(
   sources: ReadonlyArray<OrderedLyncSourceFile>,

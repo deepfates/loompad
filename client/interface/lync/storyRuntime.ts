@@ -485,6 +485,7 @@ export interface ConversationTurnMeta {
   portableNotes?: import("./rawLyncArchiveTypes").RawLyncPortableNote[];
   archiveSource?: import("./archiveTypes").ArchiveSourceRef;
   sourceEnvelope?: Record<string, unknown>;
+  sourceLocator?: import("./orderedLyncReviewTypes").OrderedLyncPresentationLocator;
 }
 /** A conversation loom's own meta: marks the profile + carries a title. */
 export interface ConversationLoomMeta {
@@ -581,6 +582,10 @@ export interface ImportedConversation {
   nonconformingCount?: number;
   warnings?: string[];
   readOnly?: boolean;
+  sourceCount?: number;
+  sourceBytes?: number;
+  diagnosticCount?: number;
+  ownership?: import("./orderedLyncReviewTypes").OrderedLyncReviewOwnership;
   view?: {
     loom: StoryLoom;
     tree: { root: StoryNode };
@@ -701,6 +706,38 @@ async function importRawLyncProjection(
     selectedLocalTurnCount: projection.selectedLocalTurnCount,
     nonconformingCount: projection.nonconformingCount,
     warnings: projection.warnings,
+  };
+}
+
+/** Open an indexed ordered source set as an immutable, session-only review. */
+export async function importIndexedRawLyncProjection(
+  projection: import("./indexedRawLync").IndexedRawLyncProjection,
+  filename: string,
+): Promise<ImportedConversation> {
+  const loom = readOnlySnapshotLoom(projection.snapshot) as unknown as StoryLoom;
+  const tree = await projectStoryTree(loom);
+  return {
+    loomId: projection.snapshot.loom.id,
+    title: projection.snapshot.loom.meta?.title ?? filename,
+    kind: "raw-lync",
+    turnCount: projection.readableEventCount + projection.structuralEventCount,
+    sourceEventCount: projection.sourceEventCount,
+    readableEventCount: projection.readableEventCount,
+    structuralEventCount: projection.structuralEventCount,
+    unsupportedEventCount: projection.unsupportedEventCount,
+    unsupportedKinds: projection.unsupportedKinds,
+    annotationCount: projection.annotationCount,
+    branchPointCount: projection.branchPointCount,
+    selectedSourceCount: projection.selectedSourceCount,
+    selectedLocalTurnCount: projection.selectedLocalTurnCount,
+    nonconformingCount: projection.nonconformingCount,
+    warnings: projection.warnings,
+    sourceCount: projection.sourceCount,
+    sourceBytes: projection.sourceBytes,
+    diagnosticCount: projection.diagnosticCount,
+    ownership: projection.ownership,
+    readOnly: true,
+    view: { loom, tree },
   };
 }
 

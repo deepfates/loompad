@@ -10,7 +10,7 @@ Textile's consumption and the boundary actually exercised here.
 ## Dispatch
 
 Lync's presenter runs only for a causally inherited Loom profile of
-`org.behold.inhabitant.v1`. The root must declare
+`org.behold.inhabitant.v1` or `org.behold.inhabitant.v2`. The root must declare
 `behold.entity-loom.v1`; each turn must declare both
 `behold.entity-turn-link.v1` on the outer `lync/turn` payload and
 `behold.entity-turn.v1` on its nested EntityTurn. The turn's body and action
@@ -46,6 +46,14 @@ and JSON export while retaining source id, every parent, author/via, kind,
 profile, presentation contract, semantic sections, exact JSON source paths,
 and named diagnostics. The original payload remains the imported turn's
 `message`; it is not rewritten to contain display text.
+
+That lossless statement describes the existing eager single-file/archive path.
+An authenticated Behold ordered source set is intentionally a different,
+read-only session projection: canonical bytes remain in the selected Files,
+while each public turn retains the exact source file, line and byte range,
+prefix SHA-256, resident binding, and manifest digest. Private source payloads
+and `sourceLine` strings are reread one at a time and are not retained in the
+Textile snapshot or story tree.
 
 The checked-in fixture
 `tests/e2e/fixtures/oxford-aster-human-semantic-v1.lync` is the unchanged

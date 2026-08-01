@@ -1,6 +1,6 @@
 ---
 id: tex-wrif
-status: in_progress
+status: closed
 deps: []
 links: []
 created: 2026-08-01T12:11:23Z
@@ -39,3 +39,9 @@ Bounded-path audit against installed Lync 0.3.0 and current sibling 0.4.2 found 
 **2026-08-01T12:44:11Z**
 
 Implemented on isolated branch codex/textile-ordered-prefix-source-set: Textile can authenticate a Behold v2 ordered-prefix manifest, match operator-selected source basenames, stream/hash only exact bound prefixes with constant-memory SHA-256 verification, and feed ordered source bytes to the existing projector without constructing the old eager union string. Existing one-file import remains unchanged. This is a partial step only: loadOrderedLyncByteSources still materializes all bound prefix bytes and projectRawLyncSources still retains the complete parsed event/snapshot model, so habitat-scale bounded projection is not established and tex-wrif remains open.
+
+**2026-08-01T14:20:00Z**
+
+Acceptance is now exercised on branch `agent/tex-wrif-indexed-union`. The ordinary multi-file `importTextileFiles` path authenticates the manifest and exact prefixes, delegates all union/conflict/topology/profile semantics to Lync 0.4.3's indexed union, presents one event per lazy reread, and opens an always-read-only session Loom containing only public presentation state plus compact authenticated locators. Single-file eager import is unchanged. Changed, truncated, conflicting, dangling, cyclic, unsafe, or resident-binding-mismatched input fails closed.
+
+The opt-in scale gate (`TEXTILE_SCALE_TEST=1 bun test client/interface/lync/__tests__/indexedRawLync.scale.test.ts`) passed a synthetic representative two-resident source set of 490,734,206 bytes: 2 sources, 7,490 source events, 7,488 readable events, 2 structural events, and 67,392 named presentation diagnostics in 33.5 seconds. Lync ownership instrumentation measured 0 retained raw bytes and 0 retained payload objects; Textile's retained-view inspection measured 0 source-line characters, 0 private payload objects, and 0 raw bytes, with 8,279,772 public presentation characters. The compact index retained 7,490 locators/envelopes and 3,378,124 string characters. This proves the bounded ownership contract, not a browser-vendor heap profile or multi-day usability; those remain broader operational/product questions rather than this ticket's six-hour materialization milestone.
