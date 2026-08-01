@@ -23,3 +23,7 @@ Against the exact episode 000001 ordered-prefix manifest and focused fixtures, T
 **2026-08-01T23:26:43Z**
 
 Implemented the bounded current-v2 reader overlay. Exact Behold qualified habitat episode 000001 projects 155 source events into 153 readable turns with unsupportedEventCount=0 and no unsupported_* diagnostics; remaining diagnostics are intentional source-only identity/window/pose/visual fields and withheld private/local/numeric fields. Focused raw-Lync tests 24/24, full suite 210 pass/1 skip, lint, build, and diff-check pass. Unknown event shapes still fail closed and coordinate-bearing extras remain withheld.
+
+**2026-08-01T23:33:30Z**
+
+Follow-up principal review carried Behold's new chat_input_dispatched/whisper_input_dispatched distinction through the Textile prose. Both old and current v2 results now say only that input was submitted and explicitly deny independently confirmed recipient delivery; over-bound/rejected input remains distinct. Full suite 211 pass/1 skip, lint, build, and diff-check pass.

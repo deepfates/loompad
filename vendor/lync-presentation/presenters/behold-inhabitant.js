@@ -458,9 +458,22 @@ function presentOutcome(actionValue, outcomeValue, diagnostics, profile) {
         detail = result.bodyMoved ? " The body moved." : " The body did not move.";
         paths.push("payload.payload.outcome.result.bodyMoved");
     }
-    else if (actionName === "chat") {
-        detail =
-            ok === true ? " Minecraft confirmed the public chat action." : null;
+    else if (profile.version === 2 && actionName === "chat" && result) {
+        const resultOk = typeof result.ok === "boolean" ? result.ok : null;
+        const status = stringField(result, "status")?.trim();
+        const error = stringField(result, "error")?.trim();
+        if (resultOk === true && (!status || status === "chat_input_dispatched")) {
+            detail = " The public chat input was submitted; recipient delivery was not independently confirmed here.";
+            v2ShownResultKeys = new Set(["ok", "status", "message"]);
+            paths.push("payload.payload.outcome.result.ok");
+            if (status)
+                paths.push("payload.payload.outcome.result.status");
+        }
+        else if (resultOk === false && error) {
+            detail = ` The public chat input was rejected: ${humanize(error)}.`;
+            v2ShownResultKeys = new Set(["ok", "error", "maximumCharacters", "providedCharacters"]);
+            paths.push("payload.payload.outcome.result.ok", "payload.payload.outcome.result.error");
+        }
     }
     else if (actionName === "wait_for_event" &&
         typeof result?.sawPeerChat === "boolean") {
@@ -480,16 +493,18 @@ function presentOutcome(actionValue, outcomeValue, diagnostics, profile) {
     else if (profile.version === 2 && actionName === "whisper" && result) {
         diagnoseSourceOnlyFields(outcome, new Set(["ok", "eventType", "result"]), "payload.payload.outcome", diagnostics, new Set(), "source_only_outcome_field");
         const resultOk = typeof result.ok === "boolean" ? result.ok : null;
-        const message = stringField(result, "message")?.trim();
+        const status = stringField(result, "status")?.trim();
         const error = stringField(result, "error")?.trim();
-        if (resultOk === true && message) {
-            detail = ` Minecraft confirmed the private whisper: ${message}`;
-            v2ShownResultKeys = new Set(["ok", "message"]);
-            paths.push("payload.payload.outcome.result.ok", "payload.payload.outcome.result.message");
+        if (resultOk === true && (!status || status === "whisper_input_dispatched")) {
+            detail = " The private whisper input was submitted; recipient delivery was not independently confirmed here.";
+            v2ShownResultKeys = new Set(["ok", "status", "message"]);
+            paths.push("payload.payload.outcome.result.ok");
+            if (status)
+                paths.push("payload.payload.outcome.result.status");
         }
         else if (resultOk === false && error) {
-            detail = ` Minecraft rejected the private whisper: ${humanize(error)}.`;
-            v2ShownResultKeys = new Set(["ok", "error"]);
+            detail = ` The private whisper input was rejected: ${humanize(error)}.`;
+            v2ShownResultKeys = new Set(["ok", "error", "maximumCharacters", "providedCharacters"]);
             paths.push("payload.payload.outcome.result.ok", "payload.payload.outcome.result.error");
         }
     }

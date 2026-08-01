@@ -558,7 +558,7 @@ describe("raw .lync projection", () => {
       "[llm · exclusive] OxfordCedar whispered to Birch: Hello quietly.",
     );
     expect(beat?.payload.text).toContain(
-      "Minecraft confirmed the private whisper: Hello quietly.",
+      "The private whisper input was submitted; recipient delivery was not independently confirmed here.",
     );
     expect(beat?.payload.text).toContain(
       "Heard 2 sounds: 2 × block.stone_pressure_plate.click_on (nearby, right).",
@@ -588,6 +588,42 @@ describe("raw .lync projection", () => {
     );
     expect(flatten(tree.root).filter((node) => node.sourceEvent).map((node) => node.sourceEvent))
       .toEqual(raw.trim().split("\n").map((line) => JSON.parse(line)));
+  });
+
+  it("distinguishes resident chat input dispatch from independently observed delivery", () => {
+    for (const actionName of ["chat", "whisper"] as const) {
+      const events = readV2FixtureEvents();
+      const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");
+      entityTurn.action = {
+        id: `${actionName}-action`,
+        name: actionName,
+        input: actionName === "chat"
+          ? { text: "Can anyone hear me?" }
+          : { username: "Birch", text: "Can you hear me?" },
+        source: "llm",
+        kind: "exclusive",
+        toolCallId: "private-tool-call",
+      };
+      entityTurn.outcome = {
+        ok: true,
+        eventType: "action_completed",
+        result: {
+          ok: true,
+          status: `${actionName}_input_dispatched`,
+          message: actionName === "chat" ? "Can anyone hear me?" : "Can you hear me?",
+        },
+      };
+
+      const projection = projectRawLyncFile(asLync(events), `${actionName}-dispatch-v2.lync`);
+      const beat = projection.snapshot.turns.find(
+        (turn) => turn.meta.sourceKind === "lync/turn",
+      );
+      expect(beat?.payload.text).toContain("input was submitted");
+      expect(beat?.payload.text).toContain("delivery was not independently confirmed");
+      expect(beat?.payload.text).not.toContain("Minecraft confirmed");
+      const diagnostics = beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code);
+      expect(diagnostics).not.toContain("unsupported_outcome_result");
+    }
   });
 
   it("presents a verified resident-v2 material consequence without private coordinates", () => {
