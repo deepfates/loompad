@@ -656,6 +656,116 @@ describe("raw .lync projection", () => {
     expect(diagnostics).toContain("source_only_outcome_field");
   });
 
+  it("presents current resident lifecycle events and world-event waiting without coordinates", () => {
+    const events = readV2FixtureEvents();
+    const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");
+    entityTurn.action = {
+      id: "wait-action",
+      name: "wait_for_event",
+      input: { reason: "Let the world change." },
+      source: "llm",
+      kind: "exclusive",
+      toolCallId: "private-tool-call",
+    };
+    entityTurn.outcome = {
+      ok: true,
+      eventType: "action_completed",
+      result: { ok: true, status: "waiting_for_world_event" },
+    };
+    nestedRecord(entityTurn, "observation").events = [
+      {
+        sequence: 40,
+        type: "day_phase_changed",
+        salience: "normal",
+        source: "body",
+        isNew: true,
+        data: { previous: "day", current: "dusk" },
+      },
+      {
+        sequence: 41,
+        type: "visible_entity_hurt",
+        salience: "high",
+        source: "vision",
+        isNew: true,
+        data: { proximity: "distant", name: "Zombie", kind: "hostile" },
+      },
+      {
+        sequence: 42,
+        type: "self_hurt",
+        salience: "high",
+        source: "body",
+        isNew: true,
+        data: { proximity: "interaction", name: "Sedge", kind: "player" },
+      },
+    ];
+    nestedRecord(entityTurn, "nextObservation").events = [{
+      sequence: 43,
+      type: "died",
+      salience: "critical",
+      source: "body",
+      isNew: true,
+      data: {},
+    }];
+
+    const projection = projectRawLyncFile(asLync(events), "current-lifecycle-v2.lync");
+    expect(projection.unsupportedEventCount).toBe(0);
+    const beat = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    );
+    expect(beat?.payload.text).toContain("Day phase changed: day → dusk.");
+    expect(beat?.payload.text).toContain(
+      "Zombie was seen taking damage (hostile, distant).",
+    );
+    expect(beat?.payload.text).toContain(
+      "Sedge was hurt (player, interaction).",
+    );
+    expect(beat?.payload.text).toContain("The resident died.");
+    expect(beat?.payload.text).toContain("The resident is waiting for a world event.");
+    expect(beat?.payload.text).not.toContain("private-tool-call");
+    const diagnostics = beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code);
+    expect(diagnostics).not.toContain("unsupported_observation_event");
+    expect(diagnostics).not.toContain("unsupported_outcome_result");
+    expect(diagnostics).not.toContain("source_only_outcome_field");
+  });
+
+  it("keeps unknown lifecycle fields diagnostic-only and unknown events fail-closed", () => {
+    const events = readV2FixtureEvents();
+    const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");
+    nestedRecord(entityTurn, "observation").events = [{
+      sequence: 44,
+      type: "visible_entity_hurt",
+      salience: "high",
+      source: "vision",
+      isNew: true,
+      data: {
+        proximity: "distant",
+        name: "Skeleton",
+        kind: "hostile",
+        position: { x: 1977, y: -47, z: 1419 },
+      },
+    }, {
+      sequence: 45,
+      type: "future_resident_event",
+      salience: "normal",
+      source: "body",
+      isNew: true,
+      data: { prose: "MUST NOT APPEAR" },
+    }];
+
+    const projection = projectRawLyncFile(asLync(events), "fail-closed-lifecycle-v2.lync");
+    const beat = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    );
+    expect(beat?.payload.text).toContain(
+      "Skeleton was seen taking damage (hostile, distant).",
+    );
+    expect(beat?.payload.text).not.toContain("1977");
+    expect(beat?.payload.text).not.toContain("MUST NOT APPEAR");
+    const diagnostics = beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code);
+    expect(diagnostics).toContain("source_only_observation_event_field");
+    expect(diagnostics).toContain("unsupported_observation_event");
+  });
+
   it("shows only the pact's public utterance and never a sibling reasoning field", () => {
     const events = readFixtureEvents();
     const turnPayload = nestedRecord(events[1], "payload");

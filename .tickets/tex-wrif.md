@@ -2,7 +2,7 @@
 id: tex-wrif
 status: open
 deps: []
-links: []
+links: [tex-nak8]
 created: 2026-08-01T12:11:23Z
 type: feature
 priority: 1

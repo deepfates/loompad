@@ -302,6 +302,10 @@ function presentObservation(value, entityId, sourcePath, diagnostics, profile) {
                 "action_failed",
                 "controller_suspended",
                 "cancellation_requested",
+                "day_phase_changed",
+                "died",
+                "self_hurt",
+                "visible_entity_hurt",
                 "visible_block_changed",
             ].includes(type ?? "")) {
             return presentResidentLifecycleEvent(type ?? "", event, data, `${sourcePath}.events[${index}]`, diagnostics);
@@ -465,6 +469,14 @@ function presentOutcome(actionValue, outcomeValue, diagnostics, profile) {
             : " No peer chat was observed.";
         paths.push("payload.payload.outcome.result.sawPeerChat");
     }
+    else if (profile.version === 2 &&
+        actionName === "wait_for_event" &&
+        result?.ok === true &&
+        result?.status === "waiting_for_world_event") {
+        detail = " The resident is waiting for a world event.";
+        v2ShownResultKeys = new Set(["ok", "status"]);
+        paths.push("payload.payload.outcome.result.ok", "payload.payload.outcome.result.status");
+    }
     else if (profile.version === 2 && actionName === "whisper" && result) {
         diagnoseSourceOnlyFields(outcome, new Set(["ok", "eventType", "result"]), "payload.payload.outcome", diagnostics, new Set(), "source_only_outcome_field");
         const resultOk = typeof result.ok === "boolean" ? result.ok : null;
@@ -521,6 +533,44 @@ function presentOutcome(actionValue, outcomeValue, diagnostics, profile) {
 }
 function presentResidentLifecycleEvent(type, event, data, eventPath, diagnostics) {
     diagnoseObservationEventEnvelope(event, eventPath, diagnostics);
+    if (type === "day_phase_changed") {
+        diagnoseSourceOnlyFields(data, new Set(["previous", "current"]), `${eventPath}.data`, diagnostics);
+        const previous = stringField(data, "previous")?.trim();
+        const current = stringField(data, "current")?.trim();
+        return previous && current
+            ? [`Day phase changed: ${humanize(previous)} → ${humanize(current)}.`]
+            : unsupportedObservationEvent(eventPath, diagnostics);
+    }
+    if (type === "self_hurt") {
+        diagnoseSourceOnlyFields(data, new Set(["name", "kind", "proximity"]), `${eventPath}.data`, diagnostics);
+        const name = stringField(data, "name")?.trim();
+        const kind = stringField(data, "kind")?.trim();
+        const proximity = stringField(data, "proximity")?.trim();
+        if (!name && !kind)
+            return unsupportedObservationEvent(eventPath, diagnostics);
+        const subject = name ?? humanize(kind ?? "resident");
+        const details = [kind, proximity].filter((item) => Boolean(item));
+        return [
+            `${subject} was hurt${details.length ? ` (${details.join(", ")})` : ""}.`,
+        ];
+    }
+    if (type === "visible_entity_hurt") {
+        diagnoseSourceOnlyFields(data, new Set(["name", "kind", "proximity"]), `${eventPath}.data`, diagnostics);
+        const name = stringField(data, "name")?.trim();
+        const kind = stringField(data, "kind")?.trim();
+        const proximity = stringField(data, "proximity")?.trim();
+        if (!name && !kind)
+            return unsupportedObservationEvent(eventPath, diagnostics);
+        const subject = name ?? humanize(kind ?? "entity");
+        const details = [kind, proximity].filter((item) => Boolean(item));
+        return [
+            `${subject} was seen taking damage${details.length ? ` (${details.join(", ")})` : ""}.`,
+        ];
+    }
+    if (type === "died") {
+        diagnoseSourceOnlyFields(data, new Set(), `${eventPath}.data`, diagnostics);
+        return ["The resident died."];
+    }
     if (type === "visible_block_changed") {
         diagnoseSourceOnlyFields(data, new Set(["before", "after"]), `${eventPath}.data`, diagnostics);
         const before = stringField(data, "before")?.trim();
