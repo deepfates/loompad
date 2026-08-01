@@ -24,6 +24,10 @@ const oxfordResidentFixtureUrl = new URL(
   "../../../../tests/e2e/fixtures/oxford-aster-human-semantic-v1.lync",
   import.meta.url,
 );
+const oxfordResidentV2FixtureUrl = new URL(
+  "../../../../tests/e2e/fixtures/oxford-cedar-human-semantic-v2.lync",
+  import.meta.url,
+);
 const B = "0197e6a0-4a09-7000-8000-000000000002";
 const C = "0197e6a0-4a09-7000-8000-000000000003";
 const D = "0197e6a0-4a09-7000-8000-000000000004";
@@ -519,6 +523,71 @@ describe("raw .lync projection", () => {
     expect(sourceNodes.map((node) => node.sourceEvent)).toEqual(
       raw.trim().split("\n").map((line) => JSON.parse(line)),
     );
+  });
+
+  it("presents the additive resident-v2 pact without changing exact source events", async () => {
+    const raw = readFileSync(oxfordResidentV2FixtureUrl, "utf8");
+    expect(Buffer.byteLength(raw)).toBe(2_687);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe(
+      "8a1e660c692827d1c66a098120be0ae05509d08978d17a10231b6705bd4cddef",
+    );
+
+    const projection = projectRawLyncFile(raw, "oxford-cedar-human-semantic-v2.lync");
+    expect(projection.sourceEventCount).toBe(2);
+    expect(projection.readableEventCount).toBe(1);
+    expect(projection.structuralEventCount).toBe(1);
+    expect(projection.unsupportedEventCount).toBe(0);
+
+    const sourceTurns = projection.snapshot.turns.filter((turn) => turn.meta.sourceId);
+    const beat = sourceTurns.find((turn) => turn.meta.sourceKind === "lync/turn");
+    expect(beat?.meta.sourceLoomProfile).toBe("org.behold.inhabitant.v2");
+    expect(beat?.meta.sourcePresentationContract).toBe(
+      "org.behold.presentation.inhabitant-turn.v2",
+    );
+    expect(beat?.meta.sourcePresentationSections?.map((section) => section.role)).toEqual([
+      "perception",
+      "utterance",
+      "action",
+      "outcome",
+      "perception",
+    ]);
+    expect(beat?.payload.text).toContain(
+      "Heard block.stone_pressure_plate.click_on (nearby, right).",
+    );
+    expect(beat?.payload.text).toContain(
+      "[llm · exclusive] OxfordCedar whispered to Birch: Hello quietly.",
+    );
+    expect(beat?.payload.text).toContain(
+      "Minecraft confirmed the private whisper: Hello quietly.",
+    );
+    expect(beat?.payload.text).toContain(
+      "Heard 2 sounds: 2 × block.stone_pressure_plate.click_on (nearby, right).",
+    );
+    expect(beat?.payload.text).toContain("Time passed: 32016 ms.");
+    expect(beat?.payload.text).not.toContain("packetPosition");
+    expect(beat?.payload.text).not.toContain("hiddenCoordinate");
+    expect(beat?.payload.text).not.toContain("serverCommand");
+    expect(beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code)).toContain(
+      "source_only_observation_event_field",
+    );
+    expect(beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code)).toContain(
+      "source_only_action_input_field",
+    );
+    expect(beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code)).toContain(
+      "source_only_outcome_field",
+    );
+
+    const looms = createTestLoomClient<
+      ConversationTurnPayload,
+      ConversationLoomMeta,
+      ConversationTurnMeta
+    >().looms;
+    const imported = await looms.import(projection.snapshot);
+    const tree = await projectStoryTree(
+      (await looms.open(imported.id)) as unknown as ReadableLoom,
+    );
+    expect(flatten(tree.root).filter((node) => node.sourceEvent).map((node) => node.sourceEvent))
+      .toEqual(raw.trim().split("\n").map((line) => JSON.parse(line)));
   });
 
   it("shows only the pact's public utterance and never a sibling reasoning field", () => {

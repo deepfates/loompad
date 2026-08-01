@@ -1,5 +1,6 @@
 import type { LyncEventBody } from "@deepfates/lync/events";
 export declare const BEHOLD_INHABITANT_PROFILE = "org.behold.inhabitant.v1";
+export declare const BEHOLD_INHABITANT_PROFILE_V2 = "org.behold.inhabitant.v2";
 export type LyncPresentationKind = "content" | "structure";
 export type LyncPresentationRole = "content" | "structure" | "perception" | "utterance" | "action" | "outcome";
 export interface LyncPresentationSection {
@@ -59,4 +60,3 @@ export declare function presentLyncEvent(event: LyncEventBody, context?: LyncPre
 export declare function resolveLyncPresentationProfiles(events: Iterable<LyncEventBody>): Map<string, string>;
 /** Convert source HTML to inert, readable plain text without executing it. */
 export declare function htmlToPlainText(html: string | null): string | null;
-
