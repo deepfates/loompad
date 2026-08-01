@@ -1,6 +1,6 @@
 ---
 id: tex-wrif
-status: closed
+status: open
 deps: []
 links: []
 created: 2026-08-01T12:11:23Z
@@ -45,3 +45,7 @@ Implemented on isolated branch codex/textile-ordered-prefix-source-set: Textile 
 Acceptance is now exercised on branch `agent/tex-wrif-indexed-union`. The ordinary multi-file `importTextileFiles` path authenticates the manifest and exact prefixes, delegates all union/conflict/topology/profile semantics to Lync 0.4.3's indexed union, presents one event per lazy reread, and opens an always-read-only session Loom containing only public presentation state plus compact authenticated locators. Single-file eager import is unchanged. Changed, truncated, conflicting, dangling, cyclic, unsafe, or resident-binding-mismatched input fails closed.
 
 The opt-in scale gate (`TEXTILE_SCALE_TEST=1 bun test client/interface/lync/__tests__/indexedRawLync.scale.test.ts`) passed a synthetic representative two-resident source set of 490,734,206 bytes: 2 sources, 7,490 source events, 7,488 readable events, 2 structural events, and 67,392 named presentation diagnostics in 33.5 seconds. Lync ownership instrumentation measured 0 retained raw bytes and 0 retained payload objects; Textile's retained-view inspection measured 0 source-line characters, 0 private payload objects, and 0 raw bytes, with 8,279,772 public presentation characters. The compact index retained 7,490 locators/envelopes and 3,378,124 string characters. This proves the bounded ownership contract, not a browser-vendor heap profile or multi-day usability; those remain broader operational/product questions rather than this ticket's six-hour materialization milestone.
+
+**2026-08-01T13:58:50Z**
+
+Principal independent review on 2026-08-01: code and ownership design are accepted for integration; 208 ordinary tests, lint, production build, and the 490.7 MB opt-in scale projector gate pass. Ticket reopened because its exact acceptance says representative scale through the ordinary local review path, while the scale test calls projectIndexedOrderedLyncSources with synthetic re-readable sources rather than importTextileFiles with browser File objects. Close only after a retained six-hour v2 manifest and canonical files open through the ordinary front door with usable navigation and measured behavior.
