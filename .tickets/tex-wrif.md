@@ -1,6 +1,6 @@
 ---
 id: tex-wrif
-status: open
+status: in_progress
 deps: []
 links: []
 created: 2026-08-01T12:11:23Z
@@ -27,3 +27,7 @@ Through Textile’s ordinary local review path, open a representative habitat so
 **2026-08-01T12:11:36Z**
 
 Discovered from Behold active habitat episode 000002; Behold owning checkpoint-amplification work is beh-e3jy. Current measured combined canonical Lync growth is about 78 MB/hour; six-hour and browser-heap behavior remain to be exercised rather than assumed.
+
+**2026-08-01T12:52:29Z**
+
+An isolated reader candidate exists at commit 0bc65e9 in worktree textile-ordered-prefix-source-set. It validates and reads Behold v2 ordered canonical Lync prefixes and passes 205 tests plus lint/build/diff-check; principal composition with Behold's emitted manifest succeeded. It is not yet integrated or scale-accepted. Prefix hashing is bounded, but the current browser loader/projector still materializes the selected prefixes and projected event model, so actual multi-hour bounded operator use remains the open acceptance.
