@@ -27,3 +27,11 @@ Implemented the bounded current-v2 reader overlay. Exact Behold qualified habita
 **2026-08-01T23:33:30Z**
 
 Follow-up principal review carried Behold's new chat_input_dispatched/whisper_input_dispatched distinction through the Textile prose. Both old and current v2 results now say only that input was submitted and explicitly deny independently confirmed recipient delivery; over-bound/rejected input remains distinct. Full suite 211 pass/1 skip, lint, build, and diff-check pass.
+
+**2026-08-01T23:52:05Z**
+
+Episode 000003 adversarial projection found one further current-v2 gap: use_focused_block {} plus admitted_block_focus_unavailable rendered with unsupported_action_input and unsupported_outcome_result. Added a bounded focused-use/factual-failure overlay and fixture; exact episode reprojection pending full gates. Canonical upstream parity is separately recorded in Lync.
+
+**2026-08-01T23:52:53Z**
+
+Episode 000003 now projects its exact 10,133,930-byte two-source prefix set as 212 source events: 210 readable resident turns plus two structural roots, with zero unsupported events, zero nonconforming lines, and zero unsupported_* diagnostics. Focused test 26/26; full 212 pass/1 scale skip; lint and production build pass. Lync upstream ownership is tracked as lyn-cnew.

@@ -396,14 +396,15 @@ function presentAction(value, entityId, diagnostics, profile) {
             paths.push("payload.payload.action.input.reason");
     }
     else if (profile.version === 2 &&
-        ["attack_focused_entity", "dig_focused_block"].includes(name)) {
+        ["attack_focused_entity", "dig_focused_block", "use_focused_block"].includes(name)) {
         diagnoseSourceOnlyFields(action, new Set(["id", "name", "input", "kind", "toolCallId", "source"]), "payload.payload.action", diagnostics, new Set(), "source_only_action_field");
         diagnoseSourceOnlyFields(input, new Set(), "payload.payload.action.input", diagnostics, new Set(), "source_only_action_input_field");
         if (input) {
-            description =
-                name === "attack_focused_entity"
-                    ? `${entityId} attempted one attack at the focused entity.`
-                    : `${entityId} attempted to dig the focused block.`;
+            description = name === "attack_focused_entity"
+                ? `${entityId} attempted one attack at the focused entity.`
+                : name === "dig_focused_block"
+                    ? `${entityId} attempted to dig the focused block.`
+                    : `${entityId} attempted to use the focused block.`;
         }
     }
     else if (profile.version === 2 && name === "whisper") {
@@ -515,6 +516,18 @@ function presentOutcome(actionValue, outcomeValue, diagnostics, profile) {
         const focused = presentFocusedActionResult(actionName, result, paths, diagnostics);
         detail = focused.detail;
         v2ShownResultKeys = focused.shownResultKeys;
+    }
+    if (profile.version === 2 &&
+        result &&
+        detail === null &&
+        eventType === "action_failed" &&
+        result.ok === false) {
+        const error = stringField(result, "error")?.trim();
+        if (error) {
+            detail = ` The bodily attempt failed: ${humanize(error)}.`;
+            v2ShownResultKeys = new Set(["ok", "error"]);
+            paths.push("payload.payload.outcome.result.ok", "payload.payload.outcome.result.error");
+        }
     }
     if (result && detail === null) {
         diagnostics.push({

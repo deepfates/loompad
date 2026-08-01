@@ -764,6 +764,37 @@ describe("raw .lync projection", () => {
     expect(diagnostics).not.toContain("source_only_outcome_field");
   });
 
+  it("presents a failed focused-use attempt without inventing a world consequence", () => {
+    const events = readV2FixtureEvents();
+    const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");
+    entityTurn.action = {
+      id: "use-action",
+      name: "use_focused_block",
+      input: {},
+      source: "llm",
+      kind: "exclusive",
+      toolCallId: "private-tool-call",
+    };
+    entityTurn.outcome = {
+      ok: false,
+      eventType: "action_failed",
+      result: { ok: false, error: "admitted_block_focus_unavailable" },
+    };
+
+    const projection = projectRawLyncFile(asLync(events), "focused-use-failure-v2.lync");
+    const beat = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    );
+    expect(beat?.payload.text).toContain("OxfordCedar attempted to use the focused block.");
+    expect(beat?.payload.text).toContain(
+      "The bodily attempt failed: admitted block focus unavailable.",
+    );
+    expect(beat?.payload.text).not.toContain("private-tool-call");
+    const diagnostics = beat?.meta.sourcePresentationDiagnostics?.map((item) => item.code);
+    expect(diagnostics).not.toContain("unsupported_action_input");
+    expect(diagnostics).not.toContain("unsupported_outcome_result");
+  });
+
   it("keeps unknown lifecycle fields diagnostic-only and unknown events fail-closed", () => {
     const events = readV2FixtureEvents();
     const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");
