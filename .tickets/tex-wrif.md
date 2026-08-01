@@ -31,3 +31,7 @@ Discovered from Behold active habitat episode 000002; Behold owning checkpoint-a
 **2026-08-01T12:52:29Z**
 
 An isolated reader candidate exists at commit 0bc65e9 in worktree textile-ordered-prefix-source-set. It validates and reads Behold v2 ordered canonical Lync prefixes and passes 205 tests plus lint/build/diff-check; principal composition with Behold's emitted manifest succeeded. It is not yet integrated or scale-accepted. Prefix hashing is bounded, but the current browser loader/projector still materializes the selected prefixes and projected event model, so actual multi-hour bounded operator use remains the open acceptance.
+
+**2026-08-01T13:07:34Z**
+
+Bounded-path audit against installed Lync 0.3.0 and current sibling 0.4.2 found that Textile cannot honestly satisfy this ticket inside its own repository yet: parseLyncFiles/LyncUnion retain every physical line's bytes and parsed event, then Textile retains source strings plus presentation/navigation state. Workers, chunk wrappers, or per-file eager projection would relocate the same materialization. Owning upstream seam is now tracked as Lync lyn-6lzi: a re-readable-source streaming union index preserving exact conflict/pending/graph/suppression semantics and lazy exact-line access. Textile's follow-on is a second-pass streaming presenter retaining compact navigation plus source locators. The isolated ordered-prefix authentication commit 0bc65e9 remains valid and clean, but this ticket stays open and is not claimed bounded.
