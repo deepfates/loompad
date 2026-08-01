@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import {
   type ImportedConversation,
 } from "../lync/storyRuntime";
-import { importTextileFile } from "../lync/twitterArchiveImport";
+import { importTextileFiles } from "../lync/twitterArchiveImport";
 
 /**
  * The running-app entry path for raw `.lync` or a conversation-loom snapshot:
@@ -41,12 +41,12 @@ export function useConversationImport({
     };
 
     const handleDrop = (event: DragEvent) => {
-      const file = event.dataTransfer?.files?.[0];
-      if (!file) return;
+      const files = Array.from(event.dataTransfer?.files ?? []);
+      if (files.length === 0) return;
       event.preventDefault();
       void (async () => {
         try {
-          const result = await importTextileFile(file);
+          const result = await importTextileFiles(files);
           onImported(result);
         } catch (error) {
           if (onError) onError(error);

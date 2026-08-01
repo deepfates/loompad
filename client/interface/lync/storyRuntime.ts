@@ -25,7 +25,13 @@ import { createLoomClient } from "@deepfates/lync/client";
 import { upsertLoom } from "@deepfates/lync/indexes/entries";
 import type { LoomIndex } from "@deepfates/lync/indexes";
 import { createLoreLoomIndexes } from "./loreIndex";
-import { projectRawLyncFile, type RawLyncProjectionOptions } from "./rawLync";
+import {
+  projectRawLyncFile,
+  projectRawLyncSources,
+  type RawLyncByteSource,
+  type RawLyncProjection,
+  type RawLyncProjectionOptions,
+} from "./rawLync";
 import {
   parseKeptConversationMarkdown,
 } from "../utils/conversationKeptExport";
@@ -649,6 +655,22 @@ export async function importRawLyncText(
   options: RawLyncProjectionOptions = {},
 ): Promise<ImportedConversation> {
   const projection = projectRawLyncFile(text, filename, options);
+  return importRawLyncProjection(projection, filename);
+}
+
+/** Import an ordered byte source set without constructing an eager union string. */
+export async function importRawLyncSources(
+  sources: ReadonlyArray<RawLyncByteSource>,
+  filename = "Imported Lync source set",
+  options: RawLyncProjectionOptions = {},
+): Promise<ImportedConversation> {
+  return importRawLyncProjection(projectRawLyncSources(sources, filename, options), filename);
+}
+
+async function importRawLyncProjection(
+  projection: RawLyncProjection,
+  filename: string,
+): Promise<ImportedConversation> {
   const localReview = typeof window !== "undefined" &&
     requestedLocalOnlyLync(window.location.search);
   const imported = localReview

@@ -84,7 +84,7 @@ import {
   type AuthorshipDisplay,
   type ImportedConversation,
 } from "./lync/storyRuntime";
-import { importTextileFile } from "./lync/twitterArchiveImport";
+import { importTextileFiles } from "./lync/twitterArchiveImport";
 import { formatImportedConversationNotice } from "./lync/importNotice";
 import {
   rawLyncRelationsFor,
@@ -464,12 +464,12 @@ export const GamepadInterface = () => {
   const handleConversationFileChosen = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const input = event.target;
-      const file = input.files?.[0];
+      const files = Array.from(input.files ?? []);
       input.value = "";
-      if (!file) return;
+      if (files.length === 0) return;
       try {
         handleConversationImported(
-          await importTextileFile(file),
+          await importTextileFiles(files),
         );
       } catch (error) {
         handleConversationImportError(error);
@@ -1692,6 +1692,7 @@ export const GamepadInterface = () => {
       <input
         ref={conversationFileInputRef}
         type="file"
+        multiple
         accept="application/zip,.zip,application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
         aria-hidden="true"
         tabIndex={-1}

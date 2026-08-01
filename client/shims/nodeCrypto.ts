@@ -1,33 +1,76 @@
 type HashEncoding = "hex";
 
 class Sha256Hash {
-  private chunks: Uint8Array[] = [];
+  private readonly state = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
+  private readonly buffer = new Uint8Array(64);
+  private readonly schedule = new Uint32Array(64);
+  private buffered = 0;
+  private bytesHashed = 0;
+  private finished = false;
 
   update(data: string | Uint8Array): this {
-    this.chunks.push(typeof data === "string" ? new TextEncoder().encode(data) : data);
+    if (this.finished) throw new Error("Digest already called");
+    const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+    this.bytesHashed += bytes.byteLength;
+    // SHA-256 has a 64-bit length field, but JavaScript's exact integer range
+    // is smaller. Keep the bit-length multiplication exact and fail closed.
+    if (this.bytesHashed > Math.floor(Number.MAX_SAFE_INTEGER / 8)) {
+      throw new Error("SHA-256 input is too large");
+    }
+
+    let offset = 0;
+    if (this.buffered > 0) {
+      const needed = 64 - this.buffered;
+      const copied = Math.min(needed, bytes.byteLength);
+      this.buffer.set(bytes.subarray(0, copied), this.buffered);
+      this.buffered += copied;
+      offset = copied;
+      if (this.buffered === 64) {
+        compress(this.state, this.buffer, this.schedule);
+        this.buffered = 0;
+      }
+    }
+    while (offset + 64 <= bytes.byteLength) {
+      compress(this.state, bytes.subarray(offset, offset + 64), this.schedule);
+      offset += 64;
+    }
+    if (offset < bytes.byteLength) {
+      this.buffer.set(bytes.subarray(offset), 0);
+      this.buffered = bytes.byteLength - offset;
+    }
     return this;
   }
 
   digest(encoding: HashEncoding): string {
     if (encoding !== "hex") throw new Error(`Unsupported digest encoding: ${encoding}`);
-    return sha256(concat(this.chunks));
+    if (this.finished) throw new Error("Digest already called");
+    this.finished = true;
+
+    this.buffer[this.buffered] = 0x80;
+    this.buffer.fill(0, this.buffered + 1);
+    if (this.buffered >= 56) {
+      compress(this.state, this.buffer, this.schedule);
+      this.buffer.fill(0);
+    }
+    const bitLengthHigh = Math.floor(this.bytesHashed / 0x20000000);
+    const bitLengthLow = (this.bytesHashed * 8) >>> 0;
+    const view = new DataView(this.buffer.buffer);
+    view.setUint32(56, bitLengthHigh, false);
+    view.setUint32(60, bitLengthLow, false);
+    compress(this.state, this.buffer, this.schedule);
+
+    return Array.from(this.state)
+      .map((word) => word.toString(16).padStart(8, "0"))
+      .join("");
   }
 }
 
 export function createHash(algorithm: string): Sha256Hash {
   if (algorithm !== "sha256") throw new Error(`Unsupported hash algorithm: ${algorithm}`);
   return new Sha256Hash();
-}
-
-function concat(chunks: Uint8Array[]): Uint8Array {
-  const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
-  const out = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return out;
 }
 
 const K = new Uint32Array([
@@ -49,72 +92,40 @@ const K = new Uint32Array([
   0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]);
 
-function sha256(message: Uint8Array): string {
-  const bitLength = message.byteLength * 8;
-  const paddedLength = (((message.byteLength + 9 + 63) >> 6) << 6);
-  const padded = new Uint8Array(paddedLength);
-  padded.set(message);
-  padded[message.byteLength] = 0x80;
-  const view = new DataView(padded.buffer);
-  view.setUint32(paddedLength - 4, bitLength, false);
-
-  let h0 = 0x6a09e667;
-  let h1 = 0xbb67ae85;
-  let h2 = 0x3c6ef372;
-  let h3 = 0xa54ff53a;
-  let h4 = 0x510e527f;
-  let h5 = 0x9b05688c;
-  let h6 = 0x1f83d9ab;
-  let h7 = 0x5be0cd19;
-  const w = new Uint32Array(64);
-
-  for (let offset = 0; offset < paddedLength; offset += 64) {
-    for (let i = 0; i < 16; i += 1) w[i] = view.getUint32(offset + i * 4, false);
-    for (let i = 16; i < 64; i += 1) {
-      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
-      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
-      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
-    }
-
-    let a = h0;
-    let b = h1;
-    let c = h2;
-    let d = h3;
-    let e = h4;
-    let f = h5;
-    let g = h6;
-    let h = h7;
-
-    for (let i = 0; i < 64; i += 1) {
-      const s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
-      const ch = (e & f) ^ (~e & g);
-      const temp1 = (h + s1 + ch + K[i] + w[i]) >>> 0;
-      const s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
-      const maj = (a & b) ^ (a & c) ^ (b & c);
-      const temp2 = (s0 + maj) >>> 0;
-      h = g;
-      g = f;
-      f = e;
-      e = (d + temp1) >>> 0;
-      d = c;
-      c = b;
-      b = a;
-      a = (temp1 + temp2) >>> 0;
-    }
-
-    h0 = (h0 + a) >>> 0;
-    h1 = (h1 + b) >>> 0;
-    h2 = (h2 + c) >>> 0;
-    h3 = (h3 + d) >>> 0;
-    h4 = (h4 + e) >>> 0;
-    h5 = (h5 + f) >>> 0;
-    h6 = (h6 + g) >>> 0;
-    h7 = (h7 + h) >>> 0;
+function compress(state: Uint32Array, block: Uint8Array, w: Uint32Array): void {
+  const view = new DataView(block.buffer, block.byteOffset, block.byteLength);
+  for (let i = 0; i < 16; i += 1) w[i] = view.getUint32(i * 4, false);
+  for (let i = 16; i < 64; i += 1) {
+    const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+    const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+    w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
   }
 
-  return [h0, h1, h2, h3, h4, h5, h6, h7]
-    .map((word) => word.toString(16).padStart(8, "0"))
-    .join("");
+  let [a, b, c, d, e, f, g, h] = state;
+  for (let i = 0; i < 64; i += 1) {
+    const s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+    const ch = (e & f) ^ (~e & g);
+    const temp1 = (h + s1 + ch + K[i] + w[i]) >>> 0;
+    const s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+    const maj = (a & b) ^ (a & c) ^ (b & c);
+    const temp2 = (s0 + maj) >>> 0;
+    h = g;
+    g = f;
+    f = e;
+    e = (d + temp1) >>> 0;
+    d = c;
+    c = b;
+    b = a;
+    a = (temp1 + temp2) >>> 0;
+  }
+  state[0] = (state[0] + a) >>> 0;
+  state[1] = (state[1] + b) >>> 0;
+  state[2] = (state[2] + c) >>> 0;
+  state[3] = (state[3] + d) >>> 0;
+  state[4] = (state[4] + e) >>> 0;
+  state[5] = (state[5] + f) >>> 0;
+  state[6] = (state[6] + g) >>> 0;
+  state[7] = (state[7] + h) >>> 0;
 }
 
 function rotr(value: number, bits: number): number {

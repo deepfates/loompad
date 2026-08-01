@@ -42,6 +42,8 @@ export interface RawLyncProjection {
   warnings: string[];
 }
 
+export type RawLyncByteSource = Readonly<{ file: string; bytes: Uint8Array }>;
+
 /**
  * Read a protocol-level `.lync` file without turning it into a Loom first.
  * Textile's UI is tree-shaped, so navigation follows only parents[0]. Every
@@ -55,7 +57,23 @@ export function projectRawLyncFile(
   options: RawLyncProjectionOptions = {},
 ): RawLyncProjection {
   const bytes = new TextEncoder().encode(text);
-  const parsed = parseLyncFiles([{ file: filename, bytes }]);
+  return projectRawLyncSources([{ file: filename, bytes }], filename, options);
+}
+
+/**
+ * Project an ordered set of already-bounded byte sources without first making
+ * a second concatenated string/union. Lync still materializes the complete
+ * parsed event set; habitat-scale bounded projection remains separate work.
+ */
+export function projectRawLyncSources(
+  byteSources: ReadonlyArray<RawLyncByteSource>,
+  filename = "Imported Lync source set",
+  options: RawLyncProjectionOptions = {},
+): RawLyncProjection {
+  if (byteSources.length === 0) {
+    throw new Error("Raw Lync projection requires at least one source.");
+  }
+  const parsed = parseLyncFiles(byteSources);
   assertSafeProjection(parsed);
   const heldLines = heldSourceLines(parsed);
   const nonconforming = heldLines.filter((line) => line.class === "nonconforming");
