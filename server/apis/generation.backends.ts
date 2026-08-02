@@ -2,18 +2,22 @@ import { ax, type AxAIService } from "@ax-llm/ax";
 import type OpenAI from "openai";
 
 import {
-  CONTINUATION_REASONING_POLICY,
   type GenerationMode,
+  type GenerationReasoning,
+  type ReasoningPolicy,
   type GenerationUsage,
 } from "../../shared/generation";
 import { createOpenRouterAI } from "./axProvider";
 import { openai } from "./openaiClient";
+import { extractOpenRouterReasoning } from "./providerReasoning";
 
 export interface GenerationBackendRequest {
   model: string;
   storySoFar: string;
   temperature: number;
   maxTokens: number;
+  reasoningPolicy: ReasoningPolicy;
+  onReasoning?: (reasoning: GenerationReasoning) => void;
   signal: AbortSignal;
 }
 
@@ -30,7 +34,7 @@ export interface GenerationBackends {
 
 type OpenRouterRawCompletionParams =
   OpenAI.CompletionCreateParamsStreaming & {
-    reasoning: { effort: "none" };
+    reasoning: { effort: ReasoningPolicy };
   };
 
 export function rawContinuationParams(
@@ -44,7 +48,7 @@ export function rawContinuationParams(
     stream: true,
     // Continuation is token prediction, not a reasoning task. Make the policy
     // explicit so provider defaults cannot consume hidden output budget.
-    reasoning: { effort: "none" },
+    reasoning: { effort: request.reasoningPolicy },
   };
 }
 
@@ -87,6 +91,8 @@ export async function* streamRawContinuation(
   );
 
   for await (const chunk of stream) {
+    const reasoning = extractOpenRouterReasoning(chunk);
+    if (reasoning) request.onReasoning?.(reasoning);
     const usage = (chunk as { usage?: unknown }).usage;
     if (usage !== undefined) {
       console.log("[OpenRouter] Usage:", usage);
@@ -106,11 +112,12 @@ export async function* streamAxContinuation(
     request,
     createOpenRouterAI(
       request.model,
-      CONTINUATION_REASONING_POLICY,
+      request.reasoningPolicy,
       undefined,
       (usage) => {
         providerUsage = normalizeOpenRouterUsage(usage);
       },
+      request.onReasoning,
     ),
   );
   if (providerUsage) yield { type: "usage", usage: providerUsage };
@@ -133,7 +140,7 @@ export async function* streamAxContinuationWithAI(
     { storySoFar: request.storySoFar },
     {
       abortSignal: request.signal,
-      // The OpenRouter request wrapper enforces `reasoning.effort = none`.
+      // The OpenRouter request wrapper enforces the capability-resolved policy.
       // Ax's `thinkingTokenBudget: "none"` is not equivalent: its
       // OpenAI-compatible adapter omits the field and provider defaults win.
       // Ax counts total attempts, not retries: 1 means one call and no retry.

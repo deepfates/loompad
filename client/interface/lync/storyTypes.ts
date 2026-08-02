@@ -31,6 +31,7 @@ export interface StoryGeneratedBy {
   generationMode?: import("../../../shared/generation").GenerationMode;
   program?: string;
   reasoningPolicy?: import("../../../shared/generation").ReasoningPolicy;
+  reasoning?: import("../../../shared/generation").GenerationReasoning;
   usage?: import("../../../shared/generation").GenerationUsage;
 }
 
@@ -40,6 +41,7 @@ export interface StoryJudgment {
   choiceIndex: number;
   program: string;
   reasoningPolicy: import("../../../shared/generation").ReasoningPolicy;
+  reasoning?: import("../../../shared/generation").GenerationReasoning;
   usage?: import("../../../shared/generation").GenerationUsage;
 }
 
@@ -48,7 +50,7 @@ export interface StoryDraft {
   continuations?: StoryDraft[];
   generation?: Pick<
     StoryGeneratedBy,
-    "generationMode" | "program" | "reasoningPolicy" | "usage"
+    "generationMode" | "program" | "reasoningPolicy" | "reasoning" | "usage"
   >;
 }
 

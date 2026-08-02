@@ -231,6 +231,12 @@ describe("Textile story loom", () => {
         generationMode: "completion",
         program: "textile/raw-continuation-v2",
         reasoningPolicy: "none",
+        reasoning: {
+          text: "Observed provider reasoning.",
+          details: [
+            { type: "reasoning.summary", summary: "Observed a branch" },
+          ],
+        },
         usage: {
           promptTokens: 4,
           completionTokens: 9,
@@ -263,6 +269,12 @@ describe("Textile story loom", () => {
       generationMode: "completion",
       program: "textile/raw-continuation-v2",
       reasoningPolicy: "none",
+      reasoning: {
+        text: "Observed provider reasoning.",
+        details: [
+          { type: "reasoning.summary", summary: "Observed a branch" },
+        ],
+      },
       usage: {
         promptTokens: 4,
         completionTokens: 9,

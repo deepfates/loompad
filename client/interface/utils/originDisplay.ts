@@ -35,6 +35,9 @@ export function originDetail(node: StoryNode): string {
       g.lengthMode && `length ${g.lengthMode}`,
       g.program && `program ${g.program}`,
       g.reasoningPolicy && `reasoning ${g.reasoningPolicy}`,
+      g.reasoning?.text && `reasoning trace ${g.reasoning.text.length} chars`,
+      g.reasoning?.details?.length &&
+        `reasoning details ${g.reasoning.details.length} blocks`,
       g.usage?.promptTokens !== undefined &&
         `prompt tokens ${g.usage.promptTokens}`,
       g.usage?.completionTokens !== undefined &&
@@ -53,6 +56,10 @@ export function originDetail(node: StoryNode): string {
       `model ${selection.model}`,
       `program ${selection.program}`,
       `reasoning ${selection.reasoningPolicy}`,
+      selection.reasoning?.text &&
+        `reasoning trace ${selection.reasoning.text.length} chars`,
+      selection.reasoning?.details?.length &&
+        `reasoning details ${selection.reasoning.details.length} blocks`,
       `choice ${selection.choiceIndex + 1}/${selection.candidateTurnIds.length}`,
       selection.usage?.reasoningTokens !== undefined &&
         `reasoning tokens ${selection.usage.reasoningTokens}`,

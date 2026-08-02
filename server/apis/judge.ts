@@ -3,12 +3,14 @@ import { ax } from "@ax-llm/ax";
 import {
   AX_CONTINUATION_JUDGE_PROGRAM,
   JUDGE_REASONING_POLICY,
+  type GenerationReasoning,
   type GenerationUsage,
 } from "../../shared/generation";
 import { config } from "../config";
 import { createOpenRouterAI } from "./axProvider";
 import { normalizeOpenRouterUsage } from "./generation.backends";
 import { validateJudgeRequestBody } from "./validators";
+import { mergeGenerationReasoning } from "./providerReasoning";
 
 export const JUDGE_TIMEOUT_MS = 30_000;
 
@@ -74,12 +76,16 @@ export async function judgeContinuation(req: Request, res: Response) {
 
     // Configure Ax's native OpenRouter provider with an explicit model.
     let usage: GenerationUsage | undefined;
+    let reasoning: GenerationReasoning | undefined;
     const llm = createOpenRouterAI(
       model,
       JUDGE_REASONING_POLICY,
       undefined,
       (providerUsage) => {
         usage = normalizeOpenRouterUsage(providerUsage);
+      },
+      (observed) => {
+        reasoning = mergeGenerationReasoning(reasoning, observed);
       },
     );
 
@@ -117,6 +123,7 @@ export async function judgeContinuation(req: Request, res: Response) {
         raw: JSON.stringify(result),
         program: AX_CONTINUATION_JUDGE_PROGRAM,
         reasoningPolicy: JUDGE_REASONING_POLICY,
+        ...(reasoning ? { reasoning } : {}),
         ...(usage ? { usage } : {}),
       });
     }
@@ -126,6 +133,7 @@ export async function judgeContinuation(req: Request, res: Response) {
       raw: JSON.stringify(result),
       program: AX_CONTINUATION_JUDGE_PROGRAM,
       reasoningPolicy: JUDGE_REASONING_POLICY,
+      ...(reasoning ? { reasoning } : {}),
       ...(usage ? { usage } : {}),
     });
   } catch (error) {

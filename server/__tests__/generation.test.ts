@@ -130,6 +130,7 @@ describe("generation fidelity and routing", () => {
       storySoFar: "The lantern died.",
       temperature: 0.7,
       maxTokens: 160,
+      reasoningPolicy: "none",
       signal: new AbortController().signal,
     });
 
@@ -146,6 +147,10 @@ describe("generation fidelity and routing", () => {
       completion: async function* (request) {
         completionCalls += 1;
         receivedPrompt = request.storySoFar;
+        request.onReasoning?.({
+          text: "Compared possible next phrases.",
+          details: [{ type: "reasoning.summary", summary: "Compared phrases" }],
+        });
         yield { type: "text" as const, text: "  **Morning**" };
         yield { type: "text" as const, text: "\n\nOf course: _rain_" };
         yield {
@@ -176,6 +181,7 @@ describe("generation fidelity and routing", () => {
       response.res as never,
       backends,
       () => model("completion"),
+      async () => "low",
     );
 
     expect(completionCalls).toBe(1);
@@ -190,11 +196,17 @@ describe("generation fidelity and routing", () => {
     expect(response.headers.get("X-Textile-Generation-Program")).toBe(
       RAW_CONTINUATION_PROGRAM,
     );
-    expect(response.headers.get("X-Textile-Reasoning-Policy")).toBe("none");
+    expect(response.headers.get("X-Textile-Reasoning-Policy")).toBe("low");
     expect(readReceipt(response.writes)).toEqual({
       mode: "completion",
       program: RAW_CONTINUATION_PROGRAM,
-      reasoningPolicy: "none",
+      reasoningPolicy: "low",
+      reasoning: {
+        text: "Compared possible next phrases.",
+        details: [
+          { type: "reasoning.summary", summary: "Compared phrases" },
+        ],
+      },
       usage: {
         promptTokens: 4,
         completionTokens: 9,
@@ -291,6 +303,7 @@ describe("generation fidelity and routing", () => {
       );
       requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
       const sse = [
+        'data: {"id":"probe","object":"chat.completion.chunk","created":1,"model":"test/instruction","choices":[{"index":0,"delta":{"reasoning":"Checked the path.","reasoning_details":[{"type":"reasoning.text","text":"Checked the path.","index":0}]},"finish_reason":null}]}',
         'data: {"id":"probe","object":"chat.completion.chunk","created":1,"model":"test/instruction","choices":[{"index":0,"delta":{"role":"assistant","content":"Continuation: A real passage."},"finish_reason":null}]}',
         'data: {"id":"probe","object":"chat.completion.chunk","created":1,"model":"test/instruction","choices":[{"index":0,"delta":{"content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15,"completion_tokens_details":{"reasoning_tokens":0}}}',
         "data: [DONE]",
@@ -302,12 +315,16 @@ describe("generation fidelity and routing", () => {
       });
     };
     let providerUsage: unknown;
+    let providerReasoning: import("../../shared/generation").GenerationReasoning | undefined;
     const llm = createOpenRouterAI(
       "test/instruction",
       "none",
       mockFetch,
       (usage) => {
         providerUsage = usage;
+      },
+      (reasoning) => {
+        providerReasoning = reasoning;
       },
     );
     const events: import("../apis/generation.backends").GenerationStreamEvent[] = [];
@@ -318,6 +335,7 @@ describe("generation fidelity and routing", () => {
         storySoFar: "The lantern died.",
         temperature: 0.7,
         maxTokens: 80,
+        reasoningPolicy: "none",
         signal: new AbortController().signal,
       },
       llm,
@@ -341,6 +359,12 @@ describe("generation fidelity and routing", () => {
       completion_tokens: 5,
       total_tokens: 15,
       completion_tokens_details: { reasoning_tokens: 0 },
+    });
+    expect(providerReasoning).toEqual({
+      text: "Checked the path.",
+      details: [
+        { type: "reasoning.text", text: "Checked the path.", index: 0 },
+      ],
     });
   });
 

@@ -177,6 +177,7 @@ export function useAutoStoryMode({
             choiceIndex,
             program: decision.program,
             reasoningPolicy: decision.reasoningPolicy,
+            ...(decision.reasoning ? { reasoning: decision.reasoning } : {}),
             ...(decision.usage ? { usage: decision.usage } : {}),
           },
           getStoryAuthorship(),

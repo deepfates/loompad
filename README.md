@@ -71,14 +71,16 @@ completions endpoint. Authored whitespace is never trimmed or collapsed; when
 two nonempty turns carry no whitespace at their boundary, both the reader and
 provider context represent that structural boundary with one space. Textile stores the
 returned text without adding instructions, stripping markup, normalizing
-whitespace, or retrying. It explicitly disables model reasoning so the output
-budget and cost belong to visible continuation text. **Ax program** uses the
-versioned typed continuation signature reported in the generation receipt; it
-also disables reasoning and performs no automatic program retry. Length
+whitespace, or retrying. It disables model reasoning when OpenRouter reports
+that the model permits it. When reasoning is mandatory, Textile selects the
+weakest advertised effort instead of sending an invalid disable request.
+**Ax program** uses the versioned typed continuation signature reported in the
+generation receipt and performs no automatic program retry. Length
 controls may stop a stream at a semantic boundary, but
 they select an exact prefix rather than rewriting it. Every requested result is
 kept as its own branch with model, settings, mode, program, reasoning policy,
-and available provider usage provenance. Automatic judging keeps all candidate
+available provider usage, and any provider-returned reasoning text or standard
+reasoning-detail blocks in provenance rather than visible prose. Automatic judging keeps all candidate
 branches, performs one versioned Ax program call at explicitly low reasoning,
 and records the ordered candidate IDs, selected ID, program, policy, and
 available usage as a non-prose judge turn in the Loom. A judge call has a

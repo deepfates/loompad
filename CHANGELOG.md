@@ -49,9 +49,12 @@ train.
   preamble retries, and judge retries were removed; stored model turns retain
   the generation mode and program that produced them. Raw continuation also
   disables provider reasoning explicitly so hidden thinking cannot consume its
-  output allowance. Ax continuation now does the same, while judging requests
-  explicit low reasoning; generation turns retain the policy and available
-  provider token/cost usage in Loom provenance. Automatic choices are durable
+  output allowance when the model permits it. Models that declare reasoning
+  mandatory receive the weakest effort in their live OpenRouter capability
+  metadata instead of an invalid disable request. Ax continuation follows the
+  same rule, while judging requests explicit low reasoning; generation turns
+  retain the policy, available provider token/cost usage, and any exposed
+  reasoning text or standard detail blocks in Loom provenance. Automatic choices are durable
   judge turns with ordered candidate and selected-turn identity, and stalled
   judges fail after a visible 30-second deadline.
 - Story paths preserve every turn string and use one explicit structural space

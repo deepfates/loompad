@@ -1,7 +1,10 @@
 import { useState, useCallback } from "react";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
-import type { GenerationReceipt } from "../../../shared/generation";
+import {
+  isReasoningPolicy,
+  type GenerationReceipt,
+} from "../../../shared/generation";
 
 interface GenerationOptions {
   model: ModelId;
@@ -86,7 +89,7 @@ export function useTextGeneration() {
         if (
           (mode !== "completion" && mode !== "instruction") ||
           !program ||
-          (reasoningPolicy !== "none" && reasoningPolicy !== "low")
+          !isReasoningPolicy(reasoningPolicy)
         ) {
           throw new Error(
             "Generation response omitted its mode, program, or reasoning policy",

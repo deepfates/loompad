@@ -4,6 +4,7 @@ import {
   CONTINUATION_REASONING_POLICY,
   generationProgramForMode,
   type GenerationReceipt,
+  type ReasoningPolicy,
 } from "../../shared/generation";
 import type { ModelId } from "../../shared/models";
 import {
@@ -25,6 +26,8 @@ import {
   getBoundaryRegex,
 } from "./generation.helpers";
 import { validateGenerateRequestBody } from "./validators";
+import { mergeGenerationReasoning } from "./providerReasoning";
+import { resolveContinuationReasoningPolicy } from "./reasoningPolicy";
 
 const STREAM_BOUNDARY_LOOKBEHIND = 32;
 
@@ -39,6 +42,9 @@ export async function generateTextWithBackends(
   res: Response,
   backends: GenerationBackends,
   modelLookup: (model: ModelId) => ModelConfig | undefined = getModel,
+  reasoningPolicyLookup: (
+    model: ModelId,
+  ) => Promise<ReasoningPolicy> = async () => CONTINUATION_REASONING_POLICY,
 ): Promise<Response | void> {
   let ended = false;
   let clientDisconnected = false;
@@ -85,10 +91,11 @@ export async function generateTextWithBackends(
     );
     const generationMode = modelConfig.generationMode;
     const program = generationProgramForMode(generationMode);
+    const reasoningPolicy = await reasoningPolicyLookup(model as ModelId);
     receipt = {
       mode: generationMode,
       program,
-      reasoningPolicy: CONTINUATION_REASONING_POLICY,
+      reasoningPolicy,
     };
     const abortController = new AbortController();
     activeAbortController = abortController;
@@ -110,7 +117,7 @@ export async function generateTextWithBackends(
     res.setHeader("X-Textile-Generation-Program", program);
     res.setHeader(
       "X-Textile-Reasoning-Policy",
-      CONTINUATION_REASONING_POLICY,
+      reasoningPolicy,
     );
     res.flushHeaders();
 
@@ -128,6 +135,14 @@ export async function generateTextWithBackends(
       storySoFar: prompt,
       temperature: temperature ?? modelConfig.defaultTemp,
       maxTokens: maxTokensToUse,
+      reasoningPolicy,
+      onReasoning: (reasoning) => {
+        if (!receipt) return;
+        receipt = {
+          ...receipt,
+          reasoning: mergeGenerationReasoning(receipt.reasoning, reasoning),
+        };
+      },
       signal: abortController.signal,
     });
 
@@ -205,5 +220,11 @@ export async function generateTextWithBackends(
 }
 
 export async function generateText(req: Request, res: Response) {
-  return generateTextWithBackends(req, res, defaultGenerationBackends);
+  return generateTextWithBackends(
+    req,
+    res,
+    defaultGenerationBackends,
+    getModel,
+    resolveContinuationReasoningPolicy,
+  );
 }

@@ -1,28 +1,40 @@
 import { ai } from "@ax-llm/ax";
 
-import type { ReasoningPolicy } from "../../shared/generation";
+import type {
+  GenerationReasoning,
+  ReasoningPolicy,
+} from "../../shared/generation";
 import { config } from "../config";
+import { extractOpenRouterReasoning } from "./providerReasoning";
 
 type UsageObserver = (usage: unknown) => void;
+type ReasoningObserver = (reasoning: GenerationReasoning) => void;
 
-function observeUsageLine(line: string, observer?: UsageObserver): void {
-  if (!observer || !line.startsWith("data:")) return;
+function observeProviderLine(
+  line: string,
+  usageObserver?: UsageObserver,
+  reasoningObserver?: ReasoningObserver,
+): void {
+  if ((!usageObserver && !reasoningObserver) || !line.startsWith("data:")) return;
   const data = line.slice(5).trim();
   if (!data || data === "[DONE]") return;
   try {
     const payload = JSON.parse(data) as { usage?: unknown };
-    if (payload.usage !== undefined) observer(payload.usage);
+    if (payload.usage !== undefined) usageObserver?.(payload.usage);
+    const reasoning = extractOpenRouterReasoning(payload);
+    if (reasoning) reasoningObserver?.(reasoning);
   } catch {
     // A partial line remains buffered; a complete non-JSON SSE event is not a
     // provider usage receipt and is intentionally ignored.
   }
 }
 
-function observeStreamingUsage(
+function observeStreamingProviderData(
   response: Response,
-  observer?: UsageObserver,
+  usageObserver?: UsageObserver,
+  reasoningObserver?: ReasoningObserver,
 ): Response {
-  if (!observer || !response.body) return response;
+  if ((!usageObserver && !reasoningObserver) || !response.body) return response;
 
   const decoder = new TextDecoder();
   let buffered = "";
@@ -32,7 +44,11 @@ function observeStreamingUsage(
         buffered += decoder.decode(chunk, { stream: true });
         let newline = buffered.indexOf("\n");
         while (newline >= 0) {
-          observeUsageLine(buffered.slice(0, newline).replace(/\r$/, ""), observer);
+          observeProviderLine(
+            buffered.slice(0, newline).replace(/\r$/, ""),
+            usageObserver,
+            reasoningObserver,
+          );
           buffered = buffered.slice(newline + 1);
           newline = buffered.indexOf("\n");
         }
@@ -40,7 +56,13 @@ function observeStreamingUsage(
       },
       flush() {
         buffered += decoder.decode();
-        if (buffered) observeUsageLine(buffered.replace(/\r$/, ""), observer);
+        if (buffered) {
+          observeProviderLine(
+            buffered.replace(/\r$/, ""),
+            usageObserver,
+            reasoningObserver,
+          );
+        }
       },
     }),
   );
@@ -56,6 +78,7 @@ export function withReasoningPolicy(
   policy: ReasoningPolicy,
   fetchImplementation: typeof fetch,
   observeUsage?: UsageObserver,
+  observeReasoning?: ReasoningObserver,
 ): typeof fetch {
   return async (input, init) => {
     if (!init?.body || !String(input).includes("/chat/completions")) {
@@ -72,7 +95,11 @@ export function withReasoningPolicy(
     });
 
     if (response.headers.get("content-type")?.includes("text/event-stream")) {
-      return observeStreamingUsage(response, observeUsage);
+      return observeStreamingProviderData(
+        response,
+        observeUsage,
+        observeReasoning,
+      );
     }
     if (observeUsage) {
       try {
@@ -81,6 +108,15 @@ export function withReasoningPolicy(
       } catch {
         // Error and empty responses are interpreted by Ax; provenance remains
         // absent when the provider did not return a readable usage object.
+      }
+    }
+    if (observeReasoning) {
+      try {
+        const payload = await response.clone().json();
+        const reasoning = extractOpenRouterReasoning(payload);
+        if (reasoning) observeReasoning(reasoning);
+      } catch {
+        // The provider exposed no readable reasoning artifact.
       }
     }
     return response;
@@ -92,6 +128,7 @@ export function createOpenRouterAI(
   reasoningPolicy: ReasoningPolicy,
   fetchOverride?: typeof fetch,
   observeUsage?: UsageObserver,
+  observeReasoning?: ReasoningObserver,
 ) {
   if (!config.openRouterApiKey) {
     throw new Error("OpenRouter is not configured");
@@ -108,6 +145,7 @@ export function createOpenRouterAI(
         reasoningPolicy,
         fetchOverride ?? globalThis.fetch,
         observeUsage,
+        observeReasoning,
       ),
     },
   });

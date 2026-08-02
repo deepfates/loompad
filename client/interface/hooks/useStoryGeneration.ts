@@ -6,6 +6,7 @@ import type { StoryNode } from "../types";
 import type { StoryDraft } from "../lync/storyTypes";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
+import { isReasoningPolicy } from "../../../shared/generation";
 
 interface GenerationParams {
   model: ModelId;
@@ -20,6 +21,7 @@ export interface ContinuationJudgment {
   temperature: number;
   program: string;
   reasoningPolicy: import("../../../shared/generation").ReasoningPolicy;
+  reasoning?: import("../../../shared/generation").GenerationReasoning;
   usage?: import("../../../shared/generation").GenerationUsage;
 }
 
@@ -124,6 +126,7 @@ export function useStoryGeneration() {
           generationMode: receipt.mode,
           program: receipt.program,
           reasoningPolicy: receipt.reasoningPolicy,
+          ...(receipt.reasoning ? { reasoning: receipt.reasoning } : {}),
           ...(receipt.usage ? { usage: receipt.usage } : {}),
         };
         return draft;
@@ -138,6 +141,7 @@ export function useStoryGeneration() {
         generationMode: receipt.mode,
         program: receipt.program,
         reasoningPolicy: receipt.reasoningPolicy,
+        ...(receipt.reasoning ? { reasoning: receipt.reasoning } : {}),
         ...(receipt.usage ? { usage: receipt.usage } : {}),
       },
     };
@@ -185,6 +189,7 @@ export function useStoryGeneration() {
         raw?: string;
         program?: string;
         reasoningPolicy?: string;
+        reasoning?: import("../../../shared/generation").GenerationReasoning;
         usage?: import("../../../shared/generation").GenerationUsage;
       };
       console.log("[AutoMode] Judge response:", payload);
@@ -192,8 +197,7 @@ export function useStoryGeneration() {
       if (
         typeof payload.choice === "number" &&
         typeof payload.program === "string" &&
-        (payload.reasoningPolicy === "none" ||
-          payload.reasoningPolicy === "low")
+        isReasoningPolicy(payload.reasoningPolicy)
       ) {
         return {
           choice: payload.choice,
@@ -201,6 +205,7 @@ export function useStoryGeneration() {
           temperature: Math.max(0.1, Math.min(params.temperature, 0.8)),
           program: payload.program,
           reasoningPolicy: payload.reasoningPolicy,
+          ...(payload.reasoning ? { reasoning: payload.reasoning } : {}),
           ...(payload.usage ? { usage: payload.usage } : {}),
         };
       }
