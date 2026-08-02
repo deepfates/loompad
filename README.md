@@ -330,6 +330,23 @@ Set `LYNC_AUTH_MODE=public` to run `/lync` as a public `@deepfates/lync` relay
 for native Lync websocket clients; HTTP generation APIs remain protected by
 the normal site/API auth gates.
 
+Mutable server data belongs beneath `TEXTILE_DATA_DIR` (default: `.data`): Lync
+relay history is stored in `lync/`, and the editable model catalog is stored in
+`models.json`. `server/data/models.json` is immutable seed data copied into the
+runtime catalog on first boot. Production hosts with ephemeral filesystems must
+mount persistent storage at `TEXTILE_DATA_DIR`; otherwise relay history and
+model edits disappear on a restart or deployment. `LYNC_STORAGE_DIR` and
+`TEXTILE_MODELS_FILE` remain available as narrow path overrides.
+
+For the Render service, mount a persistent disk at
+`/opt/render/project/src/.data`, keep `LYNC_AUTH_MODE=site-access` for the
+private-alpha browser deployment, and use this build command so an automatic
+deployment cannot bypass the repository gates:
+
+```bash
+bun install --frozen-lockfile && bun run verify
+```
+
 
 ## Project layout
 

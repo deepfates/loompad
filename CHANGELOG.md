@@ -27,6 +27,12 @@ train.
 
 ### Changed
 
+- Relay history and editable model configuration now share one explicit
+  runtime-data root (`TEXTILE_DATA_DIR`, default `.data`), allowing production
+  to mount them durably while keeping the checked-in model catalog immutable.
+  Missing mutable catalogs seed from the bundled catalog; corrupt catalogs fail
+  visibly instead of being overwritten. GitHub and production deployments now
+  have one `bun run verify` gate covering lint, tests, and the production build.
 - Generation now distinguishes exact raw continuation models from versioned Ax
   instruction programs. Hidden prompt armor, cleanup, whitespace rewriting,
   preamble retries, and judge retries were removed; stored model turns retain

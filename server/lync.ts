@@ -1,10 +1,10 @@
 import type http from "http";
-import path from "path";
 import {
   attachLyncServer as attachLyncRelay,
   type AttachLyncServerOptions,
 } from "@deepfates/lync/relay";
 import { hasProtectedSyncAccess } from "./siteAuth";
+import { resolveLyncStorageDir } from "./runtimeData";
 
 let attached = false;
 let relay: ReturnType<typeof attachLyncRelay> | null = null;
@@ -27,9 +27,7 @@ export function attachLyncServer(server: http.Server) {
   const authMode = resolveLyncAuthMode();
   const options: AttachLyncServerOptions = {
     path: "/lync",
-    storageDir:
-      process.env.LYNC_STORAGE_DIR ??
-      path.resolve(process.cwd(), ".data/lync"),
+    storageDir: resolveLyncStorageDir(),
     keepAliveInterval:
       parsePositiveInt(process.env.LYNC_KEEPALIVE_INTERVAL_MS) ??
       DEFAULT_LYNC_KEEPALIVE_INTERVAL_MS,
@@ -38,6 +36,7 @@ export function attachLyncServer(server: http.Server) {
   };
   relay = attachLyncRelay(server, options);
   console.log(`[Lync] relay auth mode: ${authMode}`);
+  console.log(`[Lync] relay storage: ${options.storageDir}`);
   // Connection lifecycle and errors are logged by the relay via its `log`
   // option; the relay owns its WebSocket server internally.
   return relay;

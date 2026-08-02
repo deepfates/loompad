@@ -10,6 +10,7 @@
     "prod": "NODE_ENV=production bun run.ts --mode=production",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "bun test ./server ./client",
+    "verify": "bun run lint && bun test ./server ./client && bun run build",
     "test:e2e": "playwright test",
     "build:twitter-demo": "bun scripts/build-twitter-demo.ts",
     "verify:corpus-loop": "bun scripts/verify-corpus-loop.ts"

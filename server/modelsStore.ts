@@ -1,8 +1,15 @@
 import fs from "fs";
 import path from "path";
 import type { AvailableModels, ModelConfig, ModelId } from "../shared/models";
+import { resolveModelsFile } from "./runtimeData";
 
-const MODELS_FILE = path.join(process.cwd(), "server", "data", "models.json");
+const BUNDLED_MODELS_FILE = path.join(
+  process.cwd(),
+  "server",
+  "data",
+  "models.json",
+);
+const MODELS_FILE = resolveModelsFile();
 
 const DEFAULT_MODELS: AvailableModels = {
   "meta-llama/llama-3.1-405b": {
@@ -34,35 +41,60 @@ function ensureDirectoryExists(filePath: string) {
   }
 }
 
-function loadModelsFromDisk(): AvailableModels {
-  try {
-    const raw = fs.readFileSync(MODELS_FILE, "utf-8");
-    const parsed = JSON.parse(raw) as AvailableModels;
-    // Basic validation: ensure it's an object with entries
-    if (!parsed || typeof parsed !== "object") {
-      return { ...DEFAULT_MODELS };
-    }
-    return Object.fromEntries(
-      Object.entries(parsed).map(([id, model]) => [
-        id,
-        {
-          ...model,
-          // Old private catalogs predate the explicit boundary. Raw continuation
-          // is the only safe fallback because it does not add hidden instructions.
-          generationMode: model.generationMode ?? "completion",
-        },
-      ]),
-    );
-  } catch (error) {
-    // If file doesn't exist or is invalid, seed with defaults
-    ensureDirectoryExists(MODELS_FILE);
-    fs.writeFileSync(
-      MODELS_FILE,
-      JSON.stringify(DEFAULT_MODELS, null, 2),
-      "utf-8",
-    );
-    return { ...DEFAULT_MODELS };
+function normalizeModels(parsed: AvailableModels): AvailableModels {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Model catalog must be a JSON object");
   }
+  return Object.fromEntries(
+    Object.entries(parsed).map(([id, model]) => [
+      id,
+      {
+        ...model,
+        // Old private catalogs predate the explicit boundary. Raw continuation
+        // is the only safe fallback because it does not add hidden instructions.
+        generationMode: model.generationMode ?? "completion",
+      },
+    ]),
+  );
+}
+
+function readModels(filePath: string): AvailableModels {
+  return normalizeModels(
+    JSON.parse(fs.readFileSync(filePath, "utf-8")) as AvailableModels,
+  );
+}
+
+export function loadModelsFromFiles(
+  mutableFile: string,
+  bundledFile: string,
+): AvailableModels {
+  try {
+    return readModels(mutableFile);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      throw new Error(`Mutable model catalog is unreadable: ${mutableFile}`, {
+        cause: error,
+      });
+    }
+  }
+
+  let seed: AvailableModels;
+  try {
+    seed = readModels(bundledFile);
+  } catch (error) {
+    console.warn(
+      `[Models] Bundled catalog is unreadable; using built-in defaults: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    seed = { ...DEFAULT_MODELS };
+  }
+
+  ensureDirectoryExists(mutableFile);
+  fs.writeFileSync(mutableFile, JSON.stringify(seed, null, 2), "utf-8");
+  return seed;
+}
+
+function loadModelsFromDisk(): AvailableModels {
+  return loadModelsFromFiles(MODELS_FILE, BUNDLED_MODELS_FILE);
 }
 
 function persistModels(models: AvailableModels) {
