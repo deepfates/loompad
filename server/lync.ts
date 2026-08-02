@@ -17,14 +17,14 @@ function parsePositiveInt(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-export function resolveLyncAuthMode(value = process.env.LYNC_AUTH_MODE): LyncAuthMode {
+export function resolveLyncAuthMode(value: string | undefined): LyncAuthMode {
   return value?.trim().toLowerCase() === "public" ? "public" : "site-access";
 }
 
 export function attachLyncServer(server: http.Server) {
   if (attached) return relay;
   attached = true;
-  const authMode = resolveLyncAuthMode();
+  const authMode = resolveLyncAuthMode(process.env.LYNC_AUTH_MODE);
   const options: AttachLyncServerOptions = {
     path: "/lync",
     storageDir: resolveLyncStorageDir(),
