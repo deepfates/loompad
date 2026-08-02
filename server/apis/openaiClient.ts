@@ -7,7 +7,7 @@ export const openai = new OpenAI({
   // endpoints refuse explicitly before this placeholder can reach upstream.
   apiKey: config.openRouterApiKey ?? "sk-or-generation-disabled",
   defaultHeaders: {
-    "HTTP-Referer": "https://textile.lol",
+    "HTTP-Referer": "https://textile.quest",
     "X-Title": "Textile",
   },
 });

@@ -8,6 +8,13 @@ import { config } from "./config";
 import { createRateLimitMiddleware } from "./rateLimit";
 
 export const SITE_AUTH_COOKIE = "textile_site";
+const PUBLIC_PWA_MANIFEST_PATHS = new Set([
+  "/manifest.webmanifest",
+  "/client/manifest.webmanifest",
+  "/assets/manifest.webmanifest",
+]);
+const PUBLIC_PWA_ICON_PATH =
+  /^\/(?:client\/)?assets\/icon-(?:72|96|128|144|152|192|384|512)(?:-maskable)?\.png$/;
 const LOGIN_STYLES_PATH = "/_textile/terminal.css";
 const LOGIN_FONT_PATH = "/_textile/fonts";
 const LOGIN_FONT_FILES = new Set([
@@ -20,6 +27,18 @@ type HeaderRequest = {
     cookie?: string | string[];
   };
 };
+
+/**
+ * Installation metadata is public so a protected deployment can still be
+ * recognized and launched as an app. The app shell, APIs, and service worker
+ * remain behind the normal site gate.
+ */
+export function isPublicPwaResource(pathname: string) {
+  return (
+    PUBLIC_PWA_MANIFEST_PATHS.has(pathname) ||
+    PUBLIC_PWA_ICON_PATH.test(pathname)
+  );
+}
 
 interface SiteAuthOptions {
   sitePassword: string | null;
@@ -215,7 +234,7 @@ const loginLayoutScript = `(() => {
   update();
 })();`;
 
-function loginPage(next = "/", error = false) {
+export function renderSiteLoginPage(next = "/", error = false) {
   const message = error
     ? "<p class=\"login-error\" role=\"alert\">That password did not work.</p>"
     : "";
@@ -225,7 +244,13 @@ function loginPage(next = "/", error = false) {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+      <meta name="apple-mobile-web-app-title" content="Textile" />
       <meta name="theme-color" content="#2a2a2a" />
+      <link rel="apple-touch-icon" href="/client/assets/icon-192.png" />
+      <link rel="manifest" href="/manifest.webmanifest" />
       <title>Textile</title>
       <script>${themeBootstrapScript}</script>
       <link rel="stylesheet" href="${LOGIN_STYLES_PATH}" />
@@ -388,7 +413,7 @@ export function setupSiteAuthRoutes(app: Application) {
     res
       .status(200)
       .setHeader("Content-Type", "text/html")
-      .send(loginPage(safeRedirectTarget(req.query.next)));
+      .send(renderSiteLoginPage(safeRedirectTarget(req.query.next)));
   });
 
   app.post(
@@ -407,7 +432,7 @@ export function setupSiteAuthRoutes(app: Application) {
         res
           .status(401)
           .setHeader("Content-Type", "text/html")
-          .send(loginPage(safeRedirectTarget(req.body.next), true));
+          .send(renderSiteLoginPage(safeRedirectTarget(req.body.next), true));
         return;
       }
 
@@ -437,6 +462,11 @@ export function requireSiteAccess(
   res: Response,
   next: NextFunction,
 ) {
+  if (isPublicPwaResource(req.path)) {
+    next();
+    return;
+  }
+
   if (hasSiteAccess(req)) {
     next();
     return;

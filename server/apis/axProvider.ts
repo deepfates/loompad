@@ -101,7 +101,7 @@ export function createOpenRouterAI(
     name: "openrouter",
     apiKey: config.openRouterApiKey,
     config: { model },
-    referer: "https://textile.lol",
+    referer: "https://textile.quest",
     title: "Textile",
     options: {
       fetch: withReasoningPolicy(

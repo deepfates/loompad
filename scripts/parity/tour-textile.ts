@@ -1,5 +1,5 @@
 /**
- * Tour textile.lol across every theme + every font, on three screens
+ * Tour textile.quest across every theme + every font, on three screens
  * (loom, map, settings), so I can actually see the combinatoric space
  * before opining.
  */
@@ -8,7 +8,7 @@ import { chromium, type Page } from "playwright";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const LIVE = "https://textile.lol";
+const LIVE = "https://textile.quest";
 const OUT = path.resolve(process.cwd(), "scripts/parity/shots/textile-tour");
 
 const THEMES = [

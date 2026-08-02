@@ -27,6 +27,10 @@ train.
 
 ### Changed
 
+- Private-alpha login pages now advertise Textile's PWA manifest and iOS app
+  metadata. Only install manifests and declared icons bypass the site gate; the
+  app shell, service worker, and APIs remain protected. Public metadata and
+  OpenRouter attribution now use the live `textile.quest` domain.
 - Relay history and editable model configuration now share one explicit
   runtime-data root (`TEXTILE_DATA_DIR`, default `.data`), allowing production
   to mount them durably while keeping the checked-in model catalog immutable.

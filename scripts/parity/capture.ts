@@ -2,7 +2,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const LIVE = "https://textile.lol";
+const LIVE = "https://textile.quest";
 const LOCAL = "http://localhost:5173";
 const OUT = path.resolve(process.cwd(), "scripts/parity/shots");
 

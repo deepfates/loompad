@@ -6,7 +6,9 @@ import {
   hasSiteAccess,
   hasProtectedSyncAccess,
   hasValidSiteSession,
+  isPublicPwaResource,
   isSiteAuthConfigured,
+  renderSiteLoginPage,
   setupSiteAuthRoutes,
   SITE_AUTH_COOKIE,
 } from "../siteAuth";
@@ -18,6 +20,42 @@ const options = {
 };
 
 describe("site auth", () => {
+  it("keeps PWA discovery public without exposing the app shell or worker", () => {
+    for (const pathname of [
+      "/manifest.webmanifest",
+      "/client/manifest.webmanifest",
+      "/assets/manifest.webmanifest",
+      "/assets/icon-512.png",
+      "/client/assets/icon-192.png",
+      "/client/assets/icon-512-maskable.png",
+    ]) {
+      expect(isPublicPwaResource(pathname)).toBe(true);
+    }
+
+    for (const pathname of [
+      "/",
+      "/index.js",
+      "/sw.js",
+      "/registerSW.js",
+      "/api/models",
+      "/client/assets/index.css",
+      "/client/assets/not-an-icon.png",
+    ]) {
+      expect(isPublicPwaResource(pathname)).toBe(false);
+    }
+  });
+
+  it("advertises install metadata from the unauthenticated login page", () => {
+    const html = renderSiteLoginPage();
+    expect(html).toContain('rel="manifest" href="/manifest.webmanifest"');
+    expect(html).toContain(
+      'rel="apple-touch-icon" href="/client/assets/icon-192.png"',
+    );
+    expect(html).toContain(
+      'name="apple-mobile-web-app-capable" content="yes"',
+    );
+  });
+
   it("is enabled only when a site password is configured", () => {
     expect(isSiteAuthConfigured(options)).toBe(true);
     expect(

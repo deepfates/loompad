@@ -19,9 +19,9 @@ describe("API auth", () => {
     expect(
       canAccessProtectedApi(
         request({
-          host: "textile.lol",
-          origin: "https://textile.lol",
-          referer: "https://textile.lol/story",
+          host: "textile.quest",
+          origin: "https://textile.quest",
+          referer: "https://textile.quest/story",
         }),
         null,
         false,
@@ -44,7 +44,7 @@ describe("API auth", () => {
     expect(
       canAccessProtectedApi(
         request({
-          host: "textile.lol",
+          host: "textile.quest",
           authorization: "Bearer secret",
         }),
         "secret",
