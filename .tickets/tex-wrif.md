@@ -49,3 +49,7 @@ The opt-in scale gate (`TEXTILE_SCALE_TEST=1 bun test client/interface/lync/__te
 **2026-08-01T13:58:50Z**
 
 Principal independent review on 2026-08-01: code and ownership design are accepted for integration; 208 ordinary tests, lint, production build, and the 490.7 MB opt-in scale projector gate pass. Ticket reopened because its exact acceptance says representative scale through the ordinary local review path, while the scale test calls projectIndexedOrderedLyncSources with synthetic re-readable sources rather than importTextileFiles with browser File objects. Close only after a retained six-hour v2 manifest and canonical files open through the ordinary front door with usable navigation and measured behavior.
+
+**2026-08-02T03:03:00Z**
+
+2026-08-02 Behold episode 000003 ordinary browser check against current main: exact manifest is 2 sources / 20,556,307 bytes / digest 05307f02... The Stories drawer pointer Import Archive input accepts only one file; choosing a ZIP of the exact manifest + two Lync sources routes to the Twitter archive parser and fails for missing data/manifest.js. The intended hidden multiple input could not be opened through the keyboard/gamepad Import Archive action in the in-app browser, even though current source has the action. Therefore this exact retained source set is not yet claimed readable through the ordinary UI. Single-file historical Textile reading remains real. Candidate diagnosis is front-door multi-file activation/archive dispatch, distinct from the indexed-union scale work; reproduce before changing it.
