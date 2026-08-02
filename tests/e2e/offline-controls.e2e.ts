@@ -1,4 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import {
+  AX_CONTINUATION_PROGRAM,
+  CONTINUATION_REASONING_POLICY,
+} from "../../shared/generation";
 
 async function waitForStory(page: Page) {
   await expect(page.locator(".gamepad-main")).toHaveAttribute(
@@ -33,7 +37,12 @@ test("offline advice never disables local choices or a later generation retry", 
   await page.route("**/api/generate", async (route) => {
     await route.fulfill({
       status: 200,
-      contentType: "text/event-stream",
+      headers: {
+        "Content-Type": "text/event-stream",
+        "X-Textile-Generation-Mode": "instruction",
+        "X-Textile-Generation-Program": AX_CONTINUATION_PROGRAM,
+        "X-Textile-Reasoning-Policy": CONTINUATION_REASONING_POLICY,
+      },
       body: 'data: {"content":" The connection returned."}\n\ndata: [DONE]\n\n',
     });
   });
