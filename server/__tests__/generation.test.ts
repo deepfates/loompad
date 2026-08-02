@@ -258,7 +258,7 @@ describe("generation fidelity and routing", () => {
     );
   });
 
-  it("closes a semantic-boundary iterator without aborting Ax", async () => {
+  it("drains a semantic-boundary iterator for provenance without leaking later text", async () => {
     let requestSignal: AbortSignal | undefined;
     let iteratorClosed = false;
     const backends: GenerationBackends = {
@@ -269,6 +269,11 @@ describe("generation fidelity and routing", () => {
         requestSignal = request.signal;
         try {
           yield { type: "text" as const, text: "A complete sentence. More" };
+          yield { type: "text" as const, text: " discarded text" };
+          yield {
+            type: "usage" as const,
+            usage: { promptTokens: 3, completionTokens: 8, totalTokens: 11 },
+          };
         } finally {
           iteratorClosed = true;
         }
@@ -291,6 +296,45 @@ describe("generation fidelity and routing", () => {
     expect(readContent(response.writes)).toBe("A complete sentence.");
     expect(iteratorClosed).toBe(true);
     expect(requestSignal?.aborted).toBe(false);
+    expect(readReceipt(response.writes)?.usage).toEqual({
+      promptTokens: 3,
+      completionTokens: 8,
+      totalTokens: 11,
+    });
+  });
+
+  it("recovers usage by provider generation id after semantic stopping", async () => {
+    const backends: GenerationBackends = {
+      completion: async function* (request) {
+        request.onProviderGenerationId?.("gen-semantic-stop");
+        yield { type: "text" as const, text: "A complete sentence. Discarded" };
+      },
+      instruction: async function* () {
+        yield { type: "text" as const, text: "unexpected" };
+      },
+    };
+    const response = createResponse();
+    await generateTextWithBackends(
+      createRequest({
+        prompt: "Start",
+        model: "test/raw",
+        lengthMode: "sentence",
+      }) as never,
+      response.res as never,
+      backends,
+      () => model("completion"),
+      async () => "none",
+      async (generationId) => {
+        expect(generationId).toBe("gen-semantic-stop");
+        return { promptTokens: 2, completionTokens: 5, totalTokens: 7, cost: 0.0001 };
+      },
+    );
+
+    expect(readContent(response.writes)).toBe("A complete sentence.");
+    expect(readReceipt(response.writes)).toMatchObject({
+      providerGenerationId: "gen-semantic-stop",
+      usage: { promptTokens: 2, completionTokens: 5, totalTokens: 7, cost: 0.0001 },
+    });
   });
 
   it("makes one real Ax attempt with the explicitly configured OpenRouter model", async () => {

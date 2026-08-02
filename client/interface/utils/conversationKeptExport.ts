@@ -13,6 +13,8 @@ export interface KeptConversationTurn {
   via?: string;
   createdAt: number;
   archiveSource?: ArchiveSourceRef;
+  generatedBy?: import("../lync/storyTypes").StoryGeneratedBy;
+  generation?: import("../lync/storyTypes").StoryGenerationRecord;
   keepEvent?: {
     id: string;
     at: string;
@@ -177,6 +179,8 @@ export function buildKeptConversationArtifact(
       via: node.via,
       createdAt: node.createdAt ?? 0,
       archiveSource: node.archiveSource,
+      generatedBy: node.generatedBy,
+      generation: node.generation,
       keepEvent: node.kept && node.keepMark
         ? {
             id: node.keepMark.id,

@@ -28,6 +28,7 @@ import {
 import { validateGenerateRequestBody } from "./validators";
 import { mergeGenerationReasoning } from "./providerReasoning";
 import { resolveContinuationReasoningPolicy } from "./reasoningPolicy";
+import { lookupOpenRouterGenerationUsage } from "./providerGeneration";
 
 const STREAM_BOUNDARY_LOOKBEHIND = 32;
 
@@ -45,6 +46,10 @@ export async function generateTextWithBackends(
   reasoningPolicyLookup: (
     model: ModelId,
   ) => Promise<ReasoningPolicy> = async () => CONTINUATION_REASONING_POLICY,
+  generationUsageLookup: (
+    generationId: string,
+  ) => Promise<import("../../shared/generation").GenerationUsage | undefined> =
+    lookupOpenRouterGenerationUsage,
 ): Promise<Response | void> {
   let ended = false;
   let clientDisconnected = false;
@@ -136,6 +141,9 @@ export async function generateTextWithBackends(
       temperature: temperature ?? modelConfig.defaultTemp,
       maxTokens: maxTokensToUse,
       reasoningPolicy,
+      onProviderGenerationId: (providerGenerationId) => {
+        if (receipt) receipt = { ...receipt, providerGenerationId };
+      },
       onReasoning: (reasoning) => {
         if (!receipt) return;
         receipt = {
@@ -149,6 +157,7 @@ export async function generateTextWithBackends(
     const boundaryRegex = getBoundaryRegex(mode);
     let accumulated = "";
     let sentIndex = 0;
+    let stoppedAtSemanticBoundary = false;
 
     for await (const event of stream) {
       if (ended) continue;
@@ -156,6 +165,10 @@ export async function generateTextWithBackends(
         if (receipt) receipt = { ...receipt, usage: event.usage };
         continue;
       }
+      // Once the visible semantic prefix is fixed, drain the already-running
+      // request for its terminal reasoning/usage frame without exposing or
+      // storing discarded continuation text.
+      if (stoppedAtSemanticBoundary) continue;
       const delta = event.text;
       if (!delta) continue;
       accumulated += delta;
@@ -164,11 +177,8 @@ export async function generateTextWithBackends(
         const cutoff = findWordCutoff(accumulated);
         if (cutoff !== null) {
           writeContent(res, accumulated.slice(0, cutoff));
-          // Returning closes the async iterator. Explicitly aborting Ax here
-          // dispatches an unhandled AbortError from its stream listener under
-          // Bun and can terminate the whole Textile server.
-          finish();
-          return;
+          stoppedAtSemanticBoundary = true;
+          continue;
         }
         continue;
       }
@@ -177,10 +187,8 @@ export async function generateTextWithBackends(
         const cutoff = findBoundaryCutoff(accumulated, 0, boundaryRegex);
         if (cutoff !== null) {
           writeContent(res, accumulated.slice(sentIndex, cutoff));
-          // Let async-iterator cleanup cancel the unread remainder. Ax's abort
-          // listener can otherwise reject outside this request's try/catch.
-          finish();
-          return;
+          stoppedAtSemanticBoundary = true;
+          continue;
         }
 
         const safeEnd = Math.max(
@@ -192,8 +200,18 @@ export async function generateTextWithBackends(
       }
     }
 
+    if (
+      !ended && stoppedAtSemanticBoundary &&
+      receipt?.providerGenerationId && !receipt.usage
+    ) {
+      const usage = await generationUsageLookup(receipt.providerGenerationId);
+      if (usage) receipt = { ...receipt, usage };
+    }
+
     if (!ended) {
-      writeContent(res, accumulated.slice(sentIndex));
+      if (!stoppedAtSemanticBoundary) {
+        writeContent(res, accumulated.slice(sentIndex));
+      }
       finish();
     }
   } catch (error: unknown) {

@@ -90,6 +90,7 @@ export interface RawLyncPortableLocalTurn {
   actor?: string;
   via?: string;
   generatedBy?: StoryGeneratedBy;
+  generation?: import("./storyTypes").StoryGenerationRecord;
   keepEvent?: {
     id: string;
     at: string;

@@ -77,6 +77,7 @@ export async function judgeContinuation(req: Request, res: Response) {
     // Configure Ax's native OpenRouter provider with an explicit model.
     let usage: GenerationUsage | undefined;
     let reasoning: GenerationReasoning | undefined;
+    let providerGenerationId: string | undefined;
     const llm = createOpenRouterAI(
       model,
       JUDGE_REASONING_POLICY,
@@ -86,6 +87,9 @@ export async function judgeContinuation(req: Request, res: Response) {
       },
       (observed) => {
         reasoning = mergeGenerationReasoning(reasoning, observed);
+      },
+      (generationId) => {
+        providerGenerationId = generationId;
       },
     );
 
@@ -123,6 +127,7 @@ export async function judgeContinuation(req: Request, res: Response) {
         raw: JSON.stringify(result),
         program: AX_CONTINUATION_JUDGE_PROGRAM,
         reasoningPolicy: JUDGE_REASONING_POLICY,
+        ...(providerGenerationId ? { providerGenerationId } : {}),
         ...(reasoning ? { reasoning } : {}),
         ...(usage ? { usage } : {}),
       });
@@ -133,6 +138,7 @@ export async function judgeContinuation(req: Request, res: Response) {
       raw: JSON.stringify(result),
       program: AX_CONTINUATION_JUDGE_PROGRAM,
       reasoningPolicy: JUDGE_REASONING_POLICY,
+      ...(providerGenerationId ? { providerGenerationId } : {}),
       ...(reasoning ? { reasoning } : {}),
       ...(usage ? { usage } : {}),
     });

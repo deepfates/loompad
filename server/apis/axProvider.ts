@@ -9,6 +9,7 @@ import { extractOpenRouterReasoning } from "./providerReasoning";
 
 type UsageObserver = (usage: unknown) => void;
 type ReasoningObserver = (reasoning: GenerationReasoning) => void;
+type GenerationIdObserver = (generationId: string) => void;
 
 function observeProviderLine(
   line: string,
@@ -79,6 +80,7 @@ export function withReasoningPolicy(
   fetchImplementation: typeof fetch,
   observeUsage?: UsageObserver,
   observeReasoning?: ReasoningObserver,
+  observeGenerationId?: GenerationIdObserver,
 ): typeof fetch {
   return async (input, init) => {
     if (!init?.body || !String(input).includes("/chat/completions")) {
@@ -93,6 +95,8 @@ export function withReasoningPolicy(
         reasoning: { effort: policy },
       }),
     });
+    const generationId = response.headers.get("x-generation-id");
+    if (generationId) observeGenerationId?.(generationId);
 
     if (response.headers.get("content-type")?.includes("text/event-stream")) {
       return observeStreamingProviderData(
@@ -129,6 +133,7 @@ export function createOpenRouterAI(
   fetchOverride?: typeof fetch,
   observeUsage?: UsageObserver,
   observeReasoning?: ReasoningObserver,
+  observeGenerationId?: GenerationIdObserver,
 ) {
   if (!config.openRouterApiKey) {
     throw new Error("OpenRouter is not configured");
@@ -146,6 +151,7 @@ export function createOpenRouterAI(
         fetchOverride ?? globalThis.fetch,
         observeUsage,
         observeReasoning,
+        observeGenerationId,
       ),
     },
   });

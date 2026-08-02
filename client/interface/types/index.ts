@@ -16,16 +16,7 @@ import type {
 export type StoryOrigin = "human" | "model" | "unknown";
 
 /** Fingerprint of the generation that produced a model turn. */
-export interface StoryGeneratedBy {
-  model?: string;
-  temperature?: number;
-  lengthMode?: string;
-  textSplitting?: boolean;
-  generationMode?: import("../../../shared/generation").GenerationMode;
-  program?: string;
-  reasoningPolicy?: import("../../../shared/generation").ReasoningPolicy;
-  usage?: import("../../../shared/generation").GenerationUsage;
-}
+export type StoryGeneratedBy = import("../lync/storyTypes").StoryGeneratedBy;
 
 export type StorySelectedBy = import("../lync/storyTypes").StoryJudgment & {
   judgeTurnId: string;
@@ -73,6 +64,8 @@ export interface StoryNode {
   via?: string;
   /** Present only for model turns; absent marks a human/unknown turn. */
   generatedBy?: StoryGeneratedBy;
+  /** Full provider receipt, attached only to the generation's first prose node. */
+  generation?: import("../lync/storyTypes").StoryGenerationRecord;
   /** Durable automatic selection event that chose this candidate. */
   selectedBy?: StorySelectedBy;
   /** Original loom role; carried for honest portable local-turn projection. */

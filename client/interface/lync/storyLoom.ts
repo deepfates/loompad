@@ -3,6 +3,7 @@ import type { StoryAnnotation, StoryNode, StoryOrigin } from "../types";
 import type {
   StoryDraft,
   StoryGeneratedBy,
+  StoryGenerationRecord,
   StoryJudgment,
   StoryLoom,
   StoryTurnMeta,
@@ -24,6 +25,9 @@ export interface ReadableTurnMeta {
   author?: string;
   via?: string;
   generatedBy?: StoryGeneratedBy;
+  generation?: StoryGenerationRecord;
+  generationRef?: TurnId;
+  generationRoot?: boolean;
   revises?: TurnId;
   /** Present only on `role: "mark"` turns — the kept state this swipe records. */
   kept?: boolean;
@@ -175,7 +179,14 @@ export async function projectStoryTree(
   const rootTurns = await loom.childrenOf(null);
   // Textile stories are single-root projections. Later top-level revision
   // turns edit the seed root's visible text without reparenting its children.
-  const rootTurn = rootTurns.find((turn) => turn.meta?.role !== "revision");
+  const rootTurn = rootTurns.find((turn) => ![
+    "revision",
+    "annotation",
+    "mark",
+    "generation",
+    "judge",
+    "raw-source",
+  ].includes(turn.meta?.role ?? ""));
   if (!rootTurn) {
     return {
       root: {
@@ -187,7 +198,8 @@ export async function projectStoryTree(
     };
   }
 
-  const rootNode: StoryNode = turnToStoryNode(rootTurn);
+  const generations = new Map<TurnId, StoryGenerationRecord>();
+  const rootNode: StoryNode = turnToStoryNode(rootTurn, generations);
   const sourceRecords: import("./rawLyncArchiveTypes").RawLyncSourceRecord[] = [];
   const rootRevisions = rootTurns.filter(
     (turn) => turn.meta?.role === "revision" && turn.meta.revises === rootTurn.id,
@@ -214,6 +226,9 @@ export async function projectStoryTree(
       const role = child.meta?.role;
       if (role === "annotation") annotations.push(annotationFromTurn(child));
       else if (role === "mark") markTurns.push(child);
+      else if (role === "generation") {
+        if (child.meta?.generation) generations.set(child.id, child.meta.generation);
+      }
       else if (role === "judge") {
         // Judge decisions are causal Loom events, not prose continuations.
         judgeTurns.push(child);
@@ -245,7 +260,7 @@ export async function projectStoryTree(
         : undefined;
     }
 
-    parent.continuations = storyChildren.map(turnToStoryNode);
+    parent.continuations = storyChildren.map((turn) => turnToStoryNode(turn, generations));
     for (const judgeTurn of judgeTurns) {
       const judgment = judgeTurn.meta?.judgment;
       const selectedTurnId = judgeTurn.meta?.respondsTo;
@@ -419,11 +434,26 @@ export async function appendStoryDraftChain(
       loom,
       appended.id,
       child,
-      { ...draftMeta, role: "prose" },
+      { ...draftMeta, role: "prose", generationRoot: false },
       authorship,
     );
   }
   return appended;
+}
+
+function lightweightGeneratedBy(
+  generatedBy: StoryGeneratedBy | undefined,
+  generationTurnId: TurnId,
+): StoryGeneratedBy {
+  const {
+    generationMode: _generationMode,
+    program: _program,
+    reasoningPolicy: _reasoningPolicy,
+    reasoning: _reasoning,
+    usage: _usage,
+    ...identity
+  } = generatedBy ?? {};
+  return { ...identity, generationTurnId };
 }
 
 export async function appendStoryRevision(
@@ -462,7 +492,38 @@ export async function appendStoryDrafts(
   authorship?: StoryAuthorship,
 ): Promise<void> {
   for (const draft of drafts) {
-    await appendStoryDraftChain(loom, parentId, draft, { role: "prose" }, authorship);
+    if (!draft.generation) {
+      await appendStoryDraftChain(loom, parentId, draft, { role: "prose" }, authorship);
+      continue;
+    }
+    const generation = {
+      ...(authorship?.generatedBy ?? {}),
+      ...draft.generation,
+    } as StoryGenerationRecord;
+    const generationTurn = await loom.appendTurn(
+      parentId,
+      { text: "" },
+      withAuthorship({ role: "generation", generation }, {
+        actor: authorship?.actor,
+        via: authorship?.via,
+      }),
+    );
+    const generatedBy = lightweightGeneratedBy(
+      authorship?.generatedBy,
+      generationTurn.id,
+    );
+    await appendStoryDraftChain(
+      loom,
+      parentId,
+      { ...draft, generation: undefined },
+      {
+        role: "prose",
+        generatedBy,
+        generationRef: generationTurn.id,
+        generationRoot: true,
+      },
+      { actor: authorship?.actor, via: authorship?.via },
+    );
   }
 }
 
@@ -528,7 +589,10 @@ export async function appendAnnotation(
   );
 }
 
-function turnToStoryNode(turn: ReadableTurn): StoryNode {
+function turnToStoryNode(
+  turn: ReadableTurn,
+  generations: Map<TurnId, StoryGenerationRecord> = new Map(),
+): StoryNode {
   const meta = turn.meta;
   const payload = turn.payload as { message?: unknown } | null;
   const text = deriveTurnText(turn.payload);
@@ -546,6 +610,11 @@ function turnToStoryNode(turn: ReadableTurn): StoryNode {
     actor: meta?.author,
     via: meta?.via,
     generatedBy: meta?.generatedBy,
+    ...(meta?.generationRoot && (
+      meta.generation || (meta.generationRef && generations.has(meta.generationRef))
+    )
+      ? { generation: meta.generation ?? generations.get(meta.generationRef!) }
+      : {}),
     turnRole: meta?.portableRole ?? (meta?.archiveSource ? meta.role : undefined),
     ...(meta?.archiveSource ? { archiveSource: meta.archiveSource } : {}),
     portableTurnId: meta?.portableTurnId,

@@ -460,6 +460,8 @@ export interface ConversationTurnMeta {
   author: string;
   via?: string;
   generatedBy?: import("./storyTypes").StoryGeneratedBy;
+  generation?: import("./storyTypes").StoryGenerationRecord;
+  generationRoot?: boolean;
   revises?: string;
   rawVirtual?: boolean;
   rawSource?: boolean;
@@ -787,6 +789,8 @@ export async function importKeptConversationMarkdownText(
           role: turn.role ?? "artifact",
           author: turn.actor ?? "unknown",
           ...(turn.via ? { via: turn.via } : {}),
+          ...(turn.generatedBy ? { generatedBy: turn.generatedBy } : {}),
+          ...(turn.generation ? { generation: turn.generation, generationRoot: true } : {}),
           portableTurnId: turn.id,
           portableOriginLoomId: manifest.originalLoomId,
           portableRole: turn.role,

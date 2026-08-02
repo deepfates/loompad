@@ -776,6 +776,7 @@ function portableLocalTurnFor(
     ...(node.actor ? { actor: node.actor } : {}),
     ...(node.via ? { via: node.via } : {}),
     ...(node.generatedBy ? { generatedBy: node.generatedBy } : {}),
+    ...(node.generation ? { generation: node.generation } : {}),
     ...(keepEvent ? { keepEvent } : {}),
     notes: [...(node.annotations ?? [])]
       .map((note) => ({ ...note }))

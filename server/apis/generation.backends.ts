@@ -17,6 +17,7 @@ export interface GenerationBackendRequest {
   temperature: number;
   maxTokens: number;
   reasoningPolicy: ReasoningPolicy;
+  onProviderGenerationId?: (generationId: string) => void;
   onReasoning?: (reasoning: GenerationReasoning) => void;
   signal: AbortSignal;
 }
@@ -85,10 +86,12 @@ export function normalizeOpenRouterUsage(
 export async function* streamRawContinuation(
   request: GenerationBackendRequest,
 ): AsyncGenerator<GenerationStreamEvent> {
-  const stream = await openai.completions.create(
+  const { data: stream, response } = await openai.completions.create(
     rawContinuationParams(request),
     { signal: request.signal },
-  );
+  ).withResponse();
+  const generationId = response.headers.get("x-generation-id");
+  if (generationId) request.onProviderGenerationId?.(generationId);
 
   for await (const chunk of stream) {
     const reasoning = extractOpenRouterReasoning(chunk);
@@ -118,6 +121,7 @@ export async function* streamAxContinuation(
         providerUsage = normalizeOpenRouterUsage(usage);
       },
       request.onReasoning,
+      request.onProviderGenerationId,
     ),
   );
   if (providerUsage) yield { type: "usage", usage: providerUsage };

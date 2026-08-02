@@ -21,6 +21,7 @@ export interface ContinuationJudgment {
   temperature: number;
   program: string;
   reasoningPolicy: import("../../../shared/generation").ReasoningPolicy;
+  providerGenerationId?: string;
   reasoning?: import("../../../shared/generation").GenerationReasoning;
   usage?: import("../../../shared/generation").GenerationUsage;
 }
@@ -126,6 +127,7 @@ export function useStoryGeneration() {
           generationMode: receipt.mode,
           program: receipt.program,
           reasoningPolicy: receipt.reasoningPolicy,
+          providerGenerationId: receipt.providerGenerationId,
           ...(receipt.reasoning ? { reasoning: receipt.reasoning } : {}),
           ...(receipt.usage ? { usage: receipt.usage } : {}),
         };
@@ -141,6 +143,7 @@ export function useStoryGeneration() {
         generationMode: receipt.mode,
         program: receipt.program,
         reasoningPolicy: receipt.reasoningPolicy,
+        providerGenerationId: receipt.providerGenerationId,
         ...(receipt.reasoning ? { reasoning: receipt.reasoning } : {}),
         ...(receipt.usage ? { usage: receipt.usage } : {}),
       },
@@ -189,6 +192,7 @@ export function useStoryGeneration() {
         raw?: string;
         program?: string;
         reasoningPolicy?: string;
+        providerGenerationId?: string;
         reasoning?: import("../../../shared/generation").GenerationReasoning;
         usage?: import("../../../shared/generation").GenerationUsage;
       };
@@ -205,6 +209,9 @@ export function useStoryGeneration() {
           temperature: Math.max(0.1, Math.min(params.temperature, 0.8)),
           program: payload.program,
           reasoningPolicy: payload.reasoningPolicy,
+          ...(payload.providerGenerationId
+            ? { providerGenerationId: payload.providerGenerationId }
+            : {}),
           ...(payload.reasoning ? { reasoning: payload.reasoning } : {}),
           ...(payload.usage ? { usage: payload.usage } : {}),
         };

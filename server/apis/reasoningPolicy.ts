@@ -26,7 +26,10 @@ export function policyFromOpenRouterModel(
   payload: OpenRouterModelsResponse,
 ): ReasoningPolicy {
   const model = payload.data?.find((candidate) => candidate.id === modelId);
-  if (!model?.reasoning?.mandatory) return "none";
+  if (!model) {
+    throw new Error(`OpenRouter returned no exact capability record for ${modelId}`);
+  }
+  if (!model.reasoning?.mandatory) return "none";
 
   const advertised = model.reasoning.supported_efforts;
   const supported = Array.isArray(advertised)

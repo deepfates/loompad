@@ -80,7 +80,12 @@ controls may stop a stream at a semantic boundary, but
 they select an exact prefix rather than rewriting it. Every requested result is
 kept as its own branch with model, settings, mode, program, reasoning policy,
 available provider usage, and any provider-returned reasoning text or standard
-reasoning-detail blocks in provenance rather than visible prose. Automatic judging keeps all candidate
+reasoning-detail blocks in provenance rather than visible prose. Each provider
+call is one hidden Loom generation event; split prose turns reference that event
+instead of copying its reasoning and usage onto every segment. OpenRouter's
+generation ID is retained, and a semantic prefix drains the already-running
+stream for its final accounting frame while discarding all later prose.
+Automatic judging keeps all candidate
 branches, performs one versioned Ax program call at explicitly low reasoning,
 and records the ordered candidate IDs, selected ID, program, policy, and
 available usage as a non-prose judge turn in the Loom. A judge call has a

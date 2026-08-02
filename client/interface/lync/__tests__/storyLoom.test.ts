@@ -260,8 +260,9 @@ describe("Textile story loom", () => {
       via: "textile-browser",
     });
 
-    const [modelTurn, humanTurn] = await loom.childrenOf(seed.id);
-    expect(modelTurn?.meta?.generatedBy).toEqual({
+    const [generationTurn, modelTurn, humanTurn] = await loom.childrenOf(seed.id);
+    expect(generationTurn?.meta?.role).toBe("generation");
+    expect(generationTurn?.meta?.generation).toEqual({
       model: "test-model",
       temperature: 0.7,
       lengthMode: "medium",
@@ -282,10 +283,25 @@ describe("Textile story loom", () => {
         reasoningTokens: 0,
       },
     });
+    expect(modelTurn?.meta?.generatedBy).toEqual({
+      model: "test-model",
+      temperature: 0.7,
+      lengthMode: "medium",
+      textSplitting: false,
+      generationTurnId: generationTurn?.id,
+    });
+    expect(modelTurn?.meta?.generationRef).toBe(generationTurn?.id);
+    expect(modelTurn?.meta?.generation).toBeUndefined();
     expect(modelTurn?.meta?.author).toBe("ada");
     expect(modelTurn?.meta?.via).toBe("textile-browser");
     expect(humanTurn?.meta?.generatedBy).toBeUndefined();
     expect(humanTurn?.meta?.author).toBe("ada");
+
+    const projected = await projectStoryTree(loom, "Start");
+    expect(projected.root.continuations?.map((turn) => turn.text)).toEqual(["M", "H"]);
+    expect(projected.root.continuations?.[0]?.generation).toEqual(
+      generationTurn?.meta?.generation,
+    );
   });
 
   it("persists a judge decision without rendering it as story prose", async () => {
@@ -346,6 +362,37 @@ describe("Textile story loom", () => {
       choiceIndex: 1,
       reasoningPolicy: "low",
     });
+  });
+
+  it("stores one full generation receipt for a split prose chain", async () => {
+    const looms = createLooms();
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
+    const loom = await looms.open(info.id);
+    const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
+    await appendStoryDrafts(loom, seed.id, [{
+      text: "First.",
+      continuations: [{ text: "Second." }],
+      generation: {
+        generationMode: "completion",
+        program: "textile/raw-continuation-v2",
+        reasoningPolicy: "low",
+        providerGenerationId: "gen-one",
+        reasoning: { text: "A private trace" },
+      },
+    }], { generatedBy: { model: "test/model" } });
+
+    const direct = await loom.childrenOf(seed.id);
+    const generationTurns = direct.filter((turn) => turn.meta?.role === "generation");
+    expect(generationTurns).toHaveLength(1);
+    expect(JSON.stringify(direct.filter((turn) => turn.meta?.role !== "generation")))
+      .not.toContain("A private trace");
+
+    const projected = await projectStoryTree(loom, "Start");
+    const first = projected.root.continuations?.[0];
+    const second = first?.continuations?.[0];
+    expect(first?.generation?.reasoning?.text).toBe("A private trace");
+    expect(second?.generation).toBeUndefined();
+    expect(second?.generatedBy?.generationTurnId).toBe(generationTurns[0]?.id);
   });
 
   it("folds a mixed human+model loom into StoryNodes carrying origin/actor", async () => {

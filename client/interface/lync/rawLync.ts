@@ -240,6 +240,8 @@ export function projectRawLyncSources(
         author: local.actor ?? "unknown",
         via: local.via,
         generatedBy: local.generatedBy,
+        generation: local.generation,
+        generationRoot: local.generation ? true : undefined,
         revises: local.revises,
         portableRole: local.role,
         portableRevises: local.revisesRef,

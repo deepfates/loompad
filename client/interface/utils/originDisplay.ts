@@ -28,13 +28,14 @@ export function originDetail(node: StoryNode): string {
     `via: ${node.via ?? "unknown"}`,
   ];
   if (node.origin === "model" && node.generatedBy) {
-    const g = node.generatedBy;
+    const g = { ...node.generatedBy, ...(node.generation ?? {}) };
     const gen = [
       g.model && `model ${g.model}`,
       g.temperature !== undefined && `temp ${g.temperature}`,
       g.lengthMode && `length ${g.lengthMode}`,
       g.program && `program ${g.program}`,
       g.reasoningPolicy && `reasoning ${g.reasoningPolicy}`,
+      g.providerGenerationId && `provider generation ${g.providerGenerationId}`,
       g.reasoning?.text && `reasoning trace ${g.reasoning.text.length} chars`,
       g.reasoning?.details?.length &&
         `reasoning details ${g.reasoning.details.length} blocks`,
@@ -56,6 +57,8 @@ export function originDetail(node: StoryNode): string {
       `model ${selection.model}`,
       `program ${selection.program}`,
       `reasoning ${selection.reasoningPolicy}`,
+      selection.providerGenerationId &&
+        `provider generation ${selection.providerGenerationId}`,
       selection.reasoning?.text &&
         `reasoning trace ${selection.reasoning.text.length} chars`,
       selection.reasoning?.details?.length &&

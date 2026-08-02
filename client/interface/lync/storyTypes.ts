@@ -16,6 +16,7 @@ export type StoryTurnRole =
   | "prose"
   | "revision"
   | "critique"
+  | "generation"
   | "judge"
   | "summary"
   | "annotation"
@@ -28,11 +29,22 @@ export interface StoryGeneratedBy {
   temperature?: number;
   lengthMode?: string;
   textSplitting?: boolean;
+  /** Hidden Loom event containing the full receipt for this provider call. */
+  generationTurnId?: TurnId;
+  // Legacy Looms stored the full receipt directly on every prose turn.
   generationMode?: import("../../../shared/generation").GenerationMode;
   program?: string;
   reasoningPolicy?: import("../../../shared/generation").ReasoningPolicy;
   reasoning?: import("../../../shared/generation").GenerationReasoning;
   usage?: import("../../../shared/generation").GenerationUsage;
+}
+
+/** One durable provider call. Stored once on a hidden `generation` turn. */
+export interface StoryGenerationRecord extends StoryGeneratedBy {
+  generationMode: import("../../../shared/generation").GenerationMode;
+  program: string;
+  reasoningPolicy: import("../../../shared/generation").ReasoningPolicy;
+  providerGenerationId?: string;
 }
 
 export interface StoryJudgment {
@@ -41,6 +53,7 @@ export interface StoryJudgment {
   choiceIndex: number;
   program: string;
   reasoningPolicy: import("../../../shared/generation").ReasoningPolicy;
+  providerGenerationId?: string;
   reasoning?: import("../../../shared/generation").GenerationReasoning;
   usage?: import("../../../shared/generation").GenerationUsage;
 }
@@ -49,8 +62,13 @@ export interface StoryDraft {
   text: string;
   continuations?: StoryDraft[];
   generation?: Pick<
-    StoryGeneratedBy,
-    "generationMode" | "program" | "reasoningPolicy" | "reasoning" | "usage"
+    StoryGenerationRecord,
+    | "generationMode"
+    | "program"
+    | "reasoningPolicy"
+    | "providerGenerationId"
+    | "reasoning"
+    | "usage"
   >;
 }
 
@@ -75,6 +93,12 @@ export interface StoryTurnMeta extends TextStoryTurnMeta {
    * model origin — a human turn never carries it.
    */
   generatedBy?: StoryGeneratedBy;
+  /** Full receipt, present only on a hidden `role: "generation"` turn. */
+  generation?: StoryGenerationRecord;
+  /** Reference from generated prose to its one generation event. */
+  generationRef?: TurnId;
+  /** True only on the first prose turn emitted by the provider call. */
+  generationRoot?: boolean;
   revises?: TurnId;
   references?: TurnId[];
   respondsTo?: TurnId;

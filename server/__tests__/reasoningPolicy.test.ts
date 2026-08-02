@@ -65,6 +65,11 @@ describe("continuation reasoning capability", () => {
     ).toThrow("requires reasoning but advertises no usable effort");
   });
 
+  it("does not mistake a missing exact capability record for optional reasoning", () => {
+    expect(() => policyFromOpenRouterModel("provider/missing", { data: [] }))
+      .toThrow("no exact capability record");
+  });
+
   it("resolves the exact model rather than a fuzzy search neighbor", async () => {
     const policy = await resolveContinuationReasoningPolicy(
       "provider/exact",

@@ -106,4 +106,29 @@ describe("portable kept conversation", () => {
     expect(target?.annotations?.map((note) => note.text)).toEqual(["This is the hinge."]);
     expect(reopened.root.continuations).toHaveLength(1);
   });
+
+  it("carries a generated turn's full receipt once through export and reopen", async () => {
+    const generated = tree();
+    const target = generated.root.continuations?.[0]?.continuations?.[0];
+    if (!target) throw new Error("fixture target missing");
+    target.origin = "model";
+    target.generatedBy = { model: "provider/model", generationTurnId: "generation-1" };
+    target.generation = {
+      model: "provider/model",
+      generationMode: "completion",
+      program: "textile/raw-continuation-v2",
+      reasoningPolicy: "low",
+      providerGenerationId: "gen-provider-1",
+      reasoning: { text: "retained reasoning" },
+      usage: { totalTokens: 12, reasoningTokens: 3 },
+    };
+
+    const artifact = buildKeptConversationArtifact("Generated", generated, "loom:generated");
+    expect(artifact.manifest.turns.filter((turn) => turn.generation)).toHaveLength(1);
+    const imported = await importKeptConversationMarkdownText(artifact.markdown);
+    const reopened = await projectStoryTree(await openStoryLoom(imported.loomId));
+    const reopenedTarget = reopened.root.continuations?.[0]?.continuations?.[0];
+    expect(reopenedTarget?.generation).toEqual(target.generation);
+    expect(reopenedTarget?.generatedBy).toEqual(target.generatedBy);
+  });
 });

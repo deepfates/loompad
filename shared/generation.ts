@@ -34,6 +34,8 @@ export interface GenerationReceipt {
   mode: GenerationMode;
   program: string;
   reasoningPolicy: ReasoningPolicy;
+  /** Provider-assigned request identity for audit and later metadata lookup. */
+  providerGenerationId?: string;
   reasoning?: GenerationReasoning;
   usage?: GenerationUsage;
 }
