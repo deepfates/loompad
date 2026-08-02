@@ -31,6 +31,9 @@ train.
   metadata. Only install manifests and declared icons bypass the site gate; the
   app shell, service worker, and APIs remain protected. Public metadata and
   OpenRouter attribution now use the live `textile.quest` domain.
+- The visible Stories-drawer import picker now accepts multiple files like its
+  keyboard-triggered counterpart, so an ordered Lync manifest and its exact
+  source files can enter the existing authenticated source-set importer.
 - Relay history and editable model configuration now share one explicit
   runtime-data root (`TEXTILE_DATA_DIR`, default `.data`), allowing production
   to mount them durably while keeping the checked-in model catalog immutable.

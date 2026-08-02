@@ -14,6 +14,25 @@ const trees = {
 };
 
 describe("TreeListMenu story actions", () => {
+  it("allows the visible import action to select an ordered multi-file source set", () => {
+    const html = renderToStaticMarkup(
+      <TreeListMenu
+        trees={{}}
+        selectedIndex={1}
+        selectedColumn={1}
+        sortOrder="recent"
+        onToggleSort={() => {}}
+        onSelect={() => {}}
+        onImportFileChosen={() => {}}
+      />,
+    );
+
+    expect(html).toContain('aria-label="Import Archive"');
+    expect(html).toContain(" multiple=\"\"");
+    expect(html).toContain(".lync");
+    expect(html).toContain(".json");
+  });
+
   it("renders distinct, named link and thread actions with secondary exports grouped", () => {
     const html = renderToStaticMarkup(
       <TreeListMenu

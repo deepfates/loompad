@@ -385,6 +385,7 @@ export const TreeListMenu = ({
               <span className="story-action-label">Import Archive</span>
               <input
                 type="file"
+                multiple
                 className="story-import-control__input"
                 accept="application/zip,.zip,application/x-lync+jsonl,.lync,.jsonl,application/json,.json,text/markdown,.md"
                 aria-label="Import Archive"
