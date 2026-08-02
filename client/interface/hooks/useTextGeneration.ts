@@ -57,15 +57,11 @@ export function useTextGeneration() {
     ): Promise<GenerationReceipt> => {
       setError(null);
 
-      // Check if we're offline
-      if (!navigator.onLine) {
-        const offlineMessage =
-          "No internet connection - generation requires online access";
-        setError({ message: offlineMessage });
-        throw new Error(offlineMessage);
-      }
-
       try {
+        // Do not gate the request on navigator.onLine. Browsers and installed
+        // PWAs can report a stale offline value even when this origin is
+        // reachable. The fetch itself is the authoritative connectivity check,
+        // and its failure is translated into the visible network error below.
         const response = await fetch("/api/generate", {
           method: "POST",
           headers: {
