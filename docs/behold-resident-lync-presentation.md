@@ -4,7 +4,7 @@ Textile presents one declared Behold life profile without changing the source
 Lync. The domain contract is owned by Behold in
 `docs/RESIDENT_LYNC_PRESENTATION.md`; Lync implements the presenter consumed
 directly here through `@deepfates/lync/presentation`. The exact local package is
-from Lync commit `6e0734d5a5c7a321dfbf42970035a4d235d63a8a` and is checksum-bound in
+from Lync commit `860aa549727bdec7fda2ba1571c0a6be1c787aa8` and is checksum-bound in
 `vendor/LYNC-PROVENANCE.md`.
 
 ## Dispatch
@@ -13,7 +13,8 @@ Lync's presenter runs only for a causally inherited Loom profile of
 `org.behold.inhabitant.v1` or `org.behold.inhabitant.v2`. The root must declare
 `behold.entity-loom.v1`; each turn must declare both
 `behold.entity-turn-link.v1` on the outer `lync/turn` payload and
-`behold.entity-turn.v1` on its nested EntityTurn. The turn's body and action
+`behold.entity-turn.v1` or `behold.entity-cognition-turn.v1` on its nested
+private-life event. The event's body and action
 profiles must both be exactly `minecraft-human-semantic-v1`.
 
 There is no recursive text search and no generic fallback after this profile
@@ -31,6 +32,10 @@ renders the returned public sections:
 - `utterance.assistant.content` only when it is a nonempty public string;
 - action name, known action-specific input, source, and kind; and
 - success/failure event plus known action-specific outcome evidence.
+
+An explicit cognition event presents its admitted perception and “chose no
+bodily action.” It has no action, outcome, or terminal observation; the reader
+rejects a cognition record that invents any of those fields.
 
 Provider-private reasoning, request/response bodies, transport evidence,
 controller state, absolute coordinates, stable hidden identifiers, navigation

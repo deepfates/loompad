@@ -134,7 +134,8 @@ Textile reads raw corpus events through Lync's non-mutating, kind/profile-aware
 presentation contract. The same contract is consumed by Splice and Curare; the
 checksum-pinned Lync package keeps this private app installable before Lync 0.4
 publication. For Behold `org.behold.inhabitant.v1` and `.v2`, it presents the safe
-resident perception/action/outcome allowlist, preserves the original source
+resident perception/action/outcome allowlist plus explicit non-action cognition,
+preserves the original source
 events for full-tree export, and fails closed for unknown nested shapes. See
 [the Behold resident Lync presentation boundary](docs/behold-resident-lync-presentation.md).
 
