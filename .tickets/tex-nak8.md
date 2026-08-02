@@ -35,3 +35,10 @@ Episode 000003 adversarial projection found one further current-v2 gap: use_focu
 **2026-08-01T23:52:53Z**
 
 Episode 000003 now projects its exact 10,133,930-byte two-source prefix set as 212 source events: 210 readable resident turns plus two structural roots, with zero unsupported events, zero nonconforming lines, and zero unsupported_* diagnostics. Focused test 26/26; full 212 pass/1 scale skip; lint and production build pass. Lync upstream ownership is tracked as lyn-cnew.
+
+**2026-08-02T08:21:50Z**
+
+Removed Textile's now-redundant Behold v2 presenter overlay. Textile now consumes
+the checksum-pinned Lync package from canonical commit `6e0734d` directly. Exact
+episode 000014 projects all 692 source events with no unsupported or unclaimed
+event; Textile retains only its reader, grouping, and storage responsibilities.

@@ -5,7 +5,7 @@ export type {
   LyncPresentationRole as RawLyncPresentationRole,
   LyncPresentationSection as RawLyncPresentationSection,
   LyncPresentationSource as RawLyncPresentationSource,
-} from "../../../vendor/lync-presentation/index.js";
+} from "@deepfates/lync/presentation";
 
 /**
  * Compact on-Loom form for a presentation section. When a section is exactly
@@ -14,9 +14,9 @@ export type {
  * expands this marker back to the public Lync presentation shape.
  */
 export type StoredRawLyncPresentationSection =
-  | import("../../../vendor/lync-presentation/index.js").LyncPresentationSection
+  | import("@deepfates/lync/presentation").LyncPresentationSection
   | {
-      role: import("../../../vendor/lync-presentation/index.js").LyncPresentationRole;
+      role: import("@deepfates/lync/presentation").LyncPresentationRole;
       sourcePaths: string[];
       sameAsTurnText: true;
     };

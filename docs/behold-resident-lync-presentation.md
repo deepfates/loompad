@@ -1,11 +1,11 @@
 # Behold resident Lync presentation
 
 Textile presents one declared Behold life profile without changing the source
-Lync. The domain contract is owned by Behold at commit
-`a95491b55da6bb716b858ff88e8cfa7e7429b6f0` in
-`docs/RESIDENT_LYNC_PRESENTATION.md`; Lync implements the exact presenter at
-commit `fee7adc14f0038d9d0be51bd16b930659ffae1f8`, and this file records
-Textile's consumption and the boundary actually exercised here.
+Lync. The domain contract is owned by Behold in
+`docs/RESIDENT_LYNC_PRESENTATION.md`; Lync implements the presenter consumed
+directly here through `@deepfates/lync/presentation`. The exact local package is
+from Lync commit `6e0734d5a5c7a321dfbf42970035a4d235d63a8a` and is checksum-bound in
+`vendor/LYNC-PROVENANCE.md`.
 
 ## Dispatch
 
@@ -22,7 +22,8 @@ action input remains unsupported or receives a named source-path diagnostic.
 
 ## Derived reading
 
-Textile can derive these sections from the ratified allowlist:
+Lync derives these sections from the ratified allowlist; Textile groups and
+renders the returned public sections:
 
 - perceptions before and after the action: HUD condition and inventory,
   player-list/chat/event information, visible entity semantics, focus, and
@@ -63,6 +64,9 @@ The browser regression imports it, reads the resident root and first turn,
 navigates both source ids in MAP, performs the ordinary full-tree JSON export,
 and proves that the exported `sourceEvent` records reproduce those fixture
 bytes exactly.
+
+The exact Behold episode 000014 ordered source set exercises the direct package
+boundary across 692 source events with no unsupported or unclaimed event.
 
 This shared presentation contract does not change Keep/export meaning,
 Backspace editing, MAP focus, or Textile's first-parent reading path. Typed

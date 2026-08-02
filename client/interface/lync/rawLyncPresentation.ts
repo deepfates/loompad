@@ -1,13 +1,14 @@
 import type { LyncEventBody } from "@deepfates/lync/events";
 import {
-  BEHOLD_INHABITANT_PROFILE,
   presentLyncEvent,
-  resolveLyncPresentationProfiles,
   type LyncPresentation,
   type LyncPresentationContext,
-} from "../../../vendor/lync-presentation/index.js";
+} from "@deepfates/lync/presentation";
 
-export { BEHOLD_INHABITANT_PROFILE, resolveLyncPresentationProfiles };
+export {
+  BEHOLD_INHABITANT_PROFILE,
+  resolveLyncPresentationProfiles,
+} from "@deepfates/lync/presentation";
 
 export type {
   LyncPresentation as RawLyncPresentation,
@@ -16,7 +17,7 @@ export type {
   LyncPresentationRole as RawLyncPresentationRole,
   LyncPresentationSection as RawLyncPresentationSection,
   LyncPresentationSource as RawLyncPresentationSource,
-} from "../../../vendor/lync-presentation/index.js";
+} from "@deepfates/lync/presentation";
 
 export type RawLyncPresentationContext = LyncPresentationContext;
 
