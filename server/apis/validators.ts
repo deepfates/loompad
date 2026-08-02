@@ -1,4 +1,5 @@
 import type { LengthMode } from "../../shared/lengthPresets";
+import type { GenerationMode } from "../../shared/generation";
 import type { ModelConfig } from "../../shared/models";
 
 const LENGTH_MODES: ReadonlySet<LengthMode> = new Set([
@@ -153,7 +154,7 @@ export interface ModelPayload {
 
 export function validateModelPayload(
   body: unknown,
-  opts: { requireId: boolean },
+  opts: { requireId: boolean; fallbackGenerationMode?: GenerationMode },
 ): ValidationResult<ModelPayload> {
   if (!isRecord(body)) {
     return { ok: false, error: "Request body must be an object" };
@@ -163,7 +164,7 @@ export function validateModelPayload(
   const name = body.name;
   const maxTokens = body.maxTokens;
   const defaultTemp = body.defaultTemp;
-  const generationMode = body.generationMode;
+  const generationMode = body.generationMode ?? opts.fallbackGenerationMode;
 
   if (opts.requireId) {
     if (typeof id !== "string" || !id.trim()) {

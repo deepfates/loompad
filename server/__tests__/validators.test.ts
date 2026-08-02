@@ -85,6 +85,62 @@ describe("validateModelPayload", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts the pre-generation-mode payload with an explicit legacy fallback", () => {
+    const result = validateModelPayload(
+      {
+        id: "provider/legacy-model",
+        name: "Legacy Model",
+        maxTokens: 1024,
+        defaultTemp: 0.7,
+      },
+      { requireId: true, fallbackGenerationMode: "completion" },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        id: "provider/legacy-model",
+        config: {
+          name: "Legacy Model",
+          maxTokens: 1024,
+          defaultTemp: 0.7,
+          generationMode: "completion",
+        },
+      },
+    });
+  });
+
+  it("rejects an unknown generation mode even when a fallback exists", () => {
+    const result = validateModelPayload(
+      {
+        id: "provider/model",
+        name: "Model",
+        maxTokens: 1024,
+        defaultTemp: 0.7,
+        generationMode: "base",
+      },
+      { requireId: true, fallbackGenerationMode: "completion" },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "generationMode must be completion or instruction",
+    });
+  });
+
+  it("uses the supplied existing mode for a legacy edit", () => {
+    const result = validateModelPayload(
+      {
+        name: "Edited Model",
+        maxTokens: 2048,
+        defaultTemp: 0.5,
+      },
+      { requireId: false, fallbackGenerationMode: "instruction" },
+    );
+
+    expect(result.ok && result.value.config.generationMode).toBe("instruction");
+  });
+
   it("rejects invalid max token values", () => {
     const result = validateModelPayload(
       {

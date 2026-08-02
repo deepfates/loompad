@@ -83,6 +83,7 @@ export function useModels() {
         cachedError = null;
         hasFetchedModels = true;
         setModels(nextModels);
+        setError(null);
       }
       return nextModels;
     },
@@ -121,15 +122,9 @@ export function useModels() {
         });
         const nextModels = await handleModelsResponse(response);
         return nextModels;
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "An error occurred while creating the model";
-        cachedError = message;
-        setError(message);
-        throw err;
       } finally {
+        // Mutation failures are presented by the editor that caused them; they
+        // must not become persistent catalog-load failures here.
         setSaving(false);
       }
     },
@@ -150,15 +145,8 @@ export function useModels() {
         });
         const nextModels = await handleModelsResponse(response);
         return nextModels;
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "An error occurred while updating the model";
-        cachedError = message;
-        setError(message);
-        throw err;
       } finally {
+        // Keep the successfully loaded catalog usable after a failed edit.
         setSaving(false);
       }
     },
@@ -175,15 +163,8 @@ export function useModels() {
         });
         const nextModels = await handleModelsResponse(response);
         return nextModels;
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "An error occurred while deleting the model";
-        cachedError = message;
-        setError(message);
-        throw err;
       } finally {
+        // Keep the successfully loaded catalog usable after a failed delete.
         setSaving(false);
       }
     },

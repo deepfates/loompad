@@ -34,6 +34,10 @@ train.
 - The visible Stories-drawer import picker now accepts multiple files like its
   keyboard-triggered counterpart, so an ordered Lync manifest and its exact
   source files can enter the existing authenticated source-set importer.
+- Model mutations from a cached pre-generation-mode client remain compatible:
+  new legacy entries become transparent raw continuations, while legacy edits
+  retain the existing mode. Invalid explicit modes still fail validation, and
+  save failures are no longer mislabeled as catalog-load failures.
 - Relay history and editable model configuration now share one explicit
   runtime-data root (`TEXTILE_DATA_DIR`, default `.data`), allowing production
   to mount them durably while keeping the checked-in model catalog immutable.

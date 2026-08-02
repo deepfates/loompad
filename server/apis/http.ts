@@ -7,6 +7,7 @@ import { generateText } from "./generation";
 import { judgeContinuation } from "./judge";
 import {
   getModels,
+  getModel,
   createModel,
   updateModel,
   deleteModel,
@@ -47,7 +48,12 @@ export function setup_routes(app: Application) {
     requireApiAuth,
     modelMutationRateLimit,
     (req, res) => {
-      const parsed = validateModelPayload(req.body, { requireId: true });
+      const parsed = validateModelPayload(req.body, {
+        requireId: true,
+        // Clients cached before generation modes became explicit did not send
+        // this field. Raw continuation is the non-instructional legacy mode.
+        fallbackGenerationMode: "completion",
+      });
       if (!parsed.ok) {
         return res.status(400).json({ error: parsed.error });
       }
@@ -73,7 +79,11 @@ export function setup_routes(app: Application) {
       if (!targetId) {
         return res.status(400).json({ error: "Model ID is required" });
       }
-      const parsed = validateModelPayload(req.body, { requireId: false });
+      const parsed = validateModelPayload(req.body, {
+        requireId: false,
+        // A legacy edit should not silently change an existing model's mode.
+        fallbackGenerationMode: getModel(targetId)?.generationMode ?? "completion",
+      });
       if (!parsed.ok) {
         return res.status(400).json({ error: parsed.error });
       }
