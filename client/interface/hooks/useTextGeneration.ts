@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { ModelId } from "../../../shared/models";
 import type { LengthMode } from "../../../shared/lengthPresets";
+import type { GenerationReceipt } from "../../../shared/generation";
 
 interface GenerationOptions {
   model: ModelId;
@@ -53,7 +54,7 @@ export function useTextGeneration() {
       options: GenerationOptions,
       onToken: (token: string) => void,
       onComplete: () => void,
-    ) => {
+    ): Promise<GenerationReceipt> => {
       setError(null);
 
       // Check if we're offline
@@ -80,6 +81,22 @@ export function useTextGeneration() {
           const error = await response.json();
           throw new Error(error.error || "Failed to generate text");
         }
+
+        const mode = response.headers.get("X-Textile-Generation-Mode");
+        const program = response.headers.get("X-Textile-Generation-Program");
+        const reasoningPolicy = response.headers.get(
+          "X-Textile-Reasoning-Policy",
+        );
+        if (
+          (mode !== "completion" && mode !== "instruction") ||
+          !program ||
+          (reasoningPolicy !== "none" && reasoningPolicy !== "low")
+        ) {
+          throw new Error(
+            "Generation response omitted its mode, program, or reasoning policy",
+          );
+        }
+        let receipt: GenerationReceipt = { mode, program, reasoningPolicy };
 
         const reader = response.body?.getReader();
         if (!reader) {
@@ -108,11 +125,16 @@ export function useTextGeneration() {
               continue;
             }
 
-            let payload: { content?: string; error?: string };
+            let payload: {
+              content?: string;
+              error?: string;
+              receipt?: GenerationReceipt;
+            };
             try {
               payload = JSON.parse(message) as {
                 content?: string;
                 error?: string;
+                receipt?: GenerationReceipt;
               };
             } catch (e) {
               console.error("Failed to parse SSE message:", e);
@@ -123,11 +145,25 @@ export function useTextGeneration() {
               throw new Error(payload.error);
             }
 
+            if (payload.receipt) {
+              if (
+                payload.receipt.mode !== mode ||
+                payload.receipt.program !== program ||
+                payload.receipt.reasoningPolicy !== reasoningPolicy
+              ) {
+                throw new Error(
+                  "Generation receipt disagreed with its response headers",
+                );
+              }
+              receipt = payload.receipt;
+            }
+
             if (payload.content) {
               onToken(payload.content);
             }
           }
         }
+        return receipt;
       } catch (error: unknown) {
         const errorMessage = formatGenerationErrorMessage(error);
         setError({ message: errorMessage });

@@ -52,6 +52,18 @@ describe("StoryText prose surface", () => {
     expect(html).toContain('data-origin="model"');
   });
 
+  it("renders an explicit prose seam without changing either stored turn", () => {
+    const noLeadingSpace: StoryNode = {
+      ...model,
+      text: "The model starts a new sentence.",
+    };
+    const html = render([human, noLeadingSpace], 1);
+    expect(html).toContain(
+      'data-node-id="m" data-source-text-length="32"> <span',
+    );
+    expect(noLeadingSpace.text).toBe("The model starts a new sentence.");
+  });
+
   it("tags every rendered turn with a machine-legible data-actor and data-via", () => {
     // Authorship (the PERSON's actor, separate from the controller via) is
     // legible in the DOM per turn, paralleling data-origin — so an outside

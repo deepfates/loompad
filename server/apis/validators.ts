@@ -163,6 +163,7 @@ export function validateModelPayload(
   const name = body.name;
   const maxTokens = body.maxTokens;
   const defaultTemp = body.defaultTemp;
+  const generationMode = body.generationMode;
 
   if (opts.requireId) {
     if (typeof id !== "string" || !id.trim()) {
@@ -192,6 +193,13 @@ export function validateModelPayload(
     return { ok: false, error: "defaultTemp must be between 0 and 2" };
   }
 
+  if (generationMode !== "completion" && generationMode !== "instruction") {
+    return {
+      ok: false,
+      error: "generationMode must be completion or instruction",
+    };
+  }
+
   return {
     ok: true,
     value: {
@@ -200,6 +208,7 @@ export function validateModelPayload(
         name: name.trim(),
         maxTokens,
         defaultTemp,
+        generationMode,
       },
     },
   };

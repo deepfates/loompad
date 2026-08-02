@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import type { GeneratingInfo, InFlight, StoryNode } from "../types";
-import { appendStoryDrafts } from "../lync/storyLoom";
+import { appendJudgeDecision, appendStoryDrafts } from "../lync/storyLoom";
 import { getStoryAuthorship, type StoryLoom } from "../lync/storyRuntime";
 import type { StoryDraft } from "../lync/storyTypes";
 import { setPreferredChildIndex } from "../lync/storySessionState";
 import type { StoryParams } from "../hooks/useStoryTree";
+import type { ContinuationJudgment } from "../hooks/useStoryGeneration";
 
 const AUTO_MODE_INFINITY_VALUE = 4;
 const MAX_AUTO_MODE_ITERATIONS = 25;
@@ -17,7 +18,7 @@ interface UseAutoStoryModeParams {
     path: StoryNode[],
     candidates: StoryNode[],
     params: StoryParams,
-  ) => Promise<number | null>;
+  ) => Promise<ContinuationJudgment | null>;
   generateContinuation: (
     path: StoryNode[],
     depth: number,
@@ -147,11 +148,12 @@ export function useAutoStoryMode({
           break;
         }
 
-        const choiceIndex = await chooseContinuation(
+        const decision = await chooseContinuation(
           pathNodes,
           candidateNodes,
           params,
         );
+        const choiceIndex = decision?.choice ?? null;
 
         if (
           choiceIndex === null ||
@@ -163,6 +165,22 @@ export function useAutoStoryMode({
 
         const selectedNode = candidateNodes[choiceIndex];
         if (!selectedNode) break;
+
+        await appendJudgeDecision(
+          loom,
+          parentNode.id,
+          candidateNodes.map((candidate) => candidate.id),
+          selectedNode.id,
+          {
+            model: decision.model,
+            temperature: decision.temperature,
+            choiceIndex,
+            program: decision.program,
+            reasoningPolicy: decision.reasoningPolicy,
+            ...(decision.usage ? { usage: decision.usage } : {}),
+          },
+          getStoryAuthorship(),
+        );
 
         const selectedSiblingIndex =
           parentNode.continuations?.findIndex(

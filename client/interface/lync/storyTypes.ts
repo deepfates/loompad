@@ -12,11 +12,6 @@ export type StoryTurnPayload = TextStoryTurnPayload;
 export type StoryLoomMeta = TextStoryLoomMeta;
 export type StoryEntryMeta = { title: string };
 
-export interface StoryDraft {
-  text: string;
-  continuations?: StoryDraft[];
-}
-
 export type StoryTurnRole =
   | "prose"
   | "revision"
@@ -33,6 +28,28 @@ export interface StoryGeneratedBy {
   temperature?: number;
   lengthMode?: string;
   textSplitting?: boolean;
+  generationMode?: import("../../../shared/generation").GenerationMode;
+  program?: string;
+  reasoningPolicy?: import("../../../shared/generation").ReasoningPolicy;
+  usage?: import("../../../shared/generation").GenerationUsage;
+}
+
+export interface StoryJudgment {
+  model: string;
+  temperature: number;
+  choiceIndex: number;
+  program: string;
+  reasoningPolicy: import("../../../shared/generation").ReasoningPolicy;
+  usage?: import("../../../shared/generation").GenerationUsage;
+}
+
+export interface StoryDraft {
+  text: string;
+  continuations?: StoryDraft[];
+  generation?: Pick<
+    StoryGeneratedBy,
+    "generationMode" | "program" | "reasoningPolicy" | "usage"
+  >;
 }
 
 export interface StoryTurnMeta extends TextStoryTurnMeta {
@@ -59,6 +76,8 @@ export interface StoryTurnMeta extends TextStoryTurnMeta {
   revises?: TurnId;
   references?: TurnId[];
   respondsTo?: TurnId;
+  /** Present only on a judge turn; references preserve candidate order. */
+  judgment?: StoryJudgment;
 }
 
 export type StoryLoom = Loom<StoryTurnPayload, StoryLoomMeta, StoryTurnMeta>;

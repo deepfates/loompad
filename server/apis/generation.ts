@@ -1,128 +1,119 @@
 import type { Request, Response } from "express";
+
+import {
+  CONTINUATION_REASONING_POLICY,
+  generationProgramForMode,
+  type GenerationReceipt,
+} from "../../shared/generation";
 import type { ModelId } from "../../shared/models";
-import { getModel } from "../modelsStore";
 import {
   DEFAULT_LENGTH_MODE,
   LENGTH_PRESETS,
   type LengthMode,
 } from "../../shared/lengthPresets";
+import { config } from "../config";
+import { getModel } from "../modelsStore";
+import type { ModelConfig } from "../../shared/models";
 import {
-  ENDING_NEWLINE_RE,
-  ENDING_WHITESPACE_RE,
-  NON_WHITESPACE_RE,
-} from "../../shared/textSeams";
+  defaultGenerationBackends,
+  getGenerationBackend,
+  type GenerationBackends,
+} from "./generation.backends";
 import {
-  getBoundaryRegex as helperGetBoundaryRegex,
-  findBoundaryCutoff as helperFindBoundaryCutoff,
-  normalizeJoin as helperNormalizeJoin,
-  prepareGeneratedText,
+  findBoundaryCutoff,
+  findWordCutoff,
+  getBoundaryRegex,
 } from "./generation.helpers";
 import { validateGenerateRequestBody } from "./validators";
 
-import { openai } from "./openaiClient";
-import { config } from "../config";
+const STREAM_BOUNDARY_LOOKBEHIND = 32;
 
-// Boundary regex is provided by helpers to keep API lean
-function getBoundaryRegex(mode: LengthMode): RegExp | null {
-  return helperGetBoundaryRegex(mode);
+function writeContent(res: Response, content: string): void {
+  if (content) {
+    res.write(`data: ${JSON.stringify({ content })}\n\n`);
+  }
 }
 
-// Find the first boundary whose end is beyond sentIndex (delegated to helpers)
-function findBoundaryCutoff(
-  accumulated: string,
-  sentIndex: number,
-  rx: RegExp,
-): number | null {
-  return helperFindBoundaryCutoff(accumulated, sentIndex, rx);
-}
-
-type JoinState = {
-  hasEmittedAny: boolean;
-  endedWithWhitespace: boolean;
-  endedWithNewline: boolean;
-};
-
-// Normalize join delegated to helpers for consistency across client/server
-function normalizeJoin(prev: JoinState, segment: string): string {
-  return helperNormalizeJoin(prev, segment);
-}
-
-// Tests should import helpers directly from ./generation.helpers; no __test export
-
-export async function generateText(req: Request, res: Response) {
+export async function generateTextWithBackends(
+  req: Request,
+  res: Response,
+  backends: GenerationBackends,
+  modelLookup: (model: ModelId) => ModelConfig | undefined = getModel,
+): Promise<Response | void> {
   let ended = false;
   let clientDisconnected = false;
+  let activeAbortController: AbortController | null = null;
+
+  let receipt: GenerationReceipt | null = null;
+
+  const finish = () => {
+    if (ended) return;
+    if (receipt) {
+      res.write(`data: ${JSON.stringify({ receipt })}\n\n`);
+    }
+    res.write("data: [DONE]\n\n");
+    res.end();
+    ended = true;
+  };
 
   try {
     if (!config.openRouterApiKey) {
       return res.status(503).json({
-        error: "Generation is disabled. Set OPENROUTER_API_KEY to generate; local corpus reading and curation remain available.",
+        error:
+          "Generation is disabled. Set OPENROUTER_API_KEY to generate; local corpus reading and curation remain available.",
       });
     }
-    const parsed = validateGenerateRequestBody(req.body);
-    if (!parsed.ok) {
-      return res.status(400).json({ error: parsed.error });
-    }
-    const { prompt, model, temperature, maxTokens, lengthMode } = parsed.value;
 
-    const modelConfig = getModel(model as ModelId);
+    const parsed = validateGenerateRequestBody(req.body);
+    if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+
+    const { prompt, model, temperature, maxTokens, lengthMode } = parsed.value;
+    const modelConfig = modelLookup(model as ModelId);
     if (!modelConfig) {
       return res.status(400).json({ error: "Invalid model specified" });
     }
 
     const mode = lengthMode ?? DEFAULT_LENGTH_MODE;
     const preset = LENGTH_PRESETS[mode] ?? LENGTH_PRESETS[DEFAULT_LENGTH_MODE];
-
-    const modelMaxTokens = modelConfig.maxTokens;
-
-    const presetMaxTokens = preset.maxTokens;
-    const requestedMaxTokens = maxTokens ?? presetMaxTokens;
     const maxTokensToUse = Math.max(
       1,
-      Math.min(modelMaxTokens, presetMaxTokens, requestedMaxTokens),
+      Math.min(
+        modelConfig.maxTokens,
+        preset.maxTokens,
+        maxTokens ?? preset.maxTokens,
+      ),
     );
-
-    // Build boundary matcher (server-side semantic stopping)
-    const boundaryRegex = getBoundaryRegex(mode);
-
-    const completionParams = {
-      model,
-      prompt: [
-        "Continue the story directly from the supplied text.",
-        "Return only prose that belongs in the story.",
-        "Do not include assistant preambles, explanations, labels, or Markdown emphasis.",
-        "",
-        prompt,
-      ].join("\n"),
-      temperature: temperature ?? modelConfig.defaultTemp,
-      max_tokens: maxTokensToUse,
-      // Omit upstream 'stop'; semantic stopping is handled server-side via boundary detection.
-      stream: true,
-    } as const;
+    const generationMode = modelConfig.generationMode;
+    const program = generationProgramForMode(generationMode);
+    receipt = {
+      mode: generationMode,
+      program,
+      reasoningPolicy: CONTINUATION_REASONING_POLICY,
+    };
+    const abortController = new AbortController();
+    activeAbortController = abortController;
 
     console.log("[OpenRouter] Request:", {
       model,
+      generation_mode: generationMode,
+      program,
       max_tokens: maxTokensToUse,
-      temperature: completionParams.temperature,
+      temperature: temperature ?? modelConfig.defaultTemp,
       prompt_length: prompt.length,
       prompt_preview: prompt.slice(-100),
     });
 
-    // Set up SSE headers
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Textile-Generation-Mode", generationMode);
+    res.setHeader("X-Textile-Generation-Program", program);
+    res.setHeader(
+      "X-Textile-Reasoning-Policy",
+      CONTINUATION_REASONING_POLICY,
+    );
     res.flushHeaders();
 
-    // End helpers
-    let activeAbortController: AbortController | null = null;
-    const endEarly = () => {
-      if (!ended) {
-        res.write("data: [DONE]\n\n");
-        res.end();
-        ended = true;
-      }
-    };
     res.on("close", () => {
       if (!ended && !res.writableEnded) {
         clientDisconnected = true;
@@ -131,169 +122,88 @@ export async function generateText(req: Request, res: Response) {
       }
     });
 
-    // Owner ruling 2026-07-06: NEVER discard generations invisibly. Chat-model slop
-    // is visible and we generate past it. Retries stay off (loop runs once).
-    const MAX_PREAMBLE_RETRIES = 0;
-    for (let attempt = 0; attempt <= MAX_PREAMBLE_RETRIES && !ended; attempt++) {
-      const abortController = new AbortController();
-      activeAbortController = abortController;
-      const stream = await openai.completions.create(completionParams, {
-        signal: abortController.signal,
-      });
+    const backend = getGenerationBackend(backends, generationMode);
+    const stream = backend({
+      model,
+      storySoFar: prompt,
+      temperature: temperature ?? modelConfig.defaultTemp,
+      maxTokens: maxTokensToUse,
+      signal: abortController.signal,
+    });
 
-      // Stream state
-      let accumulated = "";
-      let sentIndex = 0;
-      const joinState: JoinState = {
-        hasEmittedAny: false,
-        endedWithWhitespace: false,
-        endedWithNewline: false,
-      };
+    const boundaryRegex = getBoundaryRegex(mode);
+    let accumulated = "";
+    let sentIndex = 0;
 
-      console.log("[OpenRouter] Stream started", { attempt: attempt + 1 });
+    for await (const event of stream) {
+      if (ended) continue;
+      if (event.type === "usage") {
+        if (receipt) receipt = { ...receipt, usage: event.usage };
+        continue;
+      }
+      const delta = event.text;
+      if (!delta) continue;
+      accumulated += delta;
 
-      // Whether we've emitted at least one non-whitespace character
-      let hasEmittedNonWhitespace = false;
-
-      // Track if we've seen any non-whitespace in word mode
-      let wordModeBuffer = "";
-
-      for await (const chunk of stream) {
-        // Log usage if present (often in final chunk)
-        const usage = (chunk as { usage?: unknown }).usage;
-        if (usage !== undefined) {
-          console.log("[OpenRouter] Usage:", usage);
+      if (mode === "word") {
+        const cutoff = findWordCutoff(accumulated);
+        if (cutoff !== null) {
+          writeContent(res, accumulated.slice(0, cutoff));
+          // Returning closes the async iterator. Explicitly aborting Ax here
+          // dispatches an unhandled AbortError from its stream listener under
+          // Bun and can terminate the whole Textile server.
+          finish();
+          return;
         }
-
-        const delta = chunk.choices?.[0]?.text ?? "";
-        if (delta) {
-          // Debug logging for content flow
-          // console.log(`[OpenRouter] Chunk: ${JSON.stringify(delta)}`);
-        }
-
-        if (!delta) continue;
-
-        accumulated += delta;
-        const prepared = prepareGeneratedText(prompt, accumulated);
-
-        // Special handling for word mode: emit complete tokens
-        if (mode === "word") {
-          wordModeBuffer = prepared.slice(sentIndex);
-
-          // If this token contains non-whitespace, we've found our word
-          if (NON_WHITESPACE_RE.test(wordModeBuffer)) {
-            // Emit the accumulated buffer
-            // In word mode, preserve whitespace as generated (it acts as the separator)
-            const toSend = wordModeBuffer;
-
-            if (toSend) {
-              res.write(`data: ${JSON.stringify({ content: toSend })}\n\n`);
-              joinState.hasEmittedAny = true;
-              joinState.endedWithNewline = ENDING_NEWLINE_RE.test(toSend);
-              joinState.endedWithWhitespace = ENDING_WHITESPACE_RE.test(toSend);
-
-              // Abort and end - we've emitted one word
-              console.log("[OpenRouter] Word mode satisfied, aborting");
-              abortController.abort();
-              endEarly();
-              return;
-            }
-          }
-          continue;
-        }
-
-        // Check for boundary (non-word modes)
-        if (boundaryRegex) {
-          const cutoff = findBoundaryCutoff(
-            prepared,
-            sentIndex,
-            boundaryRegex,
-          );
-          if (cutoff !== null) {
-            console.log("[OpenRouter] Hit boundary match at index:", cutoff);
-
-            let toSend = prepared.slice(sentIndex, cutoff);
-
-            // Normalize join across seam
-            toSend = normalizeJoin(joinState, toSend);
-
-            // Only prevent empty result; do not strip valid whitespace if we've already emitted words
-            const containsNonWs = NON_WHITESPACE_RE.test(toSend);
-            if (toSend && (containsNonWs || hasEmittedNonWhitespace)) {
-              res.write(`data: ${JSON.stringify({ content: toSend })}\n\n`);
-              joinState.hasEmittedAny = true;
-              if (NON_WHITESPACE_RE.test(toSend)) hasEmittedNonWhitespace = true;
-              joinState.endedWithNewline = ENDING_NEWLINE_RE.test(toSend);
-              joinState.endedWithWhitespace = ENDING_WHITESPACE_RE.test(toSend);
-            }
-
-            // Abort upstream and end stream
-            console.log("[OpenRouter] Aborting stream due to boundary");
-            abortController.abort();
-            endEarly();
-            return;
-          }
-        }
-
-        // No boundary yet; stream what we have since last send
-        let segment = prepared.slice(sentIndex);
-        if (segment) {
-          // Avoid emitting purely leading whitespace when nothing has been emitted at all and no non-whitespace yet
-          if (!joinState.hasEmittedAny && !NON_WHITESPACE_RE.test(segment)) {
-            // Buffer until we see content; don't emit whitespace-only lead
-            continue;
-          }
-
-          // Normalize join to avoid duplicated spaces/newlines across chunk seams
-          segment = normalizeJoin(joinState, segment);
-
-          // Emit
-          if (segment) {
-            res.write(`data: ${JSON.stringify({ content: segment })}\n\n`);
-            joinState.hasEmittedAny = true;
-            if (NON_WHITESPACE_RE.test(segment)) hasEmittedNonWhitespace = true;
-            joinState.endedWithNewline = ENDING_NEWLINE_RE.test(segment);
-            joinState.endedWithWhitespace = ENDING_WHITESPACE_RE.test(segment);
-            sentIndex = prepared.length;
-          }
-        }
+        continue;
       }
 
-
-      // Upstream finished without hitting our boundary; flush remaining buffer (if any) then close out
-      if (!ended) {
-        console.log("[OpenRouter] Stream finished naturally");
-        const remaining = prepareGeneratedText(prompt, accumulated).slice(sentIndex);
-        if (remaining) {
-          const segment = normalizeJoin(joinState, remaining);
-          if (segment) {
-            res.write(`data: ${JSON.stringify({ content: segment })}\n\n`);
-          }
+      if (boundaryRegex) {
+        const cutoff = findBoundaryCutoff(accumulated, 0, boundaryRegex);
+        if (cutoff !== null) {
+          writeContent(res, accumulated.slice(sentIndex, cutoff));
+          // Let async-iterator cleanup cancel the unread remainder. Ax's abort
+          // listener can otherwise reject outside this request's try/catch.
+          finish();
+          return;
         }
-        res.write("data: [DONE]\n\n");
-        res.end();
-        ended = true;
+
+        const safeEnd = Math.max(
+          sentIndex,
+          accumulated.length - STREAM_BOUNDARY_LOOKBEHIND,
+        );
+        writeContent(res, accumulated.slice(sentIndex, safeEnd));
+        sentIndex = safeEnd;
       }
+    }
+
+    if (!ended) {
+      writeContent(res, accumulated.slice(sentIndex));
+      finish();
     }
   } catch (error: unknown) {
     if (ended) return;
 
     console.error("Generation error:", error);
-
     const errorMessage =
       error instanceof Error
         ? error.message
         : "An error occurred during text generation";
 
-    // If headers haven't been sent, send error response
     if (!res.headersSent) {
-      res.status(500).json({ error: errorMessage });
-    } else if (!clientDisconnected && !res.writableEnded) {
-      // If streaming has started, send error in stream format before closing.
+      return res.status(500).json({ error: errorMessage });
+    }
+    if (!clientDisconnected && !res.writableEnded) {
       res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
       res.end();
-    } else {
-      res.end();
+      ended = true;
+      return;
     }
+    res.end();
+    ended = true;
   }
+}
+
+export async function generateText(req: Request, res: Response) {
+  return generateTextWithBackends(req, res, defaultGenerationBackends);
 }

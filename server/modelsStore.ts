@@ -9,21 +9,19 @@ const DEFAULT_MODELS: AvailableModels = {
     name: "Llama 3.1 405B",
     maxTokens: 1024,
     defaultTemp: 0.7,
-  },
-  "deepseek/deepseek-v3.1-base": {
-    name: "DeepSeek V3.1",
-    maxTokens: 1024,
-    defaultTemp: 0.7,
+    generationMode: "instruction",
   },
   "moonshotai/kimi-k2": {
     name: "Kimi K2 0711",
     maxTokens: 1024,
     defaultTemp: 0.7,
+    generationMode: "instruction",
   },
   "google/gemini-3-pro-preview": {
     name: "Gemini 3 Pro (preview)",
     maxTokens: 1024,
     defaultTemp: 0.7,
+    generationMode: "instruction",
   },
 };
 
@@ -44,7 +42,17 @@ function loadModelsFromDisk(): AvailableModels {
     if (!parsed || typeof parsed !== "object") {
       return { ...DEFAULT_MODELS };
     }
-    return parsed;
+    return Object.fromEntries(
+      Object.entries(parsed).map(([id, model]) => [
+        id,
+        {
+          ...model,
+          // Old private catalogs predate the explicit boundary. Raw continuation
+          // is the only safe fallback because it does not add hidden instructions.
+          generationMode: model.generationMode ?? "completion",
+        },
+      ]),
+    );
   } catch (error) {
     // If file doesn't exist or is invalid, seed with defaults
     ensureDirectoryExists(MODELS_FILE);

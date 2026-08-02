@@ -65,6 +65,27 @@ AI continuation is a second, optional surface. Configure OpenRouter only when
 you want generation or automatic judging; corpus import, navigation, curation,
 sync, and export do not require it.
 
+Each configured model has an explicit generation mode. **Raw continuation**
+serializes the exact turn strings as the visible story path and sends it to a
+completions endpoint. Authored whitespace is never trimmed or collapsed; when
+two nonempty turns carry no whitespace at their boundary, both the reader and
+provider context represent that structural boundary with one space. Textile stores the
+returned text without adding instructions, stripping markup, normalizing
+whitespace, or retrying. It explicitly disables model reasoning so the output
+budget and cost belong to visible continuation text. **Ax program** uses the
+versioned typed continuation signature reported in the generation receipt; it
+also disables reasoning and performs no automatic program retry. Length
+controls may stop a stream at a semantic boundary, but
+they select an exact prefix rather than rewriting it. Every requested result is
+kept as its own branch with model, settings, mode, program, reasoning policy,
+and available provider usage provenance. Automatic judging keeps all candidate
+branches, performs one versioned Ax program call at explicitly low reasoning,
+and records the ordered candidate IDs, selected ID, program, policy, and
+available usage as a non-prose judge turn in the Loom. A judge call has a
+30-second deadline so a stalled provider cannot hold auto-mode indefinitely.
+The model editor uses ordinary inline fields; it does not depend on browser
+prompt dialogs.
+
 ## Raw Lync corpus acceptance
 
 Textile opens raw `.lync` event unions directly. Its reader follows only the

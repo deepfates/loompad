@@ -1,66 +1,29 @@
 /**
- * Whitespace seam-normalizing join utilities for client-side text assembly.
- *
- * Goals:
- * - Preserve necessary spaces/newlines that are already present.
- * - Avoid duplicate spaces/newlines when they occur across boundaries.
- * - Never invent separators (no adding spaces if none exist).
- *
- * This mirrors the server-side streaming normalization behavior so that
- * prompts or concatenated client text remain consistent with streamed output.
+ * A story path is a sequence of exact turn strings. Preserve those strings;
+ * represent only the structural boundary that is otherwise absent from both
+ * sides. This same rule is used for the visible prose and model context.
  */
-
-import {
-  LEADING_NEWLINES_RE,
-  LEADING_SPACES_TABS_RE,
-  ENDING_NEWLINE_RE,
-  ENDING_WHITESPACE_RE,
-} from "../../../shared/textSeams";
-
-/**
- * Returns a version of `next` with duplicated leading whitespace at the seam removed,
- * based on how `prev` ends.
- *
- * Rules:
- * - If `prev` ends with a newline (CRLF or LF), drop all leading newlines from `next`.
- * - Else if `prev` ends with whitespace (space or tab), drop leading spaces/tabs from `next`.
- * - Otherwise, leave `next` unchanged.
- */
-export function normalizeNextForSeam(prev: string, next: string): string {
-  if (!next) return next;
-
-  const prevEndedWithNewline = ENDING_NEWLINE_RE.test(prev);
-  const prevEndedWithWhitespace = ENDING_WHITESPACE_RE.test(prev);
-
-  if (prevEndedWithNewline) {
-    // Remove one or more leading CRLF/LF
-    return next.replace(LEADING_NEWLINES_RE, "");
-  }
-
-  if (prevEndedWithWhitespace) {
-    // Remove leading spaces/tabs only (preserve any leading newline)
-    return next.replace(LEADING_SPACES_TABS_RE, "");
-  }
-
-  return next;
+export function storySeam(prev: string, next: string): "" | " " {
+  if (!prev || !next || /\s$/.test(prev) || /^\s/.test(next)) return "";
+  return " ";
 }
 
 /**
  * Join two strings with seam normalization.
- * Equivalent to: prev + normalizeNextForSeam(prev, next)
+ * Stored bytes remain unchanged; the returned string includes the explicit
+ * structural seam when neither turn carries one.
  */
 export function joinPair(prev: string, next: string): string {
-  return prev + normalizeNextForSeam(prev, next);
+  return prev + storySeam(prev, next) + next;
 }
 
 /**
- * Join an array (or iterable) of string segments while normalizing seams at each boundary.
+ * Serialize a sequence of exact story turns as flowing prose.
  *
  * Example behaviors:
- * - "Hello " + " world" => "Hello world"  (drops duplicate boundary space)
- * - "Line 1\n\n" + "\nLine 2" => "Line 1\n\nLine 2"  (drops duplicate boundary newline)
- * - "Hello" + " world" => "Hello world"  (keeps existing separator from next)
- * - "Hello" + "world" => "Helloworld"    (does not invent separators)
+ * - "Hello " + " world" => "Hello  world" (both authored spaces survive)
+ * - "Hello" + " world" => "Hello world"   (the next turn owns the seam)
+ * - "Hello" + "world" => "Hello world"    (the turn boundary owns the seam)
  */
 export function joinSegments(segments: Iterable<string>): string {
   let acc = "";
@@ -72,7 +35,7 @@ export function joinSegments(segments: Iterable<string>): string {
       first = false;
       continue;
     }
-    acc += normalizeNextForSeam(acc, seg || "");
+    acc = joinPair(acc, seg || "");
   }
 
   return acc;

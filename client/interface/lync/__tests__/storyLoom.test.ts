@@ -3,6 +3,7 @@ import { createTestLoomClient } from "@deepfates/lync/client/testing";
 import { textStoryLoomMeta } from "@deepfates/lync/profiles/text-story";
 import {
   appendAnnotation,
+  appendJudgeDecision,
   appendKeepMark,
   appendStoryDrafts,
   appendStoryRevision,
@@ -224,7 +225,20 @@ describe("Textile story loom", () => {
     });
 
     // Model turn: carries generatedBy + the person's actor/via.
-    await appendStoryDrafts(loom, seed.id, [{ text: "M" }], {
+    await appendStoryDrafts(loom, seed.id, [{
+      text: "M",
+      generation: {
+        generationMode: "completion",
+        program: "textile/raw-continuation-v2",
+        reasoningPolicy: "none",
+        usage: {
+          promptTokens: 4,
+          completionTokens: 9,
+          totalTokens: 13,
+          reasoningTokens: 0,
+        },
+      },
+    }], {
       actor: "ada",
       via: "textile-browser",
       generatedBy: {
@@ -246,11 +260,80 @@ describe("Textile story loom", () => {
       temperature: 0.7,
       lengthMode: "medium",
       textSplitting: false,
+      generationMode: "completion",
+      program: "textile/raw-continuation-v2",
+      reasoningPolicy: "none",
+      usage: {
+        promptTokens: 4,
+        completionTokens: 9,
+        totalTokens: 13,
+        reasoningTokens: 0,
+      },
     });
     expect(modelTurn?.meta?.author).toBe("ada");
     expect(modelTurn?.meta?.via).toBe("textile-browser");
     expect(humanTurn?.meta?.generatedBy).toBeUndefined();
     expect(humanTurn?.meta?.author).toBe("ada");
+  });
+
+  it("persists a judge decision without rendering it as story prose", async () => {
+    const looms = createLooms();
+    const info = await looms.create(textStoryLoomMeta({ title: "Story" }));
+    const loom = await looms.open(info.id);
+    const seed = await loom.appendTurn(null, { text: "Start" }, { role: "prose" });
+    await appendStoryDrafts(loom, seed.id, [{ text: "A" }, { text: "B" }]);
+    const candidates = await loom.childrenOf(seed.id);
+    const selected = candidates[1]!;
+
+    await appendJudgeDecision(
+      loom,
+      seed.id,
+      candidates.map((candidate) => candidate.id),
+      selected.id,
+      {
+        model: "test-judge",
+        temperature: 0.4,
+        choiceIndex: 1,
+        program: "textile/ax-continuation-judge-v3",
+        reasoningPolicy: "low",
+        usage: {
+          promptTokens: 20,
+          completionTokens: 2,
+          totalTokens: 22,
+          reasoningTokens: 0,
+        },
+      },
+      { actor: "ada", via: "textile-browser" },
+    );
+
+    const turns = await loom.childrenOf(seed.id);
+    const judgeTurn = turns.find((turn) => turn.meta?.role === "judge");
+    expect(judgeTurn?.meta).toMatchObject({
+      role: "judge",
+      author: "ada",
+      via: "textile-browser",
+      references: candidates.map((candidate) => candidate.id),
+      respondsTo: selected.id,
+      judgment: {
+        model: "test-judge",
+        choiceIndex: 1,
+        program: "textile/ax-continuation-judge-v3",
+        reasoningPolicy: "low",
+      },
+    });
+    const projected = await projectStoryTree(loom, "Start");
+    expect(projected.root.continuations?.map((child) => child.text)).toEqual([
+      "A",
+      "B",
+    ]);
+    expect(projected.root.continuations?.[1]?.selectedBy).toMatchObject({
+      judgeTurnId: judgeTurn?.id,
+      candidateTurnIds: candidates.map((candidate) => candidate.id),
+      selectedTurnId: selected.id,
+      model: "test-judge",
+      choiceIndex: 1,
+      reasoningPolicy: "low",
+    });
   });
 
   it("folds a mixed human+model loom into StoryNodes carrying origin/actor", async () => {

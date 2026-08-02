@@ -335,6 +335,7 @@ export const GamepadInterface = () => {
     modelEditorMode,
     editingModelId,
     modelFormError,
+    editingModelField,
     modelEditorFields,
     currentModelEditorField,
     cycleModelSort,
@@ -346,6 +347,7 @@ export const GamepadInterface = () => {
     handleSubmitModel,
     handleModelEditorHighlight,
     handleModelEditorActivate,
+    finishEditingModelField,
     navigateModelsList,
     navigateModelEditor,
   } = useModelCatalog({
@@ -1776,8 +1778,10 @@ export const GamepadInterface = () => {
                       formState={modelForm}
                       fields={modelEditorFields}
                       selectedField={currentModelEditorField}
+                      editingField={editingModelField}
                       onSelectField={handleModelEditorHighlight}
                       onActivateField={handleModelEditorActivate}
+                      onFinishEditing={finishEditingModelField}
                       onChange={handleModelFormChange}
                       onSubmit={handleSubmitModel}
                       onCancel={handleCancelModelEdit}

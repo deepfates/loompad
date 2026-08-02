@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import type { StoryNode } from "../../types";
-import { joinSegments, normalizeNextForSeam, joinPair } from "../../utils/join";
+import { joinSegments, storySeam, joinPair } from "../../utils/join";
 import {
   EMPTY_GENERATION_NOTICE_MESSAGE,
   createPrompt,
@@ -17,22 +17,22 @@ describe("prompt concatenation", () => {
     expect(prompt).toBe("Once upon a time in a land far away");
   });
 
-  it("collapses double spaces at node boundaries", () => {
+  it("preserves authored spaces on both sides of a node boundary", () => {
     const path: StoryNode[] = [
       { id: "1", text: "Once upon a time ", origin: "unknown", continuations: [] },
       { id: "2", text: " in a land far away", origin: "unknown", continuations: [] },
     ];
     const prompt = createPrompt(path, 1);
-    expect(prompt).toBe("Once upon a time in a land far away");
+    expect(prompt).toBe("Once upon a time  in a land far away");
   });
 
-  it("handles nodes with no separating space", () => {
+  it("represents a node boundary when neither node carries whitespace", () => {
     const path: StoryNode[] = [
       { id: "1", text: "Hello", origin: "unknown", continuations: [] },
       { id: "2", text: "world", origin: "unknown", continuations: [] },
     ];
     const prompt = createPrompt(path, 1);
-    expect(prompt).toBe("Helloworld");
+    expect(prompt).toBe("Hello world");
   });
 
   it("preserves newlines between nodes", () => {
@@ -44,13 +44,13 @@ describe("prompt concatenation", () => {
     expect(prompt).toBe("Chapter 1\nIt was a dark night.");
   });
 
-  it("collapses multiple newlines at boundaries", () => {
+  it("preserves multiple authored newlines at boundaries", () => {
     const path: StoryNode[] = [
       { id: "1", text: "Chapter 1\n\n", origin: "unknown", continuations: [] },
       { id: "2", text: "\nIt was a dark night.", origin: "unknown", continuations: [] },
     ];
     const prompt = createPrompt(path, 1);
-    expect(prompt).toBe("Chapter 1\n\nIt was a dark night.");
+    expect(prompt).toBe("Chapter 1\n\n\nIt was a dark night.");
   });
 
   it("handles word mode tokens with leading spaces correctly", () => {
@@ -71,7 +71,7 @@ describe("prompt concatenation", () => {
       { id: "2", text: " world", origin: "unknown", continuations: [] },
     ];
     const prompt = createPrompt(path, 1);
-    expect(prompt).toBe("Hello\tworld");
+    expect(prompt).toBe("Hello\t world");
   });
 
   it("handles empty nodes gracefully", () => {
@@ -108,27 +108,23 @@ describe("empty generation notices", () => {
   });
 });
 
-describe("join seam normalization utility", () => {
-  it("normalizeNextForSeam drops duplicated boundary spaces/tabs", () => {
-    expect(normalizeNextForSeam("Hello ", " world")).toBe("world");
-    expect(normalizeNextForSeam("Hello\t", "   world")).toBe("world");
+describe("explicit story-turn seams", () => {
+  it("adds a seam only when neither exact turn string carries one", () => {
+    expect(storySeam("Hello", "world")).toBe(" ");
+    expect(storySeam("Hello ", "world")).toBe("");
+    expect(storySeam("Hello", " world")).toBe("");
   });
 
-  it("normalizeNextForSeam drops duplicated leading newlines (CRLF and LF)", () => {
-    expect(normalizeNextForSeam("Line 1\n", "\nLine 2")).toBe("Line 2");
-    expect(normalizeNextForSeam("Line 1\r\n", "\r\n\r\nLine 2")).toBe("Line 2");
-  });
-
-  it("joinSegments normalizes seams without inventing separators", () => {
+  it("joinSegments preserves bytes and represents absent boundaries", () => {
     expect(joinSegments(["Hello", " world"])).toBe("Hello world");
-    expect(joinSegments(["Hello ", " world"])).toBe("Hello world");
-    expect(joinSegments(["Hello", "world"])).toBe("Helloworld");
-    expect(joinSegments(["Line 1\n\n", "\nLine 2"])).toBe("Line 1\n\nLine 2");
+    expect(joinSegments(["Hello ", " world"])).toBe("Hello  world");
+    expect(joinSegments(["Hello", "world"])).toBe("Hello world");
+    expect(joinSegments(["Line 1\n\n", "\nLine 2"])).toBe("Line 1\n\n\nLine 2");
   });
 
-  it("joinPair equals prev + normalizeNextForSeam(prev, next)", () => {
+  it("joinPair equals the exact strings plus their structural seam", () => {
     const prev = "Hello ";
     const next = " world";
-    expect(joinPair(prev, next)).toBe(prev + normalizeNextForSeam(prev, next));
+    expect(joinPair(prev, next)).toBe(prev + storySeam(prev, next) + next);
   });
 });

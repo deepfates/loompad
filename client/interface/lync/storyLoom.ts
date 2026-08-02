@@ -3,6 +3,7 @@ import type { StoryAnnotation, StoryNode, StoryOrigin } from "../types";
 import type {
   StoryDraft,
   StoryGeneratedBy,
+  StoryJudgment,
   StoryLoom,
   StoryTurnMeta,
   StoryTurnPayload,
@@ -136,7 +137,12 @@ function withAuthorship(
   const next: StoryTurnMeta = { ...meta };
   if (authorship.actor !== undefined) next.author = authorship.actor;
   if (authorship.via !== undefined) next.via = authorship.via;
-  if (authorship.generatedBy !== undefined) next.generatedBy = authorship.generatedBy;
+  if (authorship.generatedBy !== undefined) {
+    next.generatedBy = {
+      ...authorship.generatedBy,
+      ...next.generatedBy,
+    };
+  }
   return next;
 }
 
@@ -203,10 +209,15 @@ export async function projectStoryTree(
     const storyChildren: ReadableTurn[] = [];
     const annotations: StoryAnnotation[] = [];
     const markTurns: ReadableTurn[] = [];
+    const judgeTurns: ReadableTurn[] = [];
     for (const child of children) {
       const role = child.meta?.role;
       if (role === "annotation") annotations.push(annotationFromTurn(child));
       else if (role === "mark") markTurns.push(child);
+      else if (role === "judge") {
+        // Judge decisions are causal Loom events, not prose continuations.
+        judgeTurns.push(child);
+      }
       else if (role === "raw-source" && child.meta?.rawSource === true) {
         const record = rawSourceRecordFromTurn(child);
         if (record) sourceRecords.push(record);
@@ -235,6 +246,24 @@ export async function projectStoryTree(
     }
 
     parent.continuations = storyChildren.map(turnToStoryNode);
+    for (const judgeTurn of judgeTurns) {
+      const judgment = judgeTurn.meta?.judgment;
+      const selectedTurnId = judgeTurn.meta?.respondsTo;
+      const candidateTurnIds = judgeTurn.meta?.references;
+      if (!judgment || !selectedTurnId || !candidateTurnIds) continue;
+      const selected = parent.continuations.find(
+        (candidate) => candidate.id === selectedTurnId,
+      );
+      if (!selected) continue;
+      selected.selectedBy = {
+        ...judgment,
+        judgeTurnId: judgeTurn.id,
+        candidateTurnIds: [...candidateTurnIds],
+        selectedTurnId,
+        actor: judgeTurn.meta?.author,
+        via: judgeTurn.meta?.via,
+      };
+    }
     for (let index = 0; index < storyChildren.length; index += 1) {
       const childTurn = storyChildren[index];
       const child = parent.continuations[index];
@@ -369,15 +398,30 @@ export async function appendStoryDraftChain(
   meta: StoryTurnMeta = { role: "prose" },
   authorship?: StoryAuthorship,
 ): Promise<Turn<StoryTurnPayload, StoryTurnMeta>> {
+  const draftMeta = draft.generation
+    ? {
+        ...meta,
+        generatedBy: {
+          ...meta.generatedBy,
+          ...draft.generation,
+        },
+      }
+    : meta;
   const appended = await loom.appendTurn(
     parentId,
     { text: draft.text },
-    withAuthorship(meta, authorship),
+    withAuthorship(draftMeta, authorship),
   );
   for (const child of draft.continuations ?? []) {
     // A child of a model draft is part of the same generation, so the same
     // authorship (including generatedBy) rides down the whole chain.
-    await appendStoryDraftChain(loom, appended.id, child, { role: "prose" }, authorship);
+    await appendStoryDraftChain(
+      loom,
+      appended.id,
+      child,
+      { ...draftMeta, role: "prose" },
+      authorship,
+    );
   }
   return appended;
 }
@@ -420,6 +464,29 @@ export async function appendStoryDrafts(
   for (const draft of drafts) {
     await appendStoryDraftChain(loom, parentId, draft, { role: "prose" }, authorship);
   }
+}
+
+export async function appendJudgeDecision(
+  loom: StoryLoom,
+  parentId: string,
+  candidateIds: string[],
+  selectedId: string,
+  judgment: StoryJudgment,
+  authorship?: StoryAuthorship,
+): Promise<Turn<StoryTurnPayload, StoryTurnMeta>> {
+  return loom.appendTurn(
+    parentId,
+    { text: "" },
+    withAuthorship(
+      {
+        role: "judge",
+        references: [...candidateIds],
+        respondsTo: selectedId,
+        judgment,
+      },
+      authorship,
+    ),
+  );
 }
 
 /**

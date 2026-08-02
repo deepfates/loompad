@@ -6,6 +6,7 @@ import {
   VIRTUAL_TEXT_PAGE_SIZE,
   VIRTUAL_TEXT_THRESHOLD,
 } from "../utils/largeText";
+import { storySeam } from "../utils/join";
 
 interface StoryTextProps {
   storyTextRef: React.RefObject<HTMLDivElement>;
@@ -213,6 +214,11 @@ export function StoryText({
       ) : null}
       {visiblePath.map((segment, visibleIndex) => {
         const index = windowStart + visibleIndex;
+        const previous = currentPath[index - 1];
+        const seam =
+          !showTurnBoundaries && previous
+            ? storySeam(previous.text, segment.text)
+            : "";
         const isCurrentDepth = index === currentDepth;
         const isNextDepth = index === currentDepth + 1;
         const isLoading = isGeneratingAt(segment.id);
@@ -247,6 +253,7 @@ export function StoryText({
             data-node-id={segment.id}
             data-source-text-length={segment.text.length}
           >
+            {seam}
             <StoryNodeProse
               text={body}
               tail={tail}

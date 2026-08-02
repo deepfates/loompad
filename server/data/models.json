@@ -2,56 +2,73 @@
   "deepseek/deepseek-chat-v3.1": {
     "name": "DeepSeek V3.1",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "deepseek/deepseek-v3.2": {
     "name": "DeepSeek V3.2",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "moonshotai/kimi-k2-0905": {
     "name": "Kimi K2 0905",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "moonshotai/kimi-k2": {
     "name": "Kimi K2 0711",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "google/gemini-3-flash-preview": {
     "name": "Gemini 3 Flash (preview)",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "minimax/minimax-m2.5": {
     "name": "MiniMax M2.5",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "openai/gpt-oss-120b": {
     "name": "gpt-oss 120b",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "openai/gpt-4o-2024-05-13": {
     "name": "GPT-4o (2024-05-13)",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "qwen/qwen3.5-27b": {
     "name": "Qwen 3.5 27B",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "google/gemma-4-31b-it": {
     "name": "Gemma 4 31B",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
   },
   "allenai/olmo-3.1-32b-instruct": {
     "name": "Olmo 3.1 32B",
     "maxTokens": 1024,
-    "defaultTemp": 1.0
+    "defaultTemp": 1,
+    "generationMode": "instruction"
+  },
+  "anthropic/claude-opus-5": {
+    "name": "Claude Opus 5",
+    "maxTokens": 1024,
+    "defaultTemp": 0.7,
+    "generationMode": "instruction"
   }
 }

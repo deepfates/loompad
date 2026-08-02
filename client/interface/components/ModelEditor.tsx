@@ -1,4 +1,5 @@
 import type { ModelId } from "../../../shared/models";
+import type { GenerationMode } from "../../../shared/generation";
 import { Row } from "./Row";
 
 export interface ModelFormState {
@@ -6,6 +7,7 @@ export interface ModelFormState {
   name: string;
   maxTokens: number;
   defaultTemp: number;
+  generationMode: GenerationMode;
 }
 
 export type ModelEditorField =
@@ -13,16 +15,25 @@ export type ModelEditorField =
   | "name"
   | "maxTokens"
   | "defaultTemp"
+  | "generationMode"
   | "save"
   | "cancel"
   | "delete";
+
+export type EditableModelField =
+  | "id"
+  | "name"
+  | "maxTokens"
+  | "defaultTemp";
 
 interface ModelEditorProps {
   formState: ModelFormState;
   fields: ModelEditorField[];
   selectedField: ModelEditorField;
+  editingField: EditableModelField | null;
   onSelectField: (field: ModelEditorField) => void;
   onActivateField: (field: ModelEditorField) => void;
+  onFinishEditing: () => void;
   onChange: <Key extends keyof ModelFormState>(
     field: Key,
     value: ModelFormState[Key],
@@ -40,6 +51,7 @@ const FIELD_LABELS: Record<ModelEditorField, string> = {
   name: "Display Name",
   maxTokens: "Max Tokens",
   defaultTemp: "Default Temp",
+  generationMode: "Generation",
   save: "Save",
   cancel: "Cancel",
   delete: "Delete",
@@ -55,6 +67,8 @@ const fieldValue = (field: ModelEditorField, form: ModelFormState): string => {
       return String(form.maxTokens);
     case "defaultTemp":
       return form.defaultTemp.toFixed(1);
+    case "generationMode":
+      return form.generationMode === "completion" ? "Raw continuation" : "Ax program";
     default:
       return "";
   }
@@ -64,8 +78,10 @@ export const ModelEditor = ({
   formState,
   fields,
   selectedField,
+  editingField,
   onSelectField,
   onActivateField,
+  onFinishEditing,
   onChange,
   onSubmit,
   onCancel,
@@ -78,6 +94,48 @@ export const ModelEditor = ({
     <div className="menu-content">
       {fields.map((field) => {
         const selected = selectedField === field;
+        const editing = editingField === field;
+
+        if (editing) {
+          const numeric = field === "maxTokens" || field === "defaultTemp";
+          const value = numeric ? String(formState[field]) : formState[field];
+          return (
+            <label
+              key={field}
+              className="menu-item menu-item--row menu-item--pick selected model-editor-input-row"
+            >
+              <span className="menu-item-label">{FIELD_LABELS[field]}:</span>
+              <input
+                autoFocus
+                className="model-editor-input"
+                aria-label={FIELD_LABELS[field]}
+                type={numeric ? "number" : "text"}
+                min={field === "maxTokens" ? 1 : field === "defaultTemp" ? 0 : undefined}
+                max={field === "maxTokens" ? 32768 : field === "defaultTemp" ? 2 : undefined}
+                step={field === "defaultTemp" ? 0.1 : 1}
+                value={value}
+                onChange={(event) => {
+                  if (field === "id") {
+                    onChange("id", event.target.value as ModelId | "");
+                  } else if (field === "name") {
+                    onChange("name", event.target.value);
+                  } else if (field === "maxTokens") {
+                    onChange("maxTokens", Number(event.target.value));
+                  } else {
+                    onChange("defaultTemp", Number(event.target.value));
+                  }
+                }}
+                onBlur={onFinishEditing}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Enter" || event.key === "Escape") {
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+            </label>
+          );
+        }
 
         if (field === "maxTokens") {
           return (
@@ -153,6 +211,19 @@ export const ModelEditor = ({
               selected={selected}
               onHover={() => onSelectField(field)}
               onActivate={onActivate}
+            />
+          );
+        }
+        if (field === "generationMode") {
+          return (
+            <Row
+              key={field}
+              kind="pick"
+              label={FIELD_LABELS[field]}
+              value={fieldValue(field, formState)}
+              selected={selected}
+              onHover={() => onSelectField(field)}
+              onActivate={() => onActivateField(field)}
             />
           );
         }

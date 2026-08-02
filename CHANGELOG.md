@@ -27,6 +27,22 @@ train.
 
 ### Changed
 
+- Generation now distinguishes exact raw continuation models from versioned Ax
+  instruction programs. Hidden prompt armor, cleanup, whitespace rewriting,
+  preamble retries, and judge retries were removed; stored model turns retain
+  the generation mode and program that produced them. Raw continuation also
+  disables provider reasoning explicitly so hidden thinking cannot consume its
+  output allowance. Ax continuation now does the same, while judging requests
+  explicit low reasoning; generation turns retain the policy and available
+  provider token/cost usage in Loom provenance. Automatic choices are durable
+  judge turns with ordered candidate and selected-turn identity, and stalled
+  judges fail after a visible 30-second deadline.
+- Story paths preserve every turn string and use one explicit structural space
+  only when neither adjacent turn carries whitespace. The same serialization
+  now drives the visible prose and the next provider request, preventing fused
+  text such as `Cedric.Sir` without trimming or rewriting stored output.
+- Model ID, name, token, and temperature editing now uses inline form controls
+  instead of unsupported browser prompt dialogs.
 - Raw Lync projection now consumes the checksum-pinned Lync presentation
   candidate. Textile's duplicated Splice and Behold presenter implementations
   were removed; exact source paths, profile fail-closed behavior, typed graph

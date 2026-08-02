@@ -60,7 +60,7 @@ export const ModelsMenu = ({
             key={modelId}
             kind="action"
             label={config.name}
-            preview={`${modelId} · ${config.maxTokens}tok · T=${config.defaultTemp}`}
+            preview={`${modelId} · ${config.generationMode === "completion" ? "raw" : "Ax"} · ${config.maxTokens}tok · T=${config.defaultTemp}`}
             stacked
             selected={selectedIndex === listIndex}
             onHover={() => onSelectIndex(listIndex)}

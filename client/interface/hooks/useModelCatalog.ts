@@ -6,6 +6,7 @@ import type { ModelSortOption, Screen } from "../types";
 import type { MenuParams } from "./useMenuSystem";
 import { useModels } from "./useModels";
 import type {
+  EditableModelField,
   ModelEditorField,
   ModelFormState,
 } from "../components/ModelEditor";
@@ -15,6 +16,7 @@ const createEmptyModelForm = (): ModelFormState => ({
   name: "",
   maxTokens: 1024,
   defaultTemp: 0.7,
+  generationMode: "completion",
 });
 
 interface UseModelCatalogArgs {
@@ -62,6 +64,8 @@ export function useModelCatalog({
   );
   const [editingModelId, setEditingModelId] = useState<ModelId | null>(null);
   const [modelFormError, setModelFormError] = useState<string | null>(null);
+  const [editingModelField, setEditingModelField] =
+    useState<EditableModelField | null>(null);
   const [pendingModelSelection, setPendingModelSelection] =
     useState<ModelId | null>(null);
 
@@ -87,6 +91,7 @@ export function useModelCatalog({
       "name",
       "maxTokens",
       "defaultTemp",
+      "generationMode",
       "save",
       "cancel",
     ];
@@ -119,6 +124,7 @@ export function useModelCatalog({
     setEditingModelId(null);
     setModelForm(createEmptyModelForm());
     setModelFormError(null);
+    setEditingModelField(null);
     setSelectedModelField(0);
     setScreen("drawer");
     setDrawerTab("models");
@@ -136,8 +142,10 @@ export function useModelCatalog({
         name: config.name,
         maxTokens: config.maxTokens,
         defaultTemp: config.defaultTemp,
+        generationMode: config.generationMode,
       });
       setModelFormError(null);
+      setEditingModelField(null);
       setSelectedModelField(0);
       setScreen("drawer");
       setDrawerTab("models");
@@ -187,6 +195,7 @@ export function useModelCatalog({
         name: config.name,
         maxTokens: config.maxTokens,
         defaultTemp: config.defaultTemp,
+        generationMode: config.generationMode,
       });
     } else {
       setModelForm(createEmptyModelForm());
@@ -194,6 +203,7 @@ export function useModelCatalog({
       setModelEditorMode("create");
     }
     setModelFormError(null);
+    setEditingModelField(null);
     showModelsMenu(editingModelId);
   }, [editingModelId, modelEditorMode, models, showModelsMenu]);
 
@@ -244,6 +254,7 @@ export function useModelCatalog({
               name: config.name,
               maxTokens: config.maxTokens,
               defaultTemp: config.defaultTemp,
+              generationMode: config.generationMode,
             });
             setPendingModelSelection(firstId);
             setSelectedModelField(0);
@@ -302,6 +313,7 @@ export function useModelCatalog({
           name: trimmedName,
           maxTokens: modelForm.maxTokens,
           defaultTemp: modelForm.defaultTemp,
+          generationMode: modelForm.generationMode,
         });
         setModelEditorMode("edit");
         setEditingModelId(newId);
@@ -310,6 +322,7 @@ export function useModelCatalog({
           name: trimmedName,
           maxTokens: modelForm.maxTokens,
           defaultTemp: modelForm.defaultTemp,
+          generationMode: modelForm.generationMode,
         });
         setPendingModelSelection(newId);
         setMenuParams((prev) => ({ ...prev, model: newId }));
@@ -319,12 +332,14 @@ export function useModelCatalog({
           name: trimmedName,
           maxTokens: modelForm.maxTokens,
           defaultTemp: modelForm.defaultTemp,
+          generationMode: modelForm.generationMode,
         });
         setModelForm({
           id: editingModelId,
           name: trimmedName,
           maxTokens: modelForm.maxTokens,
           defaultTemp: modelForm.defaultTemp,
+          generationMode: modelForm.generationMode,
         });
         setPendingModelSelection(editingModelId);
         nextFocusId = editingModelId;
@@ -362,6 +377,12 @@ export function useModelCatalog({
             Math.min(2, Number((prev.defaultTemp + delta * 0.1).toFixed(1))),
           ),
         }));
+      } else if (field === "generationMode") {
+        setModelForm((prev) => ({
+          ...prev,
+          generationMode:
+            prev.generationMode === "completion" ? "instruction" : "completion",
+        }));
         setModelFormError(null);
       }
     },
@@ -373,56 +394,29 @@ export function useModelCatalog({
       switch (field) {
         case "id": {
           if (modelEditorMode === "edit") return;
-          const input = window.prompt(
-            "Model ID",
-            `${modelForm.id ?? "provider/model"}`.trim(),
-          );
-          if (input === null) return;
-          const trimmed = input.trim();
-          setModelForm((prev) => ({
-            ...prev,
-            id: (trimmed as ModelId | "") ?? ("" as ModelId | ""),
-          }));
-          setModelFormError(null);
+          setEditingModelField("id");
           break;
         }
         case "name": {
-          const input = window.prompt("Display Name", modelForm.name.trim());
-          if (input === null) return;
-          setModelForm((prev) => ({ ...prev, name: input.trim() }));
-          setModelFormError(null);
+          setEditingModelField("name");
           break;
         }
         case "maxTokens": {
-          const input = window.prompt("Max Tokens", `${modelForm.maxTokens}`);
-          if (input === null) return;
-          const parsed = Number.parseInt(input, 10);
-          if (!Number.isNaN(parsed) && parsed > 0) {
-            setModelForm((prev) => ({ ...prev, maxTokens: parsed }));
-            setModelFormError(null);
-          } else {
-            setModelFormError("Max tokens must be a positive number.");
-          }
+          setEditingModelField("maxTokens");
           break;
         }
         case "defaultTemp": {
-          const input = window.prompt(
-            "Default Temperature",
-            modelForm.defaultTemp.toFixed(1),
-          );
-          if (input === null) return;
-          const parsed = Number.parseFloat(input);
-          if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 2) {
-            setModelForm((prev) => ({
-              ...prev,
-              defaultTemp: Number(parsed.toFixed(1)),
-            }));
-            setModelFormError(null);
-          } else {
-            setModelFormError("Temperature must be between 0 and 2.");
-          }
+          setEditingModelField("defaultTemp");
           break;
         }
+        case "generationMode":
+          setModelForm((prev) => ({
+            ...prev,
+            generationMode:
+              prev.generationMode === "completion" ? "instruction" : "completion",
+          }));
+          setModelFormError(null);
+          break;
         case "save":
           void handleSubmitModel();
           break;
@@ -440,10 +434,6 @@ export function useModelCatalog({
       handleDeleteModel,
       handleSubmitModel,
       modelEditorMode,
-      modelForm.defaultTemp,
-      modelForm.id,
-      modelForm.maxTokens,
-      modelForm.name,
     ],
   );
 
@@ -616,6 +606,7 @@ export function useModelCatalog({
     modelEditorMode,
     editingModelId,
     modelFormError,
+    editingModelField,
     modelEditorFields,
     currentModelEditorField,
     cycleModelSort,
@@ -627,6 +618,7 @@ export function useModelCatalog({
     handleSubmitModel,
     handleModelEditorHighlight,
     handleModelEditorActivate,
+    finishEditingModelField: () => setEditingModelField(null),
     navigateModelsList,
     navigateModelEditor,
   };

@@ -371,6 +371,22 @@ html, body {
   transition: color 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
 }
 
+.model-editor-input-row {
+  cursor: text;
+}
+
+.model-editor-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-bottom: 1px solid var(--theme-focused-foreground);
+  outline: 0;
+  color: var(--theme-focused-foreground);
+  background: transparent;
+  font: inherit;
+  text-align: right;
+}
+
 /* Source records are conversation/corpus beats, not fragments generated to
    continue one prose stream. Keep their exact text while making the boundary
    readable even when the source strings carry no trailing whitespace. */

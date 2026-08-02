@@ -21,7 +21,19 @@ export interface StoryGeneratedBy {
   temperature?: number;
   lengthMode?: string;
   textSplitting?: boolean;
+  generationMode?: import("../../../shared/generation").GenerationMode;
+  program?: string;
+  reasoningPolicy?: import("../../../shared/generation").ReasoningPolicy;
+  usage?: import("../../../shared/generation").GenerationUsage;
 }
+
+export type StorySelectedBy = import("../lync/storyTypes").StoryJudgment & {
+  judgeTurnId: string;
+  candidateTurnIds: string[];
+  selectedTurnId: string;
+  actor?: string;
+  via?: string;
+};
 
 /**
  * A note attached to a turn — a `role: "annotation"` turn folded onto its
@@ -61,6 +73,8 @@ export interface StoryNode {
   via?: string;
   /** Present only for model turns; absent marks a human/unknown turn. */
   generatedBy?: StoryGeneratedBy;
+  /** Durable automatic selection event that chose this candidate. */
+  selectedBy?: StorySelectedBy;
   /** Original loom role; carried for honest portable local-turn projection. */
   turnRole?: string;
   /** Provider source identity carried by an explicit archive adapter. */

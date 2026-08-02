@@ -14,6 +14,15 @@ interface GenerationParams {
   textSplitting: boolean;
 }
 
+export interface ContinuationJudgment {
+  choice: number;
+  model: string;
+  temperature: number;
+  program: string;
+  reasoningPolicy: import("../../../shared/generation").ReasoningPolicy;
+  usage?: import("../../../shared/generation").GenerationUsage;
+}
+
 interface EmptyGenerationNotice {
   message: string;
 }
@@ -83,7 +92,7 @@ export function useStoryGeneration() {
 
     const prompt = createPrompt(path, depth);
 
-    await generate(
+    const receipt = await generate(
       prompt,
       {
         model: params.model,
@@ -111,6 +120,12 @@ export function useStoryGeneration() {
 
       // If splitting succeeded, return the chain
       if (draft) {
+        draft.generation = {
+          generationMode: receipt.mode,
+          program: receipt.program,
+          reasoningPolicy: receipt.reasoningPolicy,
+          ...(receipt.usage ? { usage: receipt.usage } : {}),
+        };
         return draft;
       }
     }
@@ -119,6 +134,12 @@ export function useStoryGeneration() {
     return {
       text: fullText,
       continuations: [],
+      generation: {
+        generationMode: receipt.mode,
+        program: receipt.program,
+        reasoningPolicy: receipt.reasoningPolicy,
+        ...(receipt.usage ? { usage: receipt.usage } : {}),
+      },
     };
   };
 
@@ -126,7 +147,7 @@ export function useStoryGeneration() {
     path: StoryNode[],
     candidates: StoryDraft[],
     params: GenerationParams,
-  ): Promise<number | null> => {
+  ): Promise<ContinuationJudgment | null> => {
     if (!candidates.length) {
       return null;
     }
@@ -162,11 +183,26 @@ export function useStoryGeneration() {
       const payload = (await response.json()) as {
         choice: number | null;
         raw?: string;
+        program?: string;
+        reasoningPolicy?: string;
+        usage?: import("../../../shared/generation").GenerationUsage;
       };
       console.log("[AutoMode] Judge response:", payload);
 
-      if (typeof payload.choice === "number") {
-        return payload.choice;
+      if (
+        typeof payload.choice === "number" &&
+        typeof payload.program === "string" &&
+        (payload.reasoningPolicy === "none" ||
+          payload.reasoningPolicy === "low")
+      ) {
+        return {
+          choice: payload.choice,
+          model: params.model,
+          temperature: Math.max(0.1, Math.min(params.temperature, 0.8)),
+          program: payload.program,
+          reasoningPolicy: payload.reasoningPolicy,
+          ...(payload.usage ? { usage: payload.usage } : {}),
+        };
       }
     } catch (err) {
       console.error("[AutoMode] Judge error", err);

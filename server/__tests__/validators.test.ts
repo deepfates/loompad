@@ -77,6 +77,7 @@ describe("validateModelPayload", () => {
         name: "Model",
         maxTokens: 1024,
         defaultTemp: 0.7,
+        generationMode: "completion",
       },
       { requireId: true },
     );
@@ -91,6 +92,7 @@ describe("validateModelPayload", () => {
         name: "Model",
         maxTokens: 0,
         defaultTemp: 0.7,
+        generationMode: "completion",
       },
       { requireId: true },
     );
