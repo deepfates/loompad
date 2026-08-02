@@ -1,11 +1,11 @@
 # Vendored Lync package
 
-`deepfates-lync-0.4.3-860aa54.tgz` was produced with `pnpm pack`
+`deepfates-lync-0.4.3-0a511b6.tgz` was produced with `pnpm pack`
 from the clean `@deepfates/lync` checkout at commit
-`860aa549727bdec7fda2ba1571c0a6be1c787aa8`.
+`0a511b6f918acf87800bf433f34311ee47a9c48b`.
 
 - Declared package version: `0.4.3`
-- Archive SHA-256: `dad3cff0dfb2004a2d313f2d99a2f0ebe9e994677017b3432d8e4442b14f8d4c`
+- Archive SHA-256: `4de871ce1117cff040fedc069944c3705e314168e01f151ae6d27239f6d1b745`
 - Required unpublished surfaces: `@deepfates/lync/indexed-union` and
   `@deepfates/lync/presentation`
 
