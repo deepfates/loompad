@@ -626,6 +626,34 @@ describe("raw .lync projection", () => {
     }
   });
 
+  it("presents received resident whispers as private speech", () => {
+    const events = readV2FixtureEvents();
+    const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");
+    const nextObservation = nestedRecord(entityTurn, "nextObservation");
+    nextObservation.events = [{
+      sequence: 33,
+      type: "chat_received",
+      salience: "high",
+      source: "event",
+      isNew: true,
+      data: {
+        from: "OxfordLark",
+        text: "Meet me by the arch.",
+        channel: "private",
+        addressed: true,
+      },
+    }];
+
+    const projection = projectRawLyncFile(asLync(events), "private-receipt-v2.lync");
+    const beat = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    );
+    expect(beat?.payload.text).toContain(
+      "Private whisper from OxfordLark: Meet me by the arch.",
+    );
+    expect(beat?.payload.text).not.toContain("Public chat from OxfordLark");
+  });
+
   it("presents a verified resident-v2 material consequence without private coordinates", () => {
     const events = readV2FixtureEvents();
     const entityTurn = nestedRecord(nestedRecord(events[1], "payload"), "payload");

@@ -277,6 +277,12 @@ function presentObservation(value, entityId, sourcePath, diagnostics, profile) {
         if (type === "chat_received") {
             const from = stringField(data, "from");
             const text = stringField(data, "text");
+            if (profile.version === 2 && stringField(data, "channel") === "private") {
+                diagnoseSourceOnlyFields(data, new Set(["from", "text", "channel", "addressed"]), `${sourcePath}.events[${index}].data`, diagnostics);
+                return text
+                    ? [`Private whisper${from ? ` from ${from}` : ""}: ${text}`]
+                    : [];
+            }
             return text
                 ? [`Public chat${from ? ` from ${from}` : ""}: ${text}`]
                 : [];

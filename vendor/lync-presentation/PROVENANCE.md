@@ -12,7 +12,7 @@ Vendored file digests are:
 
 - `index.js` SHA-256 `3471960558021f9ffb9a885d9f56ba1cc20de07a301041fd542952fdecea22c3`
 - `index.d.ts` SHA-256 `d7f523d246181fce6d99e60e7c36021ecda74ae83e8b8847a74e4ac260cc5a33`
-- `presenters/behold-inhabitant.js` SHA-256 `582d0d8fb1b21bd510d1c5c43f865bb196aeac544ba40802d8e97eb9f3a9f791`
+- `presenters/behold-inhabitant.js` SHA-256 `b8af885b3fd80da8ea65a2b01be9473f525520d8a25c80c2d840ed4a3a1a716c`
 
 The corresponding archive members have SHA-256
 `a8411061032cd81b96646c77dfbf629acc6cb02ffebf353aa4287734b6c95d1b`
@@ -24,8 +24,9 @@ The corresponding archive members have SHA-256
 its source-map trailer. The vendored Behold presenter also carries Textile's
 bounded `tex-nak8` reader overlay for four current resident lifecycle event
 shapes, the current world-event wait result, truthful chat/whisper input
-dispatch settlement, and focused-use failure presentation; all other unknown
-shapes still fail closed. `index.d.ts` keeps Textile's published-0.3-compatible
+dispatch settlement, focused-use failure presentation, and Lync commit
+`ddace87`'s distinction between received private whispers and public chat; all
+other unknown shapes still fail closed. `index.d.ts` keeps Textile's published-0.3-compatible
 `@deepfates/lync/events` type import and declares the two exported profile
 constants directly.
 
