@@ -141,6 +141,37 @@ describe("Behold ordered Lync source sets", () => {
       .rejects.toThrow(/read-only/);
   });
 
+  it("normalizes browser-native Blob chunks to Lync's indexed admission bound", async () => {
+    const bytes = new Uint8Array(1024 * 1024 + 65_536).fill(7);
+    const file = {
+      name: "wide-browser-chunk.lync",
+      size: bytes.byteLength,
+      slice: () => ({
+        stream: () =>
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(bytes);
+              controller.close();
+            },
+          }),
+        arrayBuffer: async () => bytes.slice().buffer,
+      }),
+    } as unknown as File;
+    const binding = source(
+      0,
+      "OxfordWide",
+      "/canonical/OxfordWide/wide-browser-chunk.lync",
+      bytes,
+      "org.behold.inhabitant.v2",
+    );
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of orderedLyncFileSource({ binding, file }).stream()) {
+      chunks.push(chunk);
+    }
+    expect(chunks.map((chunk) => chunk.byteLength)).toEqual([1024 * 1024, 65_536]);
+    expect(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))).toEqual(Buffer.from(bytes));
+  });
+
   it("fails closed on union conflicts and source changes between index and projection", async () => {
     const lines = aster.toString("utf8").trimEnd().split("\n");
     const conflicting = JSON.parse(lines[1]!);

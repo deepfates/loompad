@@ -151,6 +151,34 @@ describe("StoryText prose surface", () => {
     expect(render([human, model], 1)).not.toContain("story-turn-boundary");
   });
 
+  it("makes a material source-time discontinuity visible without inventing an episode", () => {
+    const before: StoryNode = {
+      ...unknown,
+      id: "resident-228",
+      text: "Stop worrying.",
+      sourceId: "source-228",
+      createdAt: Date.parse("2026-08-02T06:05:27.978Z"),
+    };
+    const after: StoryNode = {
+      ...unknown,
+      id: "resident-229",
+      text: "Read the first private-life turn.",
+      sourceId: "source-229",
+      createdAt: Date.parse("2026-08-02T07:29:17.641Z"),
+    };
+    const html = render([before, after], 1);
+    expect(html).toContain("1h 23m later");
+    expect(html).toContain(
+      'title="2026-08-02T06:05:27.978Z → 2026-08-02T07:29:17.641Z"',
+    );
+
+    const continuous = render(
+      [before, { ...after, createdAt: before.createdAt! + 4 * 60_000 }],
+      1,
+    );
+    expect(continuous).not.toContain("story-time-seam");
+  });
+
   it("presents a multi-megabyte turn as an explicit bounded reader window", () => {
     const large: StoryNode = {
       ...unknown,

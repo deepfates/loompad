@@ -26,6 +26,11 @@ export interface IndexedRawLyncProjection extends RawLyncProjection {
   ownership: OrderedLyncReviewOwnership;
 }
 
+// Match Lync's default indexed-union admission bound. Browser Blob streams do
+// not promise a particular chunk size and WebKit can hand us a chunk slightly
+// larger than one MiB, so the File adapter—not the corpus—owns normalizing it.
+const INDEXED_LYNC_STREAM_CHUNK_BYTES = 1024 * 1024;
+
 /** Browser File adapter that exposes only the manifest-authenticated prefix. */
 export function orderedLyncFileSource(source: OrderedLyncSourceFile): ReReadableLyncSource {
   const { binding, file } = source;
@@ -46,8 +51,14 @@ export function orderedLyncFileSource(source: OrderedLyncSourceFile): ReReadable
             break;
           }
           const chunk = result.value.subarray(0, remaining);
-          supplied += chunk.byteLength;
-          yield chunk;
+          for (let start = 0; start < chunk.byteLength; start += INDEXED_LYNC_STREAM_CHUNK_BYTES) {
+            const bounded = chunk.subarray(
+              start,
+              Math.min(chunk.byteLength, start + INDEXED_LYNC_STREAM_CHUNK_BYTES),
+            );
+            supplied += bounded.byteLength;
+            yield bounded;
+          }
           if (supplied === binding.endOffset) {
             await reader.cancel();
             break;

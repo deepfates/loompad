@@ -602,9 +602,13 @@ function turnToStoryNode(
   return {
     id: turn.id,
     text,
-    // Archive/portable artifacts need their source time for an honest reopen.
-    // Keep legacy story projections byte-for-byte shaped as before.
-    ...(meta?.archiveSource || meta?.portableTurnId ? { createdAt: turn.createdAt } : {}),
+    // Imported artifacts need their source time for honest reading. In
+    // particular, an indexed resident life may cross a stop/resume boundary
+    // while remaining one causal thread; dropping its event times makes that
+    // discontinuity look like one uninterrupted scene.
+    ...(meta?.archiveSource || meta?.portableTurnId || meta?.sourceId
+      ? { createdAt: turn.createdAt }
+      : {}),
     continuations: [],
     origin: originFromMeta(meta),
     actor: meta?.author,

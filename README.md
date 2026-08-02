@@ -120,6 +120,10 @@ O(events + edges + public presentation text), not O(source bytes). The ordinary
 multi-file picker reports resident/source/readable/structural/diagnostic counts
 and rejects changed, truncated, conflicting, dangling, or cyclic input. Existing
 single-file raw imports keep their eager, lossless archive/export behavior.
+Source event times remain attached to their readable turns; when adjacent turns
+are at least five minutes apart, the story surface marks the elapsed interval so
+a stopped or otherwise discontinuous life is not presented as one continuous
+scene. The marker describes time only and does not invent an episode boundary.
 
 Readable events above one MiB of text use an explicit bounded reader with
 FIRST/PREV/NEXT/LAST 65,536-character windows. This is presentation
