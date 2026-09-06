@@ -1,14 +1,15 @@
 # Vendored Lync package
 
-`deepfates-lync-0.4.3-indexed-union.tgz` was produced with `pnpm pack`
+`deepfates-lync-0.4.3-0a511b6.tgz` was produced with `pnpm pack`
 from the clean `@deepfates/lync` checkout at commit
-`e99bce30fa00fd833f527506d799d09ccfde89e6`.
+`0a511b6f918acf87800bf433f34311ee47a9c48b`.
 
 - Declared package version: `0.4.3`
-- Archive SHA-256: `4295c1e0c7ad368f1b913a755853b733f3bd7a47d10d7cc7bba305e7a534b4a3`
-- Required unpublished surface: `@deepfates/lync/indexed-union`
+- Archive SHA-256: `4de871ce1117cff040fedc069944c3705e314168e01f151ae6d27239f6d1b745`
+- Required unpublished surfaces: `@deepfates/lync/indexed-union` and
+  `@deepfates/lync/presentation`
 
 This exact local package keeps Textile reproducible before an owner-approved
 0.4 registry release. It is a dependency boundary, not a fork: union parsing,
-conflict adjudication, topology, suppression, and source-byte verification
-remain owned by Lync.
+conflict adjudication, topology, suppression, source-byte verification, and
+domain presentation remain owned by Lync.

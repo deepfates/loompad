@@ -1,11 +1,11 @@
 # Behold resident Lync presentation
 
 Textile presents one declared Behold life profile without changing the source
-Lync. The domain contract is owned by Behold at commit
-`a95491b55da6bb716b858ff88e8cfa7e7429b6f0` in
-`docs/RESIDENT_LYNC_PRESENTATION.md`; Lync implements the exact presenter at
-commit `fee7adc14f0038d9d0be51bd16b930659ffae1f8`, and this file records
-Textile's consumption and the boundary actually exercised here.
+Lync. The domain contract is owned by Behold in
+`docs/RESIDENT_LYNC_PRESENTATION.md`; Lync implements the presenter consumed
+directly here through `@deepfates/lync/presentation`. The exact local package is
+from Lync commit `860aa549727bdec7fda2ba1571c0a6be1c787aa8` and is checksum-bound in
+`vendor/LYNC-PROVENANCE.md`.
 
 ## Dispatch
 
@@ -13,7 +13,8 @@ Lync's presenter runs only for a causally inherited Loom profile of
 `org.behold.inhabitant.v1` or `org.behold.inhabitant.v2`. The root must declare
 `behold.entity-loom.v1`; each turn must declare both
 `behold.entity-turn-link.v1` on the outer `lync/turn` payload and
-`behold.entity-turn.v1` on its nested EntityTurn. The turn's body and action
+`behold.entity-turn.v1` or `behold.entity-cognition-turn.v1` on its nested
+private-life event. The event's body and action
 profiles must both be exactly `minecraft-human-semantic-v1`.
 
 There is no recursive text search and no generic fallback after this profile
@@ -22,7 +23,8 @@ action input remains unsupported or receives a named source-path diagnostic.
 
 ## Derived reading
 
-Textile can derive these sections from the ratified allowlist:
+Lync derives these sections from the ratified allowlist; Textile groups and
+renders the returned public sections:
 
 - perceptions before and after the action: HUD condition and inventory,
   player-list/chat/event information, visible entity semantics, focus, and
@@ -30,6 +32,10 @@ Textile can derive these sections from the ratified allowlist:
 - `utterance.assistant.content` only when it is a nonempty public string;
 - action name, known action-specific input, source, and kind; and
 - success/failure event plus known action-specific outcome evidence.
+
+An explicit cognition event presents its admitted perception and “chose no
+bodily action.” It has no action, outcome, or terminal observation; the reader
+rejects a cognition record that invents any of those fields.
 
 Provider-private reasoning, request/response bodies, transport evidence,
 controller state, absolute coordinates, stable hidden identifiers, navigation
@@ -63,6 +69,9 @@ The browser regression imports it, reads the resident root and first turn,
 navigates both source ids in MAP, performs the ordinary full-tree JSON export,
 and proves that the exported `sourceEvent` records reproduce those fixture
 bytes exactly.
+
+The exact Behold episode 000014 ordered source set exercises the direct package
+boundary across 692 source events with no unsupported or unclaimed event.
 
 This shared presentation contract does not change Keep/export meaning,
 Backspace editing, MAP focus, or Textile's first-parent reading path. Typed

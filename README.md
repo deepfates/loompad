@@ -3,7 +3,7 @@
 > **Status:** private application. Version 0.1.0 is the first coherent source
 > release candidate for the raw-Lync corpus workflow and UI; it is not an npm
 > package. Textile supports `@deepfates/lync >=0.3.0 <0.5.0`; this checkout pins
-> the exact packed Lync 0.4.3 indexed-union candidate documented in
+> the exact packed Lync 0.4.3 indexed-union and presentation candidate documented in
 > `vendor/LYNC-PROVENANCE.md` pending an owner-authorized registry release.
 
 Textile is a tactile multiverse reader for branching stories, conversations,
@@ -120,6 +120,10 @@ O(events + edges + public presentation text), not O(source bytes). The ordinary
 multi-file picker reports resident/source/readable/structural/diagnostic counts
 and rejects changed, truncated, conflicting, dangling, or cyclic input. Existing
 single-file raw imports keep their eager, lossless archive/export behavior.
+Source event times remain attached to their readable turns; when adjacent turns
+are at least five minutes apart, the story surface marks the elapsed interval so
+a stopped or otherwise discontinuous life is not presented as one continuous
+scene. The marker describes time only and does not invent an episode boundary.
 
 Readable events above one MiB of text use an explicit bounded reader with
 FIRST/PREV/NEXT/LAST 65,536-character windows. This is presentation
@@ -127,10 +131,11 @@ virtualization, not truncation: the exact complete source string remains in the
 story model, full-tree JSON, and kept-context export paths.
 
 Textile reads raw corpus events through Lync's non-mutating, kind/profile-aware
-presentation contract. The same contract is consumed by Splice and Curare; its
-checksum-pinned local candidate keeps this private app installable before Lync
-0.4 publication. For Behold `org.behold.inhabitant.v1`, it presents the safe
-resident perception/action/outcome allowlist, preserves the original source
+presentation contract. The same contract is consumed by Splice and Curare; the
+checksum-pinned Lync package keeps this private app installable before Lync 0.4
+publication. For Behold `org.behold.inhabitant.v1` and `.v2`, it presents the safe
+resident perception/action/outcome allowlist plus explicit non-action cognition,
+preserves the original source
 events for full-tree export, and fails closed for unknown nested shapes. See
 [the Behold resident Lync presentation boundary](docs/behold-resident-lync-presentation.md).
 

@@ -23,6 +23,17 @@ interface StoryTextProps {
 }
 
 const STORY_PATH_WINDOW_SIZE = 48;
+const STORY_TIME_SEAM_MS = 5 * 60 * 1000;
+
+function elapsedTimeLabel(elapsedMs: number): string {
+  const totalMinutes = Math.floor(elapsedMs / 60_000);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}d${hours > 0 ? ` ${hours}h` : ""} later`;
+  if (hours > 0) return `${hours}h${minutes > 0 ? ` ${minutes}m` : ""} later`;
+  return `${minutes}m later`;
+}
 
 interface StoryNodeProseProps {
   text: string;
@@ -215,6 +226,14 @@ export function StoryText({
       {visiblePath.map((segment, visibleIndex) => {
         const index = windowStart + visibleIndex;
         const previous = currentPath[index - 1];
+        const elapsedMs =
+          previous?.createdAt !== undefined && segment.createdAt !== undefined
+            ? segment.createdAt - previous.createdAt
+            : null;
+        const timeSeam =
+          showTurnBoundaries && elapsedMs !== null && elapsedMs >= STORY_TIME_SEAM_MS
+            ? elapsedTimeLabel(elapsedMs)
+            : null;
         const seam =
           !showTurnBoundaries && previous
             ? storySeam(previous.text, segment.text)
@@ -253,6 +272,14 @@ export function StoryText({
             data-node-id={segment.id}
             data-source-text-length={segment.text.length}
           >
+            {timeSeam ? (
+              <span
+                className="story-time-seam"
+                title={`${new Date(previous!.createdAt!).toISOString()} → ${new Date(segment.createdAt!).toISOString()}`}
+              >
+                {timeSeam}
+              </span>
+            ) : null}
             {seam}
             <StoryNodeProse
               text={body}

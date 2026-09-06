@@ -395,6 +395,14 @@ html, body {
   margin-top: 0.65rem;
 }
 
+.story-text .story-time-seam {
+  display: block;
+  margin: 0.9rem 0 0.45rem;
+  color: var(--theme-muted);
+  font-size: 0.82em;
+  opacity: 0.82;
+}
+
 .story-text .story-path-window-notice {
   display: block;
   margin: 0.35rem 0 0.65rem;

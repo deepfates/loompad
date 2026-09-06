@@ -1,6 +1,6 @@
 # Splice raw-Lync presentation matrix
 
-Ground truth: Lync `fee7adc14f0038d9d0be51bd16b930659ffae1f8`,
+Ground truth: Lync `860aa549727bdec7fda2ba1571c0a6be1c787aa8`,
 Splice `ea2ecb0c408590fef7fabe51335765a61831ab5e`, their
 presentation/import tests, and Splice's
 `splice lync archive|glowfic|ocr|tweet-embed` writers, source adapters, and

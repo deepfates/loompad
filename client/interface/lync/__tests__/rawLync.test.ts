@@ -590,6 +590,45 @@ describe("raw .lync projection", () => {
       .toEqual(raw.trim().split("\n").map((line) => JSON.parse(line)));
   });
 
+  it("reads resident null cognition without fabricating an action outcome", () => {
+    const lines = readFileSync(oxfordResidentV2FixtureUrl, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const event = lines[1];
+    const cognition = event.payload.payload;
+    cognition.protocol = "behold.entity-cognition-turn.v1";
+    cognition.id = "OxfordCedar:cognition:7";
+    cognition.utterance = {
+      assistant: { role: "assistant", content: '{"action":null,"arguments":{}}' },
+    };
+    delete cognition.action;
+    delete cognition.outcome;
+    delete cognition.nextObservation;
+
+    const projection = projectRawLyncFile(
+      `${lines.map(JSON.stringify).join("\n")}\n`,
+      "resident-cognition.lync",
+    );
+    expect(projection.readableEventCount).toBe(1);
+    expect(projection.unsupportedEventCount).toBe(0);
+    const beat = projection.snapshot.turns.find(
+      (turn) => turn.meta.sourceKind === "lync/turn",
+    );
+    expect(beat?.payload.text).toContain("OxfordCedar · cognition 7");
+    expect(beat?.payload.text).toContain("OxfordCedar chose no bodily action.");
+    expect(beat?.payload.text).not.toContain("unknown outcome");
+    expect(beat?.meta.sourcePresentationSections?.map((section) => section.role)).toEqual([
+      "perception",
+      "action",
+    ]);
+    const storedTurn = (beat?.meta.sourceEvent?.payload as {
+      payload?: Record<string, unknown>;
+    })?.payload;
+    expect(storedTurn?.action).toBeUndefined();
+    expect(storedTurn?.outcome).toBeUndefined();
+  });
+
   it("distinguishes resident chat input dispatch from independently observed delivery", () => {
     for (const actionName of ["chat", "whisper"] as const) {
       const events = readV2FixtureEvents();
