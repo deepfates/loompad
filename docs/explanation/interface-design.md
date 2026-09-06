@@ -32,9 +32,11 @@ how Textile keeps a large causal record legible on a small surface.
 
 ### One character grid
 
-The interface uses one monospace size. Hierarchy comes from position, spacing,
-and colour, not caption scales, badges, or accumulated chrome. Enlarged glyphs
-inside the physical gamepad buttons are the deliberate exception.
+The interface uses one monospace base size. Hierarchy comes from position,
+spacing, and colour, not caption scales, badges, or accumulated chrome. The
+deliberate exceptions carry distinct physical or temporal meaning: enlarged
+glyphs inside the gamepad buttons, and smaller elapsed-time seams within a
+story path.
 
 ### One grammar per projection
 
