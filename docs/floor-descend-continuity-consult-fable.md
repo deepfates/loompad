@@ -1,38 +1,48 @@
-# Floor→story descend continuity — consult (Fable 5)
+# Floor→story descend continuity
 
-*Read-only design consult on making the floor→story descend feel continuous
-("the floor slides up out of view and the tree moves up so the root is centred
-where my dial selection was"). Pairs with `floor-redesign-consult-fable.md`.*
+> **Status:** Stage 1 was implemented in commit `23be396`; it opens MAP in the
+> floor's frame, suppresses the unrelated fade, and delays the selected-child
+> treatment. The Stage 2 motion and ascend symmetry below remain design
+> candidates, not accepted roadmap work.
 
-## The jump is FOUR (five) discontinuities, each a line of code
+This rationale explains how the floor→story descend can feel continuous: “the
+floor slides up out of view and the tree moves up so the root is centred where
+my dial selection was.” It records the frame-handoff contract behind the
+implemented entry mode and the remaining visual seam.
 
-1. **x-frame snap (root 800→755).** Floor camera is root-centred (`floorViewBox =
+## Baseline diagnosis
+
+The original transition contained five discontinuities. Stage 1 resolved the
+horizontal frame, selected-child, and fade discontinuities; the vertical rise
+and large-tree scale change remain:
+
+1. **Resolved: x-frame snap (root 800→755).** Floor camera is root-centred (`floorViewBox =
    rootX − vbW/2`); the map TREE-centres (`rootOffset = centerX − treeCenter`) in a
    `max(600,…)` canvas left-aligned in a `minWidth:100%` div, and its scroll-chase
    is defeated by `Math.max(0, targetLeft)` — so the map's own "centre the
    highlighted node" intent silently fails exactly when highlighted = root.
-2. **y-frame snap (165→87 ≈ 62px).** Floor = dial(56px) + bloom topPad 14; map =
+2. **Remaining: y-frame snap (165→87 ≈ 62px).** Floor = dial(56px) + bloom topPad 14; map =
    full slot, padding 8, root at y=0. Dial vanishes in the same frame.
-3. **Green-child snap.** `setCurrentLoomId` resets `selectedOptions=[0]`; the map
+3. **Resolved: green-child snap.** `setCurrentLoomId` resets `selectedOptions=[0]`; the map
    paints `continuations[0]` primary. Honest map state, but it materialises in the
    same frame.
-4. **Swap-as-cut.** StoryForest unmounts, StoryMinimap mounts with a
+4. **Resolved: swap-as-cut.** StoryForest unmounts, StoryMinimap originally mounted with a
    `view-fade` (opacity from 0) — a fade-from-nothing reads as a cut.
-5. **(latent) scale pop** on trees bigger than the container (floor scales <1, map
+5. **Remaining: scale pop** on trees bigger than the container (floor scales <1, map
    is always 1) — invisible on desktop, guaranteed at 375px.
 
 ## Architecture: a FRAME-HANDOFF CONTRACT, not a merged component
 
-They do NOT need to become one component or share an animated container — because
+The views do not need to become one component or share an animated container, because
 **both views already draw pixel-identical geometry through the same
 `StoryMinimap`** (fit only changes framing). When two cameras draw the same world,
-"seamless" = the floor animates its camera to a **handoff frame**, the map opens in
-that EXACT frame, and the swap is invisible by construction (mechanically testable
-by pixel-diff). Merging into one zoomable component is the platonic end-state but is
-major surgery on the deliberate fly-over; the handoff contract delivers the identical
-felt result.
+continuity means handing the same frame from one camera to the other. Stage 1
+makes MAP open in the floor's horizontal frame. A future motion treatment can
+animate the floor camera to the complete handoff frame before the swap and test
+that boundary by pixel diff. Merging into one zoomable component would be major
+surgery on the deliberate fly-over and is not required by this contract.
 
-**Structural prerequisite:** the floor's minimap must own the FULL slot, with the
+**Candidate Stage 2 prerequisite:** the floor's minimap would own the full slot, with the
 dial as an **absolutely-positioned overlay** on top. Then the tree can rise into the
 dial's vacated area AND the floor/map viewports become the same box, so the handoff
 arithmetic is exact:
@@ -41,25 +51,27 @@ arithmetic is exact:
 model: the floor IS the map with a dial overlaid, one zoom out.
 
 ### The four questions
-- **Root x:** descended end-state keeps the root at container centre (the floor's
+
+- **Implemented root x:** descended end-state keeps the root at container centre (the floor's
   frame, NOT the standalone map's tree-centred default) — scope it to a
   *descend-entry mode*: give the chase camera the slack to actually centre the root
   (canvas x-pad = `max(padding, viewportW/2)`, initial `scrollLeft = rootCanvasX −
   viewportW/2`). Node rendering/layout/chase logic unchanged; standalone map (START
-  from loom) mounts WITHOUT the flag → pixel-identical (parity.e2e.ts proves it).
-- **Root y / dial:** dial slides up by RISE and the camera pans up by RISE on the
+  from loom) mounts without the flag and retains its previous framing.
+- **Candidate root y / dial:** dial slides up by RISE and the camera pans up by RISE on the
   SAME clock/easing (one rAF loop writing `transform` and the `viewBox` attribute;
   two clocks shear). x never changes.
-- **Auto-child:** don't change the state — DELAY its paint. Descend-entry mounts
+- **Implemented auto-child:** don't change the state—delay its paint. Descend-entry mounts
   `settled=false` (sibling rendered unvisited), flips true ~150ms post-swap with a
   scoped fill/opacity transition → the map "wakes up." Minibuffer swaps root-line →
   sibling-line at the same settle moment (its position is already continuous).
-- **Scale:** constant when the tree fits at 1 (the common case). When floor scale
+- **Candidate scale:** constant when the tree fits at 1 (the common case). When floor scale
   <1, ease `scale→1` during the rise (viewBox pans+zooms in one attribute).
 
-## Implementation plan (smallest change first)
+## Implementation status
 
-**Stage 1 — frame fixes, ZERO animation (~70% of the jump, ship-worthy alone):**
+**Implemented Stage 1—frame fixes without animation:**
+
 1. `StoryMinimap.tsx`: add `entry?: "descend"`. When set: canvas x-pad =
    `max(padding, viewportW/2)` (measure viewport in the existing first-positioning
    layout-effect; setState re-renders pre-paint, no flash); first positioning sets
@@ -70,7 +82,8 @@ model: the floor IS the map with a dial overlaid, one zoom out.
 3. Result: root stays centred, no fade, green child fades in late. Only the 62px
    rise + dial disappearance remain.
 
-**Stage 2 — the motion:**
+**Candidate Stage 2—the motion:**
+
 4. `StoryForest.tsx`: full-slot minimap + absolute dial overlay (CSS: `.story-forest
    { position:relative; overflow:hidden }`, dial `position:absolute; top:0`); floor
    camera gains `DIAL_H` compensation (a `topInset` prop). Verify resting pixels
@@ -87,6 +100,7 @@ model: the floor IS the map with a dial overlaid, one zoom out.
 the standalone map path (`entry` undefined ⇒ dead branches).
 
 ## Verify + risks
+
 - **Swap-boundary pixel-diff** (the heart): last pre-swap frame vs first post-swap
   frame — identical within AA tolerance around root pill + minibuffer.
 - **Frame sequence** every ~50ms at 375 + 1280: monotonic rigid rise, no lateral

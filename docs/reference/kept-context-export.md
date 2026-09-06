@@ -9,20 +9,19 @@ A kept source event carries the recursive union of all causal parents. A kept
 Textile-authored fork or revision carries its exact Textile loom/turn identity,
 parent chain, explicit revision target, and every raw ancestor's all-parent
 downset. It is not rewritten into the source event it extends. A sibling that
-happened to be visible when K was pressed is comparison context in the
-curation patch, not kept conversation content.
+happened to be visible when K was pressed is comparison context in the curation
+patch, not kept conversation content.
 
 The download is one Markdown file with two layers:
 
 1. Human-readable sections show each kept target, keep attribution, the
    first-parent reading path used by Textile, additional causal ancestors,
    source actor/kind/time/identity, and curation notes.
-2. A base64-encoded JSON manifest between
-   `textile-kept-manifest:v1` markers carries the deterministic event order,
-   exact source lines, ordered first/additional parent references, all-parent
-   downsets, origin story/loom/root/source-set identity, portable Textile
-   turns, original and Textile curation events, comparison-only IDs, and
-   integrity/policy reports.
+2. A base64-encoded JSON manifest between `textile-kept-manifest:v1` markers
+   carries deterministic event order, exact source lines, ordered
+   first/additional parent references, all-parent downsets, origin
+   story/loom/root/source-set identity, portable Textile turns, original and
+   Textile curation events, comparison-only IDs, and integrity/policy reports.
 
 Events are ordered causally, parents before children. Source ID lexicography is
 used only to stabilize ready events that are causally incomparable; it is not
@@ -50,7 +49,7 @@ second-browser state therefore contain the source envelope, policy event IDs,
 and explicit reason—but not the withheld body.
 
 An artifact with withheld causal payloads is marked `PARTIAL`. It remains a
-useful, honest reading/report artifact, but **Import Archive** refuses to recreate
+useful reading/report artifact, but **Import Archive** refuses to recreate
 source events whose bodies are absent. Export-eligible artifacts reopen as a
 new raw corpus with the same source IDs, exact causal content, explicit keeps,
 portable Textile forks/revisions, and visible notes; no original archive is
@@ -59,7 +58,7 @@ required.
 ## Current boundary
 
 This is a portable contextual conversation artifact, not a training-row
-projection. It does not choose a mind/perspective, assign model roles, or turn
-comparison siblings into negative examples. Textile's reading column remains a
-first-parent path, while MAP passively shows typed cross-relations and LINKS
-provides explicit non-first-parent and pointer traversal.
+projection. It does not choose a mind or perspective, assign model roles, or
+turn comparison siblings into negative examples. Textile's reading column
+remains a first-parent path, while MAP passively shows typed cross-relations and
+LINKS provides explicit non-first-parent and pointer traversal.
